@@ -1,6 +1,5 @@
-use std::error::Error;
-use std::process::exit;
 use getopts::Options;
+use anyhow::anyhow;
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
@@ -14,8 +13,7 @@ const USAGE: &str = "USAGE:
     wren pass-dec FILE [-o FILE] [-p PASS]
 
     Aliases enc and dec can be used for encrypt and decrypt.
-    Option -k is required unless the WREN_KEYRING environment variable
-    points to a keyring file.
+    Option -k is required unless WREN_KEYRING env var is set.
 
 OPTIONS:
     -t, --to        Recipient key name. Decrypt requires a private key.
@@ -24,58 +22,43 @@ OPTIONS:
     -k, --keyring   Location of a keyring file.
     -p, --password  Password of private key. Prefer interactive prompt.
     -h, --help      Print help information.
-    -v, --version   Print version information.
-";
+    -v, --version   Print version information.";
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), anyhow::Error> {
     let args: Vec<String> = std::env::args().collect();
+    let args: Vec<&str> = args.iter().map(|arg| arg.as_str()).collect();
 
-    if args.len() == 1 {
-        print_usage();
-        exit(1);
+    if args.len() <= 1 {
+        return Err(anyhow!("{}", USAGE));
     }
 
-    match parse_prog_flags(&args[1..]) {
-        Ok(_) => return Ok(()),
-        Err(e) => {
-            match e {
-                Some(e) => eprintln!("{}\nError: {}", USAGE, e),
-                None => print_usage()
-            }
-            exit(1);
-        }
-    }
-}
-
-// Prints -v and -h options
-fn parse_prog_flags(args: &[String]) -> Result<(), Option<String>> {
-    if args[0] == "-v" || args[0] == "--version" {
+    if args[1] == "-v" || args[1] == "--version" {
         print_version();
         return Ok(());
     }
 
-    if args[0] == "-h" || args[0] == "--help" {
+    if args[1] == "-h" || args[1] == "--help" {
         print_help();
         return Ok(());
     }
 
-    match args[0].as_str() {
+    match args[1] {
         "gen-key" => {
-            let gen_key_opts = Options::new();
-            let matches = match gen_key_opts.parse(&args[1..]) {
-                Ok(m) => m,
-                Err(e) => return Err(Some(e.to_string()))
-            };
-
-            if matches.free.len() != 1 {
-                return Err(Some("Give the key a name like Alice or Mallory".to_string()));
+            match parse_gen_key(args.as_slice()) {
+                Ok(key_name) => {
+                    let _res = run_gen_key(key_name)?;
+                }
+                Err(e) => {
+                    if let Some(e) = e {
+                        return Err(anyhow!("{}\n\nError: {}", USAGE, e));
+                    } else {
+                        return Err(anyhow!("{}", USAGE));
+                    }
+                }
             }
-
-            let key_name = matches.free[0].clone();
-            println!("Generating key for: {}", key_name);
         }
         _ => {
-            return Err(None);
+            return Err(anyhow!("{}", USAGE));
         }
     }
 
@@ -86,10 +69,25 @@ fn print_help() {
     println!("{}", USAGE);
 }
 
-fn print_usage() {
-    eprintln!("{}", USAGE);
-}
-
 fn print_version() {
     println!("v{}", VERSION.unwrap_or("0.0.1"));
+}
+
+fn parse_gen_key(args: &[&str]) -> Result<String, Option<String>> {
+    let gen_key_opts = Options::new();
+    let matches = match gen_key_opts.parse(&args[2..]) {
+        Ok(m) => m,
+        Err(e) => return Err(Some(e.to_string()))
+    };
+
+    if matches.free.len() != 1 {
+        return Err(Some("Give the key a name like Alice or Mallory".to_string()));
+    }
+
+    Ok(matches.free[0].clone())
+}
+
+fn run_gen_key(name: String) -> Result<(), anyhow::Error> {
+    println!("Generating key for: {}", name);
+    Ok(())
 }

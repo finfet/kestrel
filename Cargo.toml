@@ -7,3 +7,4 @@ edition = "2018"
 
 [dependencies]
 getopts = "0.2.21"
+anyhow = "1.0.42"
