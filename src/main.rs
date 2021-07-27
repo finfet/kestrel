@@ -45,16 +45,8 @@ fn main() -> Result<(), anyhow::Error> {
     match args[1] {
         "gen-key" => {
             match parse_gen_key(args.as_slice()) {
-                Ok(key_name) => {
-                    let _res = run_gen_key(key_name)?;
-                }
-                Err(e) => {
-                    if let Some(e) = e {
-                        return Err(anyhow!("{}\n\nError: {}", USAGE, e));
-                    } else {
-                        return Err(anyhow!("{}", USAGE));
-                    }
-                }
+                Ok(name) => run_gen_key(name)?,
+                Err(e) => print_usage(e)?
             }
         }
         _ => {
@@ -71,6 +63,14 @@ fn print_help() {
 
 fn print_version() {
     println!("v{}", VERSION.unwrap_or("0.0.1"));
+}
+
+fn print_usage(msg: Option<String>) -> Result<(), anyhow::Error> {
+    if let Some(msg) = msg {
+        return Err(anyhow!("{}\n\nError: {}", USAGE, msg));
+    } else {
+        return Err(anyhow!("{}", USAGE));
+    }
 }
 
 fn parse_gen_key(args: &[&str]) -> Result<String, Option<String>> {
