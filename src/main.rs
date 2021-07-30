@@ -24,6 +24,18 @@ OPTIONS:
     -h, --help      Print help information.
     -v, --version   Print version information.";
 
+
+#[derive(Debug)]
+struct EncryptOptions {
+    infile: String,
+    to: String,
+    from: String,
+    outfile: Option<String>,
+    keyring: Option<String>,
+    pass: Option<String>,
+}
+
+
 fn main() -> Result<(), anyhow::Error> {
     let args: Vec<String> = std::env::args().collect();
     let args: Vec<&str> = args.iter().map(|arg| arg.as_str()).collect();
@@ -43,6 +55,12 @@ fn main() -> Result<(), anyhow::Error> {
     }
 
     match args[1] {
+        "encrypt" => {
+            match parse_encrypt(args.as_slice()) {
+                Ok(opts) => run_encrypt(opts)?,
+                Err(e) => print_usage(e)?
+            }
+        }
         "gen-key" => {
             match parse_gen_key(args.as_slice()) {
                 Ok(name) => run_gen_key(name)?,
@@ -73,6 +91,40 @@ fn print_usage(msg: Option<String>) -> Result<(), anyhow::Error> {
     }
 }
 
+fn parse_encrypt(args: &[&str]) -> Result<EncryptOptions, Option<String>> {
+    let mut encrypt_opts = Options::new();
+    encrypt_opts.reqopt("t", "to", "Recipient key name", "NAME");
+    encrypt_opts.reqopt("f", "from", "Sender key name", "NAME");
+    encrypt_opts.optopt("o", "output", "Output file", "FILE");
+    encrypt_opts.optopt("k", "keyring", "Keyring file", "FILE");
+    encrypt_opts.optopt("p", "password", "Key password", "PASS");
+
+    let matches = match encrypt_opts.parse(&args[2..]) {
+        Ok(m) => m,
+        Err(e) => return Err(Some(e.to_string()))
+    };
+
+    if matches.free.len() != 1 {
+        return Err(Some("Specify and input file to encrypt".to_string()));
+    }
+
+    let infile = matches.free[0].clone();
+    let to = matches.opt_str("t").unwrap();
+    let from = matches.opt_str("f").unwrap();
+    let outfile = matches.opt_str("o");
+    let keyring = matches.opt_str("k");
+    let pass= matches.opt_str("p");
+
+    Ok(EncryptOptions {
+        infile,
+        to,
+        from,
+        outfile,
+        keyring,
+        pass
+    })
+}
+
 fn parse_gen_key(args: &[&str]) -> Result<String, Option<String>> {
     let gen_key_opts = Options::new();
     let matches = match gen_key_opts.parse(&args[2..]) {
@@ -85,6 +137,11 @@ fn parse_gen_key(args: &[&str]) -> Result<String, Option<String>> {
     }
 
     Ok(matches.free[0].clone())
+}
+
+fn run_encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
+    println!("{:?}", opts);
+    Ok(())
 }
 
 fn run_gen_key(name: String) -> Result<(), anyhow::Error> {
