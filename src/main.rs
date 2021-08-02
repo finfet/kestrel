@@ -3,7 +3,7 @@ mod commands;
 use anyhow::anyhow;
 use getopts::Options;
 
-use commands::{DecryptOptions, EncryptOptions};
+use commands::{DecryptOptions, EncryptOptions, PassOptions};
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
@@ -57,6 +57,22 @@ fn main() -> Result<(), anyhow::Error> {
         },
         "gen-key" => match parse_gen_key(args.as_slice()) {
             Ok(name) => commands::gen_key(name)?,
+            Err(e) => print_usage(e)?,
+        },
+        "change-pass" => match parse_change_pass(args.as_slice()) {
+            Ok(opts) => commands::change_pass(opts)?,
+            Err(e) => print_usage(e)?,
+        },
+        "extract-pub" => match parse_extract_pub(args.as_slice()) {
+            Ok(opts) => commands::extract_pub(opts)?,
+            Err(e) => print_usage(e)?,
+        },
+        "pass-enc" => match parse_pass_enc(args.as_slice()) {
+            Ok(opts) => commands::pass_enc(opts)?,
+            Err(e) => print_usage(e)?,
+        },
+        "pass-dec" => match parse_pass_dec(args.as_slice()) {
+            Ok(opts) => commands::pass_dec(opts)?,
             Err(e) => print_usage(e)?,
         },
         _ => {
@@ -162,4 +178,84 @@ fn parse_gen_key(args: &[&str]) -> Result<String, Option<String>> {
     }
 
     Ok(matches.free[0].clone())
+}
+
+fn parse_change_pass(args: &[&str]) -> Result<(String, Option<String>), Option<String>> {
+    let mut change_pass_opts = Options::new();
+    change_pass_opts.optopt("p", "password", "Key password", "PASS");
+
+    let matches = match change_pass_opts.parse(&args[2..]) {
+        Ok(m) => m,
+        Err(e) => return Err(Some(e.to_string())),
+    };
+
+    if matches.free.len() != 1 {
+        return Err(Some("Provide the private key string".to_string()));
+    }
+
+    let priv_key = matches.free[0].clone();
+    let pass = matches.opt_str("p");
+
+    Ok((priv_key, pass))
+}
+
+fn parse_extract_pub(args: &[&str]) -> Result<(String, Option<String>), Option<String>> {
+    let mut extract_pub_opts = Options::new();
+    extract_pub_opts.optopt("p", "password", "Key password", "PASS");
+
+    let matches = match extract_pub_opts.parse(&args[2..]) {
+        Ok(m) => m,
+        Err(e) => return Err(Some(e.to_string())),
+    };
+
+    if matches.free.len() != 1 {
+        return Err(Some("Provide the private key string".to_string()));
+    }
+
+    let priv_key = matches.free[0].clone();
+    let pass = matches.opt_str("p");
+
+    Ok((priv_key, pass))
+}
+
+fn parse_pass_enc(args: &[&str]) -> Result<PassOptions, Option<String>> {
+    let mut pass_enc_opts = Options::new();
+    pass_enc_opts.optopt("o", "output", "Output file", "FILE");
+    pass_enc_opts.optopt("p", "password", "Key password", "PASS");
+
+    let matches = match pass_enc_opts.parse(&args[2..]) {
+        Ok(m) => m,
+        Err(e) => return Err(Some(e.to_string())),
+    };
+
+    if matches.free.len() != 1 {
+        return Err(Some("Specify an input file to encrypt".to_string()));
+    }
+
+    let infile = matches.free[0].clone();
+    let outfile = matches.opt_str("o");
+    let pass = matches.opt_str("p");
+
+    Ok((infile, outfile, pass))
+}
+
+fn parse_pass_dec(args: &[&str]) -> Result<PassOptions, Option<String>> {
+    let mut pass_dec_opts = Options::new();
+    pass_dec_opts.optopt("o", "output", "Output file", "FILE");
+    pass_dec_opts.optopt("p", "password", "Key password", "PASS");
+
+    let matches = match pass_dec_opts.parse(&args[2..]) {
+        Ok(m) => m,
+        Err(e) => return Err(Some(e.to_string())),
+    };
+
+    if matches.free.len() != 1 {
+        return Err(Some("Specify an infile file to decrypt".to_string()));
+    }
+
+    let infile = matches.free[0].clone();
+    let outfile = matches.opt_str("o");
+    let pass = matches.opt_str("p");
+
+    Ok((infile, outfile, pass))
 }
