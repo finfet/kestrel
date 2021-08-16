@@ -1,3 +1,5 @@
+use crate::crypto::PrivateKey;
+
 #[derive(Debug)]
 pub(crate) struct EncryptOptions {
     pub infile: String,
@@ -34,6 +36,10 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
 
 pub(crate) fn gen_key(name: String) -> Result<(), anyhow::Error> {
     println!("Generating key for: {}", name);
+    let private_key = PrivateKey::new();
+    println!("Private key: {:02x?}", private_key.as_bytes());
+    let public_key = private_key.to_public();
+    println!("Public key: {:02x?}", public_key.as_bytes());
     Ok(())
 }
 

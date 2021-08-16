@@ -1,4 +1,5 @@
 mod commands;
+mod crypto;
 
 use anyhow::anyhow;
 use getopts::Options;
