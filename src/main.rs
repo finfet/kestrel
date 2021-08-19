@@ -1,5 +1,6 @@
 mod commands;
 mod crypto;
+mod keyring;
 
 use anyhow::anyhow;
 use getopts::Options;

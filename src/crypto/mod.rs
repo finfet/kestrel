@@ -5,14 +5,29 @@ use rand::Rng;
 
 use x25519_dalek::X25519_BASEPOINT_BYTES;
 
+/// X25519 Public Key
+pub struct PublicKey {
+    key: [u8; 32],
+}
+
 /// X25519 Private Key
 pub struct PrivateKey {
     key: [u8; 32],
 }
 
-/// X25519 Public Key
-pub struct PublicKey {
-    key: [u8; 32],
+impl PublicKey {
+    // Expose the key 32 byte public key
+    pub fn as_bytes(&self) -> &[u8] {
+        self.key.as_ref()
+    }
+}
+
+/// Convert a raw 32 byte public key into a PublicKey
+impl From<&[u8]> for PublicKey {
+    fn from(raw_key: &[u8]) -> PublicKey {
+        let pk: [u8; 32] = raw_key.try_into().unwrap();
+        PublicKey { key: pk }
+    }
 }
 
 impl PrivateKey {
@@ -41,20 +56,5 @@ impl From<&[u8]> for PrivateKey {
     fn from(raw_key: &[u8]) -> PrivateKey {
         let sk: [u8; 32] = raw_key.try_into().unwrap();
         PrivateKey { key: sk }
-    }
-}
-
-impl PublicKey {
-    // Expose the key 32 byte public key
-    pub fn as_bytes(&self) -> &[u8] {
-        self.key.as_ref()
-    }
-}
-
-/// Convert a raw 32 byte public key into a PublicKey
-impl From<&[u8]> for PublicKey {
-    fn from(raw_key: &[u8]) -> PublicKey {
-        let pk: [u8; 32] = raw_key.try_into().unwrap();
-        PublicKey { key: pk }
     }
 }
