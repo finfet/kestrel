@@ -3,10 +3,19 @@ name = "wren"
 version = "0.1.0"
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 getopts = "0.2.21"
 anyhow = "1.0.43"
 rand = "0.8.4"
 x25519-dalek = "1.1.1"
+chacha20poly1305 = "0.8.1"
+scrypt = "0.7.0"
+
+[dev-dependencies]
+hex = "0.4.3"
+
+[profile.dev.package.scrypt]
+opt-level = 3
+
+[profile.test.package.scrypt]
+opt-level = 3
