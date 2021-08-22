@@ -10,9 +10,9 @@ rand = "0.8.4"
 x25519-dalek = "1.1.1"
 chacha20poly1305 = "0.8.1"
 scrypt = "0.7.0"
-
-[dev-dependencies]
 hex = "0.4.3"
+regex = "1.5.4"
+base64 = "0.13.0"
 
 [profile.dev.package.scrypt]
 opt-level = 3

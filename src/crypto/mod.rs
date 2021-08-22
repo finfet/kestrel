@@ -5,9 +5,9 @@ use std::convert::TryInto;
 use rand::thread_rng;
 use rand::Rng;
 
-use x25519_dalek::X25519_BASEPOINT_BYTES;
 use chacha20poly1305::aead::{Aead, NewAead, Payload};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
+use x25519_dalek::X25519_BASEPOINT_BYTES;
 
 use crate::crypto::errors::DecryptError;
 
@@ -71,6 +71,7 @@ pub fn x25519(private_key: &PrivateKey, public_key: &PublicKey) -> [u8; 32] {
 }
 
 /// Performs ChaCha20-Poly1305 encryption
+#[allow(clippy::let_and_return)]
 pub fn chapoly_encrypt(key: &[u8], nonce: u64, ad: &[u8], plaintext: &[u8]) -> Vec<u8> {
     // For ChaCha20-Poly1305 the noise spec says that the nonce should use
     // little endian.
@@ -82,8 +83,8 @@ pub fn chapoly_encrypt(key: &[u8], nonce: u64, ad: &[u8], plaintext: &[u8]) -> V
     let the_nonce = Nonce::from_slice(&final_nonce_bytes);
     let cipher = ChaCha20Poly1305::new(secret_key);
     let pt_and_ad = Payload {
-        msg: &plaintext,
-        aad: &ad,
+        msg: plaintext,
+        aad: ad,
     };
 
     let ct_and_tag = cipher
@@ -113,8 +114,8 @@ pub fn chapoly_decrypt(
     let the_nonce = Nonce::from_slice(&final_nonce_bytes);
     let cipher = ChaCha20Poly1305::new(secret_key);
     let ct_and_ad = Payload {
-        msg: &ciphertext,
-        aad: &ad,
+        msg: ciphertext,
+        aad: ad,
     };
 
     match cipher.decrypt(the_nonce, ct_and_ad) {
@@ -135,7 +136,7 @@ pub fn key_from_pass(password: &[u8], salt: &[u8]) -> Vec<u8> {
 
 #[cfg(test)]
 mod test {
-    use super::{chapoly_encrypt, chapoly_decrypt, x25519, key_from_pass};
+    use super::{chapoly_decrypt, chapoly_encrypt, key_from_pass, x25519};
     use super::{PrivateKey, PublicKey};
 
     #[test]

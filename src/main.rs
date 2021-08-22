@@ -1,5 +1,6 @@
 mod commands;
 mod crypto;
+mod errors;
 mod keyring;
 
 use anyhow::anyhow;
