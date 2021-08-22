@@ -119,7 +119,7 @@ pub fn chapoly_decrypt(
 
     match cipher.decrypt(the_nonce, ct_and_ad) {
         Ok(result) => Ok(result),
-        Err(e) => Err(DecryptError(e.to_string())),
+        Err(_) => Err(DecryptError),
     }
 }
 
