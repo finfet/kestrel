@@ -11,19 +11,6 @@ use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 
 use crate::crypto::errors::DecryptError;
 
-#[macro_export]
-macro_rules! concat_bytes {
-    ( $( $x:expr ),* ) => {
-        {
-            let mut tmp_vec = Vec::<u8>::new();
-            $(
-                tmp_vec.extend_from_slice($x);
-            )*
-            tmp_vec
-        }
-    };
-}
-
 /// X25519 Public Key
 pub struct PublicKey {
     key: [u8; 32],
@@ -87,12 +74,12 @@ pub fn x25519(private_key: &PrivateKey, public_key: &PublicKey) -> [u8; 32] {
 pub fn chapoly_encrypt(key: &[u8], nonce: u64, ad: &[u8], plaintext: &[u8]) -> Vec<u8> {
     // For ChaCha20-Poly1305 the noise spec says that the nonce should use
     // little endian.
-    let first_four = [0u8; 4];
     let nonce_bytes = nonce.to_le_bytes();
-    let final_nonce_bytes = concat_bytes!(&first_four[..], &nonce_bytes[..]);
+    let mut final_nonce_bytes = [0u8; 12];
+    final_nonce_bytes[4..].copy_from_slice(&nonce_bytes);
 
     let secret_key = Key::from_slice(key);
-    let the_nonce = Nonce::from_slice(final_nonce_bytes.as_slice());
+    let the_nonce = Nonce::from_slice(&final_nonce_bytes);
     let cipher = ChaCha20Poly1305::new(secret_key);
     let pt_and_ad = Payload {
         msg: &plaintext,
@@ -118,12 +105,12 @@ pub fn chapoly_decrypt(
 
     // For ChaCha20-Poly1305 the noise spec says that the nonce should use
     // little endian.
-    let first_four = [0u8; 4];
     let nonce_bytes = nonce.to_le_bytes();
-    let final_nonce_bytes = concat_bytes!(&first_four[..], &nonce_bytes[..]);
+    let mut final_nonce_bytes = [0u8; 12];
+    final_nonce_bytes[4..].copy_from_slice(&nonce_bytes);
 
     let secret_key = Key::from_slice(key);
-    let the_nonce = Nonce::from_slice(final_nonce_bytes.as_slice());
+    let the_nonce = Nonce::from_slice(&final_nonce_bytes);
     let cipher = ChaCha20Poly1305::new(secret_key);
     let ct_and_ad = Payload {
         msg: &ciphertext,

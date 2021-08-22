@@ -8,19 +8,20 @@ pub struct Key {
 
 impl Key {
     pub fn serialize(&self) -> Vec<u8> {
-        // Public keys are hex strings with a 4 byte SHA256 checksum
-        //
-        // Private keys are pass encrypted base64 strings. Format big endian
-        // [HEADER] - 20 bytes
-        // 4 bytes  : WRN in ASCII + Version (0x20 hex) (0x57524E20)
-        // 16 bytes : salt
-        //
-        // [Encrypted Plaintext] - (Overhead of 16)
-        // 32 bytes : ciphertext of private key
-        // 16 bytes : ciphertext tag
         todo!()
     }
 }
+
+// Public keys are hex strings with a 4 byte SHA256 checksum
+//
+// Private keys are pass encrypted base64 strings. Format big endian
+// [HEADER] - 20 bytes
+// 4 bytes  : WRN in ASCII + Version (0x20 hex) (0x57524E20)
+// 16 bytes : salt
+//
+// [Encrypted Plaintext] - (Overhead of 16)
+// 32 bytes : ciphertext of private key
+// 16 bytes : ciphertext tag
 
 // config is INI file with list of keys
 /*
