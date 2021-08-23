@@ -3,6 +3,7 @@ pub enum KeyringError {
     ParseConfig(String),
     PubKeyChecksum,
     SecKeyDecrypt,
+    KeySerialize,
 }
 
 impl std::fmt::Display for KeyringError {
@@ -14,6 +15,7 @@ impl std::fmt::Display for KeyringError {
                 f,
                 "Failed to unlock the secret key.\nMake sure the password provided is correct"
             ),
+            KeyringError::KeySerialize => write!(f, "Could not write [Key] configuration data"),
         }
     }
 }
