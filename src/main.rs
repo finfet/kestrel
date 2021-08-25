@@ -6,7 +6,7 @@ mod keyring;
 use anyhow::anyhow;
 use getopts::Options;
 
-use commands::{DecryptOptions, EncryptOptions, PassOptions};
+use commands::{DecryptOptions, EncryptOptions};
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
@@ -16,8 +16,6 @@ const USAGE: &str = "USAGE:
     wren gen-key NAME
     wren change-pass PRIVATE-KEY [-p PASS]
     wren extract-pub PRIVATE-KEY [-p PASS]
-    wren pass-enc FILE [-o FILE] [-p PASS]
-    wren pass-dec FILE [-o FILE] [-p PASS]
 
     Aliases enc and dec can be used for encrypt and decrypt.
     Option -k is required unless WREN_KEYRING env var is set.
@@ -68,14 +66,6 @@ fn main() -> Result<(), anyhow::Error> {
         },
         "extract-pub" => match parse_extract_pub(args.as_slice()) {
             Ok(opts) => commands::extract_pub(opts)?,
-            Err(e) => print_usage(e)?,
-        },
-        "pass-enc" => match parse_pass_enc(args.as_slice()) {
-            Ok(opts) => commands::pass_enc(opts)?,
-            Err(e) => print_usage(e)?,
-        },
-        "pass-dec" => match parse_pass_dec(args.as_slice()) {
-            Ok(opts) => commands::pass_dec(opts)?,
             Err(e) => print_usage(e)?,
         },
         _ => {
@@ -219,46 +209,4 @@ fn parse_extract_pub(args: &[&str]) -> Result<(String, Option<String>), Option<S
     let pass = matches.opt_str("p");
 
     Ok((priv_key, pass))
-}
-
-fn parse_pass_enc(args: &[&str]) -> Result<PassOptions, Option<String>> {
-    let mut pass_enc_opts = Options::new();
-    pass_enc_opts.optopt("o", "output", "Output file", "FILE");
-    pass_enc_opts.optopt("p", "password", "Key password", "PASS");
-
-    let matches = match pass_enc_opts.parse(&args[2..]) {
-        Ok(m) => m,
-        Err(e) => return Err(Some(e.to_string())),
-    };
-
-    if matches.free.len() != 1 {
-        return Err(Some("Specify an input file to encrypt".to_string()));
-    }
-
-    let infile = matches.free[0].clone();
-    let outfile = matches.opt_str("o");
-    let pass = matches.opt_str("p");
-
-    Ok((infile, outfile, pass))
-}
-
-fn parse_pass_dec(args: &[&str]) -> Result<PassOptions, Option<String>> {
-    let mut pass_dec_opts = Options::new();
-    pass_dec_opts.optopt("o", "output", "Output file", "FILE");
-    pass_dec_opts.optopt("p", "password", "Key password", "PASS");
-
-    let matches = match pass_dec_opts.parse(&args[2..]) {
-        Ok(m) => m,
-        Err(e) => return Err(Some(e.to_string())),
-    };
-
-    if matches.free.len() != 1 {
-        return Err(Some("Specify an infile file to decrypt".to_string()));
-    }
-
-    let infile = matches.free[0].clone();
-    let outfile = matches.opt_str("o");
-    let pass = matches.opt_str("p");
-
-    Ok((infile, outfile, pass))
 }
