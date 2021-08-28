@@ -25,14 +25,7 @@ impl Keyring {
     }
 
     fn lock_private_key(private_key: &PrivateKey, password: &[u8]) -> PkString {
-        // Private keys are pass encrypted base64 strings. Format big endian
-        // [HEADER] - 20 bytes
-        // 4 bytes  : WRN in ASCII + Version (0x20 hex) (0x57524E20)
-        // 16 bytes : salt
-        //
-        // [Encrypted Plaintext] - (Overhead of 16)
-        // 32 bytes : ciphertext of private key
-        // 16 bytes : ciphertext tag
+        // Private keys are base64 strings.
         todo!()
     }
 
