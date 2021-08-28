@@ -2,8 +2,7 @@ pub mod errors;
 
 use std::convert::TryInto;
 
-use rand::thread_rng;
-use rand::Rng;
+use getrandom::getrandom;
 
 use chacha20poly1305::aead::{Aead, NewAead, Payload};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
@@ -39,9 +38,8 @@ impl From<&[u8]> for PublicKey {
 impl PrivateKey {
     /// Generate a new private key from 32 secure random bytes
     pub fn new() -> PrivateKey {
-        let mut csprng = thread_rng();
         let mut key = [0u8; 32];
-        csprng.fill(&mut key[..]);
+        getrandom(&mut key).expect("CSPRNG failed");
         PrivateKey { key }
     }
 
@@ -71,6 +69,7 @@ pub fn x25519(private_key: &PrivateKey, public_key: &PublicKey) -> [u8; 32] {
 }
 
 /// Performs ChaCha20-Poly1305 encryption
+/// Returns the ciphertxt and 16 byte Poly1305 tag appended
 #[allow(clippy::let_and_return)]
 pub fn chapoly_encrypt(key: &[u8], nonce: u64, ad: &[u8], plaintext: &[u8]) -> Vec<u8> {
     // For ChaCha20-Poly1305 the noise spec says that the nonce should use
@@ -126,7 +125,7 @@ pub fn chapoly_decrypt(
 
 /// Derives a secret key from a password and a salt using scrypt
 pub fn key_from_pass(password: &[u8], salt: &[u8]) -> Vec<u8> {
-    let scrypt_params = scrypt::Params::new(15, 8, 1).unwrap();
+    let scrypt_params = scrypt::Params::new(14, 8, 1).unwrap();
     let mut key = [0u8; 32];
 
     scrypt::scrypt(password, salt, &scrypt_params, &mut key).expect("scrypt kdf failed");
@@ -176,11 +175,11 @@ mod test {
 
     #[test]
     fn test_key_from_pass() {
-        let password = b"vesta";
+        let password = b"hackme";
         let salt = b"yellowsubmarine.";
         let result = key_from_pass(password, salt);
         let expected =
-            hex::decode("4b7b8f819694b321a6731c149ad1ac5e59a5e0d5474800958f12b7db2ef29540")
+            hex::decode("2e4a8df526366fdd0ab881ef012ea0f2edaf041a0b9a275def08c015697283b0")
                 .unwrap();
 
         assert_eq!(&expected, &result);
