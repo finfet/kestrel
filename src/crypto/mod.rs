@@ -8,6 +8,8 @@ use chacha20poly1305::aead::{Aead, NewAead, Payload};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 use x25519_dalek::X25519_BASEPOINT_BYTES;
 
+use sha2::{Digest, Sha256};
+
 use crate::crypto::errors::DecryptError;
 
 /// X25519 Public Key
@@ -123,6 +125,12 @@ pub fn chapoly_decrypt(
     }
 }
 
+/// SHA-256
+pub fn hash(data: &[u8]) -> [u8; 32] {
+    let res: [u8; 32] = Sha256::digest(data).as_slice().try_into().unwrap();
+    res
+}
+
 /// Derives a secret key from a password and a salt using scrypt
 pub fn key_from_pass(password: &[u8], salt: &[u8]) -> Vec<u8> {
     let scrypt_params = scrypt::Params::new(14, 8, 1).unwrap();
@@ -133,9 +141,16 @@ pub fn key_from_pass(password: &[u8], salt: &[u8]) -> Vec<u8> {
     key.to_vec()
 }
 
+/// Generates 16 CSPRNG bytes to use as a salt for [`key_from_pass`]
+pub fn gen_salt() -> [u8; 16] {
+    let mut salt = [0u8; 16];
+    getrandom(&mut salt).expect("CSPRNG for salt gen failed");
+    salt
+}
+
 #[cfg(test)]
 mod test {
-    use super::{chapoly_decrypt, chapoly_encrypt, key_from_pass, x25519};
+    use super::{chapoly_decrypt, chapoly_encrypt, hash, key_from_pass, x25519};
     use super::{PrivateKey, PublicKey};
 
     #[test]
@@ -171,6 +186,16 @@ mod test {
         let pt = chapoly_decrypt(&key, nonce, &ad, &ct_and_tag).unwrap();
 
         assert_eq!(expected, pt.as_slice());
+    }
+
+    #[test]
+    fn test_hash() {
+        let data = b"wren";
+        let got = hash(data);
+        let expected =
+            hex::decode("b1e3c2ec1a80a8ccdbcdb04b26a5896ea2c7ef8b3774dbb004bd3b1aaa195bec")
+                .unwrap();
+        assert_eq!(&got, expected.as_slice());
     }
 
     #[test]

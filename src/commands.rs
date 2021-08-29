@@ -1,4 +1,6 @@
+use crate::crypto;
 use crate::crypto::PrivateKey;
+use crate::keyring::Keyring;
 
 #[derive(Debug)]
 pub(crate) struct EncryptOptions {
@@ -31,25 +33,59 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-pub(crate) fn gen_key(name: String) -> Result<(), anyhow::Error> {
-    println!("Generating key for: {}", name);
+pub(crate) fn gen_key(name: String, password: Option<String>) -> Result<(), anyhow::Error> {
     let private_key = PrivateKey::new();
-    println!("Private key: {:02x?}", private_key.as_bytes());
     let public_key = private_key.to_public();
-    println!("Public key: {:02x?}", public_key.as_bytes());
+    let salt = crypto::gen_salt();
+    let pass: String = if password.is_none() {
+        confirm_password_stderr()?
+    } else {
+        password.unwrap()
+    };
+
+    let encoded_private_key = Keyring::lock_private_key(&private_key, pass.as_bytes(), salt);
+    let encoded_public_key = Keyring::encode_public_key(&public_key);
+
+    let key_config =
+        Keyring::serialize_key(name.as_str(), &encoded_public_key, &encoded_private_key);
+
+    print!("{}", key_config);
+
     Ok(())
 }
 
-pub(crate) fn change_pass(opts: (String, Option<String>)) -> Result<(), anyhow::Error> {
+fn confirm_password_stderr() -> Result<String, anyhow::Error> {
+    let password = loop {
+        let pass = rpassword::prompt_password_stderr("Password: ")?;
+        let confirm_pass = rpassword::prompt_password_stderr("Confirm Password: ")?;
+        if pass != confirm_pass {
+            eprintln!("Passwords do not match");
+        } else {
+            break pass;
+        }
+    };
+
+    eprintln!();
+
+    Ok(password)
+}
+
+pub(crate) fn change_pass(
+    private_key: String,
+    password: Option<String>,
+) -> Result<(), anyhow::Error> {
     println!("Changing password...");
-    println!("Provided private key: {}", opts.0);
-    println!("Provided pass: {:?}", opts.1);
+    println!("Provided private key: {}", private_key);
+    println!("Provided pass: {:?}", password);
     Ok(())
 }
 
-pub(crate) fn extract_pub(opts: (String, Option<String>)) -> Result<(), anyhow::Error> {
+pub(crate) fn extract_pub(
+    private_key: String,
+    password: Option<String>,
+) -> Result<(), anyhow::Error> {
     println!("Extracting public key...");
-    println!("Provided private key: {}", opts.0);
-    println!("Provided pass: {:?}", opts.1);
+    println!("Provided private key: {}", private_key);
+    println!("Provided pass: {:?}", password);
     Ok(())
 }

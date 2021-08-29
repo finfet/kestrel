@@ -8,3 +8,8 @@
 [Encrypted Plaintext] - (Overhead of 16)
 32 bytes : ciphertext of private key
 16 bytes : ciphertext tag
+
+The 4 byte magic header is included as additional authenticated data.
+Salt is not included as AAD because it gets included as part of key
+derivation. The chapoly nonce is fixed at zero because the scrypt salt is
+random, resulting in a fresh key each time.

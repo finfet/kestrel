@@ -13,7 +13,7 @@ const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 const USAGE: &str = "USAGE:
     wren encrypt FILE -t NAME -f NAME [-o FILE] [-k KEYRING] [-p PASS]
     wren decrypt FILE -t NAME [-o FILE] [-k KEYRING] [-p PASS]
-    wren gen-key NAME
+    wren gen-key NAME [-p PASS]
     wren change-pass PRIVATE-KEY [-p PASS]
     wren extract-pub PRIVATE-KEY [-p PASS]
 
@@ -57,15 +57,15 @@ fn main() -> Result<(), anyhow::Error> {
             Err(e) => print_usage(e)?,
         },
         "gen-key" => match parse_gen_key(args.as_slice()) {
-            Ok(name) => commands::gen_key(name)?,
+            Ok((name, pass)) => commands::gen_key(name, pass)?,
             Err(e) => print_usage(e)?,
         },
         "change-pass" => match parse_change_pass(args.as_slice()) {
-            Ok(opts) => commands::change_pass(opts)?,
+            Ok((sk, pass)) => commands::change_pass(sk, pass)?,
             Err(e) => print_usage(e)?,
         },
         "extract-pub" => match parse_extract_pub(args.as_slice()) {
-            Ok(opts) => commands::extract_pub(opts)?,
+            Ok((sk, pass)) => commands::extract_pub(sk, pass)?,
             Err(e) => print_usage(e)?,
         },
         _ => {
@@ -157,8 +157,10 @@ fn parse_decrypt(args: &[&str]) -> Result<DecryptOptions, Option<String>> {
     })
 }
 
-fn parse_gen_key(args: &[&str]) -> Result<String, Option<String>> {
-    let gen_key_opts = Options::new();
+fn parse_gen_key(args: &[&str]) -> Result<(String, Option<String>), Option<String>> {
+    let mut gen_key_opts = Options::new();
+    gen_key_opts.optopt("p", "password", "Key password", "PASS");
+
     let matches = match gen_key_opts.parse(&args[2..]) {
         Ok(m) => m,
         Err(e) => return Err(Some(e.to_string())),
@@ -170,7 +172,10 @@ fn parse_gen_key(args: &[&str]) -> Result<String, Option<String>> {
         ));
     }
 
-    Ok(matches.free[0].clone())
+    let key_name = matches.free[0].clone();
+    let pass = matches.opt_str("p");
+
+    Ok((key_name, pass))
 }
 
 fn parse_change_pass(args: &[&str]) -> Result<(String, Option<String>), Option<String>> {
