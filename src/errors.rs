@@ -17,3 +17,5 @@ impl std::fmt::Display for KeyringError {
         }
     }
 }
+
+impl std::error::Error for KeyringError {}

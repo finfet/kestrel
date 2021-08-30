@@ -1,6 +1,10 @@
+use std::convert::TryInto;
+
 use crate::crypto;
 use crate::crypto::PrivateKey;
-use crate::keyring::Keyring;
+use crate::keyring::{EncodedSk, Keyring};
+
+use anyhow::anyhow;
 
 #[derive(Debug)]
 pub(crate) struct EncryptOptions {
@@ -33,14 +37,11 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-pub(crate) fn gen_key(name: String, password: Option<String>) -> Result<(), anyhow::Error> {
+pub(crate) fn gen_key(name: String) -> Result<(), anyhow::Error> {
     let private_key = PrivateKey::new();
     let public_key = private_key.to_public();
     let salt = crypto::gen_salt();
-    let pass = match password {
-        Some(p) => p,
-        None => confirm_password_stderr()?,
-    };
+    let pass = confirm_password_stderr("New Password: ")?;
 
     let encoded_private_key = Keyring::lock_private_key(&private_key, pass.as_bytes(), salt);
     let encoded_public_key = Keyring::encode_public_key(&public_key);
@@ -54,9 +55,46 @@ pub(crate) fn gen_key(name: String, password: Option<String>) -> Result<(), anyh
     Ok(())
 }
 
-fn confirm_password_stderr() -> Result<String, anyhow::Error> {
+pub(crate) fn change_pass(private_key: String) -> Result<(), anyhow::Error> {
+    let old_pass = rpassword::prompt_password_stderr("Old Password: ")?;
+    let new_pass = confirm_password_stderr("New Password")?;
+
+    let old_sk: EncodedSk = private_key
+        .as_str()
+        .try_into()
+        .map_err(|e| anyhow!("{}", e))?;
+    let sk = Keyring::unlock_private_key(&old_sk, old_pass.as_bytes())?;
+
+    let salt = crypto::gen_salt();
+    let new_sk = Keyring::lock_private_key(&sk, new_pass.as_bytes(), salt);
+
+    println!("PrivateKey = {}", new_sk.as_ref());
+
+    Ok(())
+}
+
+pub(crate) fn extract_pub(private_key: String) -> Result<(), anyhow::Error> {
+    let pass = rpassword::prompt_password_stderr("Password: ")?;
+
+    let esk: EncodedSk = private_key
+        .as_str()
+        .try_into()
+        .map_err(|e| anyhow!("{}", e))?;
+
+    let sk = Keyring::unlock_private_key(&esk, pass.as_bytes())?;
+
+    let pk = sk.to_public();
+
+    let epk = Keyring::encode_public_key(&pk);
+
+    println!("PublicKey = {}", epk.as_ref());
+
+    Ok(())
+}
+
+fn confirm_password_stderr(prompt: &str) -> Result<String, anyhow::Error> {
     let password = loop {
-        let pass = rpassword::prompt_password_stderr("Password: ")?;
+        let pass = rpassword::prompt_password_stderr(prompt)?;
         let confirm_pass = rpassword::prompt_password_stderr("Confirm Password: ")?;
         if pass != confirm_pass {
             eprintln!("Passwords do not match");
@@ -66,24 +104,4 @@ fn confirm_password_stderr() -> Result<String, anyhow::Error> {
     };
 
     Ok(password)
-}
-
-pub(crate) fn change_pass(
-    private_key: String,
-    password: Option<String>,
-) -> Result<(), anyhow::Error> {
-    println!("Changing password...");
-    println!("Provided private key: {}", private_key);
-    println!("Provided pass: {:?}", password);
-    Ok(())
-}
-
-pub(crate) fn extract_pub(
-    private_key: String,
-    password: Option<String>,
-) -> Result<(), anyhow::Error> {
-    println!("Extracting public key...");
-    println!("Provided private key: {}", private_key);
-    println!("Provided pass: {:?}", password);
-    Ok(())
 }

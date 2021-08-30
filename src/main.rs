@@ -13,9 +13,9 @@ const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 const USAGE: &str = "USAGE:
     wren encrypt FILE -t NAME -f NAME [-o FILE] [-k KEYRING] [-p PASS]
     wren decrypt FILE -t NAME [-o FILE] [-k KEYRING] [-p PASS]
-    wren gen-key NAME [-p PASS]
-    wren change-pass PRIVATE-KEY [-p PASS]
-    wren extract-pub PRIVATE-KEY [-p PASS]
+    wren gen-key NAME
+    wren change-pass PRIVATE-KEY
+    wren extract-pub PRIVATE-KEY
 
     Aliases enc and dec can be used for encrypt and decrypt.
     Option -k is required unless WREN_KEYRING env var is set.
@@ -57,15 +57,15 @@ fn main() -> Result<(), anyhow::Error> {
             Err(e) => print_usage(e)?,
         },
         "gen-key" => match parse_gen_key(args.as_slice()) {
-            Ok((name, pass)) => commands::gen_key(name, pass)?,
+            Ok(name) => commands::gen_key(name)?,
             Err(e) => print_usage(e)?,
         },
         "change-pass" => match parse_change_pass(args.as_slice()) {
-            Ok((sk, pass)) => commands::change_pass(sk, pass)?,
+            Ok(sk) => commands::change_pass(sk)?,
             Err(e) => print_usage(e)?,
         },
         "extract-pub" => match parse_extract_pub(args.as_slice()) {
-            Ok((sk, pass)) => commands::extract_pub(sk, pass)?,
+            Ok(sk) => commands::extract_pub(sk)?,
             Err(e) => print_usage(e)?,
         },
         _ => {
@@ -157,9 +157,8 @@ fn parse_decrypt(args: &[&str]) -> Result<DecryptOptions, Option<String>> {
     })
 }
 
-fn parse_gen_key(args: &[&str]) -> Result<(String, Option<String>), Option<String>> {
-    let mut gen_key_opts = Options::new();
-    gen_key_opts.optopt("p", "password", "Key password", "PASS");
+fn parse_gen_key(args: &[&str]) -> Result<String, Option<String>> {
+    let gen_key_opts = Options::new();
 
     let matches = match gen_key_opts.parse(&args[2..]) {
         Ok(m) => m,
@@ -173,14 +172,12 @@ fn parse_gen_key(args: &[&str]) -> Result<(String, Option<String>), Option<Strin
     }
 
     let key_name = matches.free[0].clone();
-    let pass = matches.opt_str("p");
 
-    Ok((key_name, pass))
+    Ok(key_name)
 }
 
-fn parse_change_pass(args: &[&str]) -> Result<(String, Option<String>), Option<String>> {
-    let mut change_pass_opts = Options::new();
-    change_pass_opts.optopt("p", "password", "Key password", "PASS");
+fn parse_change_pass(args: &[&str]) -> Result<String, Option<String>> {
+    let change_pass_opts = Options::new();
 
     let matches = match change_pass_opts.parse(&args[2..]) {
         Ok(m) => m,
@@ -192,14 +189,12 @@ fn parse_change_pass(args: &[&str]) -> Result<(String, Option<String>), Option<S
     }
 
     let priv_key = matches.free[0].clone();
-    let pass = matches.opt_str("p");
 
-    Ok((priv_key, pass))
+    Ok(priv_key)
 }
 
-fn parse_extract_pub(args: &[&str]) -> Result<(String, Option<String>), Option<String>> {
-    let mut extract_pub_opts = Options::new();
-    extract_pub_opts.optopt("p", "password", "Key password", "PASS");
+fn parse_extract_pub(args: &[&str]) -> Result<String, Option<String>> {
+    let extract_pub_opts = Options::new();
 
     let matches = match extract_pub_opts.parse(&args[2..]) {
         Ok(m) => m,
@@ -211,7 +206,6 @@ fn parse_extract_pub(args: &[&str]) -> Result<(String, Option<String>), Option<S
     }
 
     let priv_key = matches.free[0].clone();
-    let pass = matches.opt_str("p");
 
-    Ok((priv_key, pass))
+    Ok(priv_key)
 }

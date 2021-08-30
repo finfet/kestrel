@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::io::Cursor;
 use std::io::Write;
 
@@ -17,9 +18,46 @@ impl AsRef<str> for EncodedPk {
     }
 }
 
+impl TryFrom<&str> for EncodedPk {
+    type Error = &'static str;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        match base64::decode_config(s, base64::URL_SAFE_NO_PAD) {
+            Ok(s) => {
+                if s.len() != 36 {
+                    return Err("Inavlid Public Key length");
+                }
+            }
+            Err(_) => {
+                return Err("Invalid Public Key format");
+            }
+        }
+        Ok(EncodedPk(s.into()))
+    }
+}
+
 impl AsRef<str> for EncodedSk {
     fn as_ref(&self) -> &str {
         self.0.as_str()
+    }
+}
+
+impl TryFrom<&str> for EncodedSk {
+    type Error = &'static str;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        match base64::decode_config(s, base64::URL_SAFE_NO_PAD) {
+            Ok(s) => {
+                if s.len() != 68 {
+                    return Err("Invalid Private Key length");
+                }
+            }
+            Err(_) => {
+                return Err("Invalid Private Key format");
+            }
+        }
+
+        Ok(EncodedSk(s.into()))
     }
 }
 
@@ -77,7 +115,7 @@ impl Keyring {
     }
 
     /// Decrypt a private key.
-    fn unlock_private_key(
+    pub fn unlock_private_key(
         locked_sk: &EncodedSk,
         password: &[u8],
     ) -> Result<PrivateKey, KeyringError> {
