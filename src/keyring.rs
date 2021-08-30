@@ -1,8 +1,6 @@
 use std::io::Cursor;
 use std::io::Write;
 
-use std::fmt::Write as FmtWrite;
-
 use crate::crypto;
 use crate::crypto::{PrivateKey, PublicKey};
 use crate::errors::KeyringError;
@@ -27,6 +25,8 @@ impl AsRef<str> for EncodedSk {
 
 // WRN in ASCII + file format version (0x20 hex)
 pub const KEY_FILE_MAGIC: [u8; 4] = [0x57, 0x52, 0x4e, 0x20];
+
+const MAX_NAME_SIZE: usize = 128;
 
 #[derive(Debug)]
 pub struct Key {
@@ -58,8 +58,8 @@ impl Keyring {
 
         // We're unwrapping here because writing to a Vec shouldn't fail
         // unless the allocator fails, which will cause a panic anyway.
-        key_data.write(&KEY_FILE_MAGIC).unwrap();
-        key_data.write(&salt).unwrap();
+        key_data.write_all(&KEY_FILE_MAGIC).unwrap();
+        key_data.write_all(&salt).unwrap();
         let derived_key = crypto::key_from_pass(password, &salt);
         let sk_ct = crypto::chapoly_encrypt(
             derived_key.as_slice(),
@@ -67,7 +67,7 @@ impl Keyring {
             &KEY_FILE_MAGIC,
             private_key.as_bytes(),
         );
-        key_data.write(sk_ct.as_slice()).unwrap();
+        key_data.write_all(sk_ct.as_slice()).unwrap();
 
         let key_data = key_data.into_inner();
         debug_assert_eq!(key_data.len(), 68);
@@ -131,20 +131,12 @@ impl Keyring {
 
     /// Write a `[Key]` in the keyring config file format.
     pub fn serialize_key(name: &str, public_key: &EncodedPk, private_key: &EncodedSk) -> String {
-        let mut key_config = String::new();
-        // We're unwrapping because write_str shouldn't fail unless the
-        // allocator fails, which will casue a panic anyway.
-        key_config.write_str("[Key]\n").unwrap();
-        key_config
-            .write_str(format!("Name = {}\n", name).as_str())
-            .unwrap();
-        key_config
-            .write_str(format!("PublicKey = {}\n", public_key.as_ref()).as_str())
-            .unwrap();
-        key_config
-            .write_str(format!("PrivateKey = {}\n", private_key.as_ref()).as_str())
-            .unwrap();
-
+        let key_config = format!(
+            "[Key]\nName = {}\nPublicKey = {}\nPrivateKey = {}\n",
+            name,
+            public_key.as_ref(),
+            private_key.as_ref()
+        );
         key_config
     }
 
@@ -173,7 +165,7 @@ impl Keyring {
                 continue;
             }
             if line.trim().starts_with("Name") {
-                let name = match split_first(line, '=') {
+                let name = match line.split_once('=') {
                     Some((_, n)) => n.trim(),
                     None => {
                         return Err(KeyringError::ParseConfig(
@@ -182,14 +174,12 @@ impl Keyring {
                     }
                 };
 
-                // Restrict name to 128 bytes. Should be a minimum of 32 UTF-8
-                // characters.
-                if name.len() > 128 {
+                if name.len() > MAX_NAME_SIZE {
                     return Err(KeyringError::ParseConfig("Name is too long.".into()));
                 }
                 key_name = Some(name.into());
             } else if line.trim().starts_with("PublicKey") {
-                let pubkey = match split_first(line, '=') {
+                let pubkey = match line.split_once('=') {
                     Some((_, pk)) => pk.trim(),
                     None => {
                         return Err(KeyringError::ParseConfig(
@@ -208,7 +198,7 @@ impl Keyring {
 
                 key_public = Some(EncodedPk(pubkey.into()));
             } else if line.trim().starts_with("PrivateKey") {
-                let seckey = match split_first(line, '=') {
+                let seckey = match line.split_once('=') {
                     Some((_, sk)) => sk.trim(),
                     None => {
                         return Err(KeyringError::ParseConfig(
@@ -279,22 +269,6 @@ impl Keyring {
 
         Ok(())
     }
-}
-
-fn split_first(line: &str, token: char) -> Option<(&str, &str)> {
-    let mut idx = -1;
-    for (i, c) in line.chars().enumerate() {
-        if c == token {
-            idx = i as isize;
-            break;
-        }
-    }
-
-    if idx == -1 {
-        return None;
-    }
-
-    return Some(line.split_at((idx + 1) as usize));
 }
 
 #[cfg(test)]

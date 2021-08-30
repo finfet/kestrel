@@ -37,10 +37,9 @@ pub(crate) fn gen_key(name: String, password: Option<String>) -> Result<(), anyh
     let private_key = PrivateKey::new();
     let public_key = private_key.to_public();
     let salt = crypto::gen_salt();
-    let pass: String = if password.is_none() {
-        confirm_password_stderr()?
-    } else {
-        password.unwrap()
+    let pass = match password {
+        Some(p) => p,
+        None => confirm_password_stderr()?,
     };
 
     let encoded_private_key = Keyring::lock_private_key(&private_key, pass.as_bytes(), salt);
@@ -49,6 +48,7 @@ pub(crate) fn gen_key(name: String, password: Option<String>) -> Result<(), anyh
     let key_config =
         Keyring::serialize_key(name.as_str(), &encoded_public_key, &encoded_private_key);
 
+    println!();
     print!("{}", key_config);
 
     Ok(())
@@ -64,8 +64,6 @@ fn confirm_password_stderr() -> Result<String, anyhow::Error> {
             break pass;
         }
     };
-
-    eprintln!();
 
     Ok(password)
 }
