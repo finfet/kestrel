@@ -338,6 +338,10 @@ mod test {
         let payload = hex::decode("4c756477696720766f6e204d69736573").unwrap();
         let expected_ciphertext = hex::decode("ca35def5ae56cec33dc2036731ab14896bc4c75dbb07a61f879f8e3afa4c79446c15957a594079a5bdeae05d01e089fbb7cc6ea2ecfd209b941f73c9235213bc14ed87a1a4a0b164c11a5999be0f7bf1fdc3aaa6de60cb3c98302f370fdb03ea6fe2cf18324b0812663aed65fc9eafdf")
             .unwrap();
+
+        let exp_handshake_hash =
+            hex::decode("e5cdeb715c9553e966ccd446aff7f6df1556d0ecda39ddb49ef24c876fe249b7")
+                .unwrap();
         // Vectors for the transport messages
         let transport_payload1 = hex::decode("4d757272617920526f746862617264").unwrap();
         let exp_transport_ct1 =
@@ -376,6 +380,9 @@ mod test {
         // handshake message
         let (handshake_buffer, mut cipherstate) = handshake_state.write_message(&payload);
         assert_eq!(&handshake_buffer, &expected_ciphertext);
+
+        let handshake_hash = handshake_state.symmetric_state.get_handshake_hash();
+        assert_eq!(&handshake_hash, exp_handshake_hash.as_slice());
 
         // transport message 1
         let got_transport_ct1 = cipherstate.encrypt_with_ad(&[], &transport_payload1);
