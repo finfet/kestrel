@@ -21,11 +21,13 @@ const WREN_SALT: [u8; 32] = [
 ];
 
 /// X25519 Public Key
+#[derive(Clone, Copy)]
 pub struct PublicKey {
     key: [u8; 32],
 }
 
 /// X25519 Private Key
+#[derive(Clone, Copy)]
 pub struct PrivateKey {
     key: [u8; 32],
 }
