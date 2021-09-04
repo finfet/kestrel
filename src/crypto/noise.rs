@@ -61,7 +61,7 @@ impl CipherState {
     }
 
     fn set_nonce(&mut self, nonce: u64) {
-        assert!(nonce + 1 < u64::MAX - 1);
+        assert!(nonce < u64::MAX);
         self.nonce = nonce;
     }
 
