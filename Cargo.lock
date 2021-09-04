@@ -375,6 +375,7 @@ dependencies = [
  "getopts",
  "getrandom",
  "hex",
+ "hmac",
  "rpassword",
  "scrypt",
  "sha2",

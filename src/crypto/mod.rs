@@ -1,4 +1,5 @@
 pub mod errors;
+mod noise;
 
 use std::convert::TryInto;
 
@@ -8,9 +9,16 @@ use chacha20poly1305::aead::{Aead, NewAead, Payload};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 use x25519_dalek::X25519_BASEPOINT_BYTES;
 
+use hmac::{Hmac, Mac, NewMac};
 use sha2::{Digest, Sha256};
 
 use crate::crypto::errors::DecryptError;
+
+// WREN_SALT_VER_01 with trailing zero bytes
+const WREN_SALT: [u8; 32] = [
+    0x57, 0x52, 0x45, 0x4e, 0x5f, 0x53, 0x41, 0x4c, 0x54, 0x5f, 0x56, 0x45, 0x52, 0x5f, 0x30, 0x31,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+];
 
 /// X25519 Public Key
 pub struct PublicKey {
@@ -131,6 +139,25 @@ pub fn hash(data: &[u8]) -> [u8; 32] {
     res
 }
 
+pub fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
+    let mut mac = Hmac::<Sha256>::new_from_slice(key).unwrap();
+    mac.update(data);
+    let res = mac.finalize();
+    let res = res.into_bytes().try_into().unwrap();
+    res
+}
+
+fn noise_hkdf(chaining_key: &[u8], ikm: &[u8]) -> ([u8; 32], [u8; 32]) {
+    let counter1: [u8; 1] = [0x01];
+    let mut counter2: [u8; 33] = [0u8; 33];
+    let temp_key = hmac_sha256(chaining_key, ikm);
+    let output1 = hmac_sha256(&temp_key, &counter1);
+    counter2[..32].copy_from_slice(&output1);
+    counter2[32..].copy_from_slice(&[0x02]);
+    let output2 = hmac_sha256(&temp_key, &counter2);
+    (output1, output2)
+}
+
 /// Derives a secret key from a password and a salt using scrypt
 pub fn key_from_pass(password: &[u8], salt: &[u8]) -> Vec<u8> {
     let scrypt_params = scrypt::Params::new(14, 8, 1).unwrap();
@@ -139,6 +166,13 @@ pub fn key_from_pass(password: &[u8], salt: &[u8]) -> Vec<u8> {
     scrypt::scrypt(password, salt, &scrypt_params, &mut key).expect("scrypt kdf failed");
 
     key.to_vec()
+}
+
+/// Derive a pseudorandom key from input key material
+/// Performs HMAC_SHA256(salt, ikm) using [`WREN_SALT`] and the ikm.
+/// This is equivalent to hkdf-extract
+fn derive_key(ikm: &[u8]) -> [u8; 32] {
+    hmac_sha256(&WREN_SALT, ikm)
 }
 
 /// Generates 16 CSPRNG bytes to use as a salt for [`key_from_pass`]
