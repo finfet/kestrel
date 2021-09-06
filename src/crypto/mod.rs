@@ -1,3 +1,5 @@
+mod decrypt;
+mod encrypt;
 pub mod errors;
 mod noise;
 
@@ -12,7 +14,7 @@ use x25519_dalek::X25519_BASEPOINT_BYTES;
 use hmac::{Hmac, Mac, NewMac};
 use sha2::{Digest, Sha256};
 
-use crate::crypto::errors::DecryptError;
+use crate::crypto::errors::ChaPolyDecryptError;
 
 // WREN_SALT_VER_01 with trailing zero bytes
 const WREN_SALT: [u8; 32] = [
@@ -112,7 +114,7 @@ pub fn chapoly_decrypt(
     nonce: u64,
     ad: &[u8],
     ciphertext: &[u8],
-) -> Result<Vec<u8>, DecryptError> {
+) -> Result<Vec<u8>, ChaPolyDecryptError> {
     assert_eq!(key.len(), 32);
 
     // For ChaCha20-Poly1305 the noise spec says that the nonce should use
@@ -131,7 +133,7 @@ pub fn chapoly_decrypt(
 
     match cipher.decrypt(the_nonce, ct_and_ad) {
         Ok(result) => Ok(result),
-        Err(_) => Err(DecryptError),
+        Err(_) => Err(ChaPolyDecryptError),
     }
 }
 

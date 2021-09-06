@@ -1,4 +1,4 @@
-use crate::crypto::errors::DecryptError;
+use crate::crypto::errors::ChaPolyDecryptError;
 use crate::crypto::{
     chapoly_decrypt, chapoly_encrypt, hash, noise_hkdf, x25519, PrivateKey, PublicKey,
 };
@@ -76,7 +76,11 @@ impl CipherState {
         ciphertext
     }
 
-    fn decrypt_with_ad(&mut self, ad: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>, DecryptError> {
+    fn decrypt_with_ad(
+        &mut self,
+        ad: &[u8],
+        ciphertext: &[u8],
+    ) -> Result<Vec<u8>, ChaPolyDecryptError> {
         let key = self
             .key
             .as_ref()
@@ -139,7 +143,7 @@ impl SymmetricState {
         ciphertext
     }
 
-    fn decrypt_and_hash(&mut self, ciphertext: &[u8]) -> Result<Vec<u8>, DecryptError> {
+    fn decrypt_and_hash(&mut self, ciphertext: &[u8]) -> Result<Vec<u8>, ChaPolyDecryptError> {
         let plaintext = self
             .cipher_state
             .decrypt_with_ad(&self.hash_output, ciphertext)?;
@@ -200,6 +204,20 @@ impl HandshakeState {
             initiator,
             message_pattern,
         })
+    }
+
+    /// Return the sender's public key after a noise read_message
+    fn get_pubkey(&self) -> Option<PublicKey> {
+        // We only want the sender's key if we're the recipient
+        if self.initiator {
+            return None;
+        }
+
+        if let Some(pk) = &self.rs {
+            return Some(pk.clone());
+        }
+
+        None
     }
 
     fn write_message(&mut self, payload: &[u8]) -> (Vec<u8>, CipherState) {
@@ -263,7 +281,10 @@ impl HandshakeState {
         (message_buffer, cipher_state)
     }
 
-    fn read_message(&mut self, message: &[u8]) -> Result<(Vec<u8>, CipherState), DecryptError> {
+    fn read_message(
+        &mut self,
+        message: &[u8],
+    ) -> Result<(Vec<u8>, CipherState), ChaPolyDecryptError> {
         let mut msgidx: usize = 0;
         for pattern in self.message_pattern {
             match pattern {

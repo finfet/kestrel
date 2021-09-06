@@ -1,8 +1,31 @@
+# File Formats
 
-# Encrypted Private Key
+## Encrypted File Format
+
+[Prologue] - 4 bytes
+4 bytes  : WRN in ASCII and Version (0x10 hex) (57 52 4E 10)
+
+[Noise Handshake Message] - 128 bytes
+32 bytes : ephemeral public key
+48 bytes : chapoly encrypted 32 byte public key (+ 16 byte tag)
+48 bytes : chapoly encrypted 32 byte symmetric key (+ 16 byte tag)
+
+[Encrypted Plaintext Chunks] (overhead of 28)
+8  bytes : chunk number
+2  bytes : ciphertext size
+2  bytes : last chunk indicator
+X  bytes : ciphertext
+16 bytes : ciphertext tag
+
+Chunks may repeat many times. X is a maximum of 65535 bytes. Chunks are 16k
+by default. The last chunk indicator set to 1 that this is the last chunk in
+a message. Last chunk indicator and ciphertext size are included as additional
+authenticated data.
+
+## Encrypted Private Key Format
 
 [HEADER] - 20 bytes
-4 bytes  : WRN in ASCII + Version (0x20 hex) (0x57524E20)
+4  bytes : WRN in ASCII + Version (0x20 hex) (57 52 4E 20)
 16 bytes : salt
 
 [Encrypted Plaintext] - (Overhead of 16)
