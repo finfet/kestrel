@@ -12,15 +12,31 @@ impl std::fmt::Display for ChaPolyDecryptError {
 impl Error for ChaPolyDecryptError {}
 
 #[derive(Debug)]
-pub struct EncryptError;
+pub enum EncryptError {
+    IOError(std::io::Error),
+}
 
 impl std::fmt::Display for EncryptError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "File encryption failed")
+        match self {
+            EncryptError::IOError(e) => e.fmt(f),
+        }
     }
 }
 
-impl Error for EncryptError {}
+impl From<std::io::Error> for EncryptError {
+    fn from(e: std::io::Error) -> EncryptError {
+        EncryptError::IOError(e)
+    }
+}
+
+impl Error for EncryptError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            EncryptError::IOError(e) => Some(e),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct DecryptError;

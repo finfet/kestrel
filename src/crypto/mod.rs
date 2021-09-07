@@ -34,6 +34,31 @@ pub struct PrivateKey {
     key: [u8; 32],
 }
 
+#[derive(Clone, Copy)]
+pub struct KeyPair {
+    private_key: PrivateKey,
+    public_key: PublicKey,
+}
+
+impl KeyPair {
+    fn new(private_key: &PrivateKey, public_key: &PublicKey) -> Self {
+        Self {
+            private_key: private_key.clone(),
+            public_key: public_key.clone(),
+        }
+    }
+}
+
+impl From<&PrivateKey> for KeyPair {
+    fn from(sk: &PrivateKey) -> Self {
+        let pk = sk.to_public();
+        Self {
+            private_key: sk.clone(),
+            public_key: pk,
+        }
+    }
+}
+
 impl PublicKey {
     // Expose the key 32 byte public key
     pub fn as_bytes(&self) -> &[u8] {

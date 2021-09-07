@@ -17,8 +17,8 @@
 X  bytes : ciphertext
 16 bytes : ciphertext tag
 
-Chunks may repeat many times. X is a maximum of 65536 bytes. Chunks are 32KiB
-by default. Last chunk indicator is set to 1 for the last chunk in the message.
+Chunks may repeat many times. Chunks are 64KiB by default.
+Last chunk indicator is set to 1 for the last chunk in the message.
 Ciphertext length and last chunk indicator are included in the additional
 authenticated data.
 
