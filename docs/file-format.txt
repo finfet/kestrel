@@ -12,14 +12,14 @@
 
 [Encrypted Plaintext Chunks] (overhead of 28)
 8  bytes : chunk number
-2  bytes : ciphertext size
-2  bytes : last chunk indicator
+4  bytes : last chunk indicator
+4  bytes : ciphertext length
 X  bytes : ciphertext
 16 bytes : ciphertext tag
 
-Chunks may repeat many times. X is a maximum of 65535 bytes. Chunks are 16k
-by default. The last chunk indicator set to 1 that this is the last chunk in
-a message. Last chunk indicator and ciphertext size are included as additional
+Chunks may repeat many times. X is a maximum of 65536 bytes. Chunks are 32KiB
+by default. Last chunk indicator is set to 1 for the last chunk in the message.
+Ciphertext length and last chunk indicator are included in the additional
 authenticated data.
 
 ## Encrypted Private Key Format
