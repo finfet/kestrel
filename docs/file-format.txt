@@ -8,7 +8,7 @@
 [Noise Handshake Message] - 128 bytes
 32 bytes : ephemeral public key
 48 bytes : chapoly encrypted 32 byte public key (+ 16 byte tag)
-48 bytes : chapoly encrypted 32 byte symmetric key (+ 16 byte tag)
+48 bytes : chapoly encrypted 32 byte symmetric key payload (+ 16 byte tag)
 
 [Encrypted Plaintext Chunks] (overhead of 28)
 8  bytes : chunk number
@@ -20,7 +20,8 @@ X  bytes : ciphertext
 Chunks may repeat many times. Chunks are 64KiB by default.
 Last chunk indicator is set to 1 for the last chunk in the message.
 Ciphertext length and last chunk indicator are included in the additional
-authenticated data.
+authenticated data. The Noise handshake message and prologue are authenticated
+as part of noise channel binding with the payload key.
 
 ## Encrypted Private Key Format
 
@@ -36,3 +37,21 @@ The 4 byte magic header is included as additional authenticated data.
 Salt is not included as AAD because it gets included as part of key
 derivation. The chapoly nonce is fixed at zero because the scrypt salt is
 random, resulting in a fresh key each time.
+
+## Password Derived Symmetric Encryption
+
+[HEADER]
+4  bytes : WRN in ASCII + Version (0x30 hex) (57 52 4E 30)
+16 bytes : salt
+
+[Encrypted Plaintext Chunks] (overhead of 28)
+8  bytes : chunk number
+4  bytes : last chunk indicator
+4  bytes : ciphertext length
+X  bytes : ciphertext
+16 bytes : ciphertext tag
+
+Chunks may repeat many times. Chunks are 64KiB by default.
+Last chunk indicator is set to 1 for the last chunk in the message.
+Header magic number, chunk number, and last chunk indicator are included in
+the additional authenticated data.

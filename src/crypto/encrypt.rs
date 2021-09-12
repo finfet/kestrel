@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use crate::crypto::noise::HandshakeState;
 use crate::crypto::{KeyPair, PrivateKey, PublicKey};
 
-use crate::crypto::errors::EncryptError;
+use crate::crypto::errors::{EncryptError, PassEncryptError};
 
 const PROLOGUE: [u8; 4] = [0x57, 0x52, 0x4e, 0x10];
 
@@ -22,8 +22,8 @@ pub fn encrypt<T: Read, U: Write>(
     Ok(())
 }
 
-/// Perform a noise handshake message. Passing None to ephemeral generates a
-/// new key pair. This is probably what you want.
+/// Perform a noise handshake message. Pass None to ephemeral to generate a
+/// new key pair. This is almost certainly what you want.
 /// Returns the channel bound file encryption key and the noise ciphertext.
 pub fn noise_encrypt(
     sender: &PrivateKey,
@@ -42,5 +42,21 @@ pub fn noise_encrypt(
         None,
     );
 
+    todo!()
+}
+
+pub(crate) fn encrypt_chunks<T: Read, U: Write>(
+    plaintext: &mut T,
+    ciphertext: &mut U,
+    key: [u8; 32],
+) -> Result<(), EncryptError> {
+    todo!()
+}
+
+pub fn pass_encrypt<T: Read, U: Write>(
+    plaintext: &mut T,
+    ciphertext: &mut U,
+    password: &[u8],
+) -> Result<(), PassEncryptError> {
     todo!()
 }

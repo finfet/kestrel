@@ -7,6 +7,18 @@ use crate::keyring::{EncodedSk, Keyring};
 use anyhow::anyhow;
 
 #[derive(Debug)]
+pub(crate) enum KeyCommand {
+    Generate(String),
+    ChangePass(String),
+    ExtractPub(String),
+}
+
+pub(crate) enum PasswordCommand {
+    Encrypt(PasswordOptions),
+    Decrypt(PasswordOptions),
+}
+
+#[derive(Debug)]
 pub(crate) struct EncryptOptions {
     pub infile: String,
     pub to: String,
@@ -22,6 +34,13 @@ pub(crate) struct DecryptOptions {
     pub to: String,
     pub outfile: Option<String>,
     pub keyring: Option<String>,
+    pub pass: Option<String>,
+}
+
+#[derive(Debug)]
+pub(crate) struct PasswordOptions {
+    pub infile: String,
+    pub outfile: Option<String>,
     pub pass: Option<String>,
 }
 
@@ -89,6 +108,18 @@ pub(crate) fn extract_pub(private_key: String) -> Result<(), anyhow::Error> {
 
     println!("PublicKey = {}", epk.as_ref());
 
+    Ok(())
+}
+
+pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
+    println!("password encrypting");
+    println!("{:?}", opts);
+    Ok(())
+}
+
+pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
+    println!("password decrypting");
+    println!("{:?}", opts);
     Ok(())
 }
 
