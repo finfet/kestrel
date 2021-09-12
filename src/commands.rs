@@ -76,7 +76,7 @@ pub(crate) fn gen_key(name: String) -> Result<(), anyhow::Error> {
 
 pub(crate) fn change_pass(private_key: String) -> Result<(), anyhow::Error> {
     let old_pass = rpassword::prompt_password_stderr("Old Password: ")?;
-    let new_pass = confirm_password_stderr("New Password")?;
+    let new_pass = confirm_password_stderr("New Password: ")?;
 
     let old_sk: EncodedSk = private_key
         .as_str()
