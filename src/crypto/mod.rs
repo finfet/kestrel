@@ -211,6 +211,13 @@ pub fn gen_salt() -> [u8; 16] {
     salt
 }
 
+/// Generate a fresh 32 byte symmetric key from a CSPRNG
+pub fn gen_key() -> [u8; 32] {
+    let mut key = [0u8; 32];
+    getrandom(&mut key).expect("CSPRNG for key gen failed.");
+    key
+}
+
 #[cfg(test)]
 mod test {
     use super::{chapoly_decrypt, chapoly_encrypt, hash, key_from_pass, x25519};

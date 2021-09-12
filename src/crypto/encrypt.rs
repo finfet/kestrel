@@ -7,26 +7,19 @@ use crate::crypto::errors::EncryptError;
 
 const PROLOGUE: [u8; 4] = [0x57, 0x52, 0x4e, 0x10];
 
+/// Encrypt a file. From the sender key to the recipient key.
+/// Passing None to ephemeral and payload key will generate fresh keys. This
+/// is almost certainly what you want. Reusing the ephemeral and/or payload
+/// keys is catastrophically bad.
 pub fn encrypt<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,
     sender: &PrivateKey,
     recipient: &PublicKey,
-) -> Result<(), EncryptError> {
-    // call encrypt interal. // encrypt interal used because it is stateless
-    // for testing.
-    Ok(())
-}
-
-pub(crate) fn encrypt_internal<T: Read, U: Write>(
-    plaintext: &mut T,
-    ciphertext: &mut U,
-    sender: &PrivateKey,
-    recipient: &PublicKey,
     ephemeral: Option<&PrivateKey>,
-    payload_key: [u8; 32],
+    payload_key: Option<[u8; 32]>,
 ) -> Result<(), EncryptError> {
-    todo!()
+    Ok(())
 }
 
 /// Perform a noise handshake message. Passing None to ephemeral generates a
