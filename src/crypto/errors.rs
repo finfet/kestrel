@@ -13,12 +13,14 @@ impl Error for ChaPolyDecryptError {}
 
 #[derive(Debug)]
 pub enum EncryptError {
+    UnexpectedData,
     IOError(std::io::Error),
 }
 
 impl std::fmt::Display for EncryptError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
+            EncryptError::UnexpectedData => write!(f, "Expected end of stream. Found extra data."),
             EncryptError::IOError(e) => e.fmt(f),
         }
     }
@@ -33,6 +35,7 @@ impl From<std::io::Error> for EncryptError {
 impl Error for EncryptError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
+            EncryptError::UnexpectedData => None,
             EncryptError::IOError(e) => Some(e),
         }
     }

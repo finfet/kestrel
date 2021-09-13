@@ -16,19 +16,19 @@ enum Token {
     SS,
 }
 
-struct CipherState {
+pub struct CipherState {
     key: Option<[u8; 32]>,
     nonce: u64,
 }
 
-struct SymmetricState {
+pub struct SymmetricState {
     cipher_state: CipherState,
     chaining_key: [u8; HASH_LEN],
     hash_output: [u8; HASH_LEN],
 }
 
 pub struct HandshakeState {
-    symmetric_state: SymmetricState,
+    pub symmetric_state: SymmetricState,
     s: Option<KeyPair>,    // The local static key pair
     e: Option<KeyPair>,    // The local ephemeral key pair
     rs: Option<PublicKey>, // The remote party's static public key
@@ -38,28 +38,28 @@ pub struct HandshakeState {
 }
 
 impl CipherState {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             key: None,
             nonce: 0,
         }
     }
 
-    fn initialize_key(&mut self, key: Option<[u8; 32]>) {
+    pub fn initialize_key(&mut self, key: Option<[u8; 32]>) {
         self.key = key;
         self.nonce = 0;
     }
 
-    fn has_key(&self) -> bool {
+    pub fn has_key(&self) -> bool {
         self.key.is_some()
     }
 
-    fn set_nonce(&mut self, nonce: u64) {
+    pub fn set_nonce(&mut self, nonce: u64) {
         assert!(nonce < u64::MAX);
         self.nonce = nonce;
     }
 
-    fn encrypt_with_ad(&mut self, ad: &[u8], plaintext: &[u8]) -> Vec<u8> {
+    pub fn encrypt_with_ad(&mut self, ad: &[u8], plaintext: &[u8]) -> Vec<u8> {
         let key = self
             .key
             .as_ref()
@@ -70,7 +70,7 @@ impl CipherState {
         ciphertext
     }
 
-    fn decrypt_with_ad(
+    pub fn decrypt_with_ad(
         &mut self,
         ad: &[u8],
         ciphertext: &[u8],
@@ -85,7 +85,14 @@ impl CipherState {
         Ok(plaintext)
     }
 
-    // Rekey() function not needed by this application
+    pub fn rekey(&mut self) {
+        let pt = [0u8; 32];
+        let key = self.key.unwrap();
+        let gen_key = chapoly_encrypt(&key, u64::MAX, &[], &pt);
+        let mut key = [0u8; 32];
+        key.copy_from_slice(&gen_key[..32]);
+        self.key = Some(key);
+    }
 }
 
 impl SymmetricState {
@@ -125,7 +132,7 @@ impl SymmetricState {
 
     // MixKeyAndHash() function not needed by this application
 
-    fn get_handshake_hash(&self) -> [u8; 32] {
+    pub fn get_handshake_hash(&self) -> [u8; 32] {
         self.hash_output
     }
 
@@ -200,7 +207,7 @@ impl HandshakeState {
     }
 
     /// Return the sender's public key after a noise read_message
-    fn get_pubkey(&self) -> Option<PublicKey> {
+    pub fn get_pubkey(&self) -> Option<PublicKey> {
         // We only want the sender's key if we're the recipient
         if self.initiator {
             return None;
@@ -213,7 +220,7 @@ impl HandshakeState {
         None
     }
 
-    fn write_message(&mut self, payload: &[u8]) -> (Vec<u8>, CipherState) {
+    pub fn write_message(&mut self, payload: &[u8]) -> (Vec<u8>, CipherState) {
         let mut message_buffer = Vec::<u8>::new();
         for pattern in self.message_pattern {
             match pattern {
@@ -271,7 +278,7 @@ impl HandshakeState {
         (message_buffer, cipher_state)
     }
 
-    fn read_message(
+    pub fn read_message(
         &mut self,
         message: &[u8],
     ) -> Result<(Vec<u8>, CipherState), ChaPolyDecryptError> {

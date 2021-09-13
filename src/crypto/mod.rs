@@ -189,7 +189,7 @@ fn noise_hkdf(chaining_key: &[u8], ikm: &[u8]) -> ([u8; 32], [u8; 32]) {
 
 /// Derives a secret key from a password and a salt using scrypt
 pub fn key_from_pass(password: &[u8], salt: &[u8]) -> Vec<u8> {
-    let scrypt_params = scrypt::Params::new(14, 8, 1).unwrap();
+    let scrypt_params = scrypt::Params::new(15, 8, 1).unwrap();
     let mut key = [0u8; 32];
 
     scrypt::scrypt(password, salt, &scrypt_params, &mut key).expect("scrypt kdf failed");

@@ -10,7 +10,7 @@
 48 bytes : chapoly encrypted 32 byte public key (+ 16 byte tag)
 48 bytes : chapoly encrypted 32 byte symmetric key payload (+ 16 byte tag)
 
-[Encrypted Plaintext Chunks] (overhead of 28)
+[Encrypted Plaintext Chunks] (overhead of 32)
 8  bytes : chunk number
 4  bytes : last chunk indicator
 4  bytes : ciphertext length
@@ -44,7 +44,7 @@ random, resulting in a fresh key each time.
 4  bytes : WRN in ASCII + Version (0x30 hex) (57 52 4E 30)
 16 bytes : salt
 
-[Encrypted Plaintext Chunks] (overhead of 28)
+[Encrypted Plaintext Chunks] (overhead of 32)
 8  bytes : chunk number
 4  bytes : last chunk indicator
 4  bytes : ciphertext length
