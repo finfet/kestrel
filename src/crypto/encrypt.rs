@@ -81,13 +81,23 @@ pub fn noise_encrypt(
     (derived_key, ciphertext)
 }
 
+/// Chunked file encryption
+/// Passing aad will include the data as the first aad bytes along with
+/// the last chunk indicator and ciphertext length. This aad is used to
+/// authenticate the magic header bytes for password dervied encryption
 pub(crate) fn encrypt_chunks<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,
     key: [u8; 32],
-    aad: Option<[u8; 4]>,
+    aad: Option<&[u8]>,
 ) -> Result<(), EncryptError> {
     let mut buff = vec![0; CHUNK_SIZE];
+    let mut auth_data = if let Some(aad) = aad {
+        // 4 last chunk indicator + 4 ciphertext size
+        vec![0; aad.len() + 8]
+    } else {
+        vec![0; 8]
+    };
     let mut done = false;
     let mut chunk_number: u64 = 0;
 
@@ -110,21 +120,22 @@ pub(crate) fn encrypt_chunks<T: Read, U: Write>(
         let last_chunk_indicator_bytes = last_chunk_indicator.to_be_bytes();
         let ciphertext_length: u32 = prev_read as u32;
         let ciphertext_length_bytes = ciphertext_length.to_be_bytes();
-        let mut auth_data_no_aad = [0u8; 8];
-        let mut auth_data_aad = [0u8; 12];
         if let Some(aad) = aad {
-            auth_data_aad[..4].copy_from_slice(&aad);
-            auth_data_aad[4..8].copy_from_slice(&last_chunk_indicator_bytes);
-            auth_data_aad[8..].copy_from_slice(&ciphertext_length_bytes);
+            let aad_len = aad.len();
+            auth_data[..aad_len].copy_from_slice(aad);
+            auth_data[aad_len..aad_len + 4].copy_from_slice(&last_chunk_indicator_bytes);
+            auth_data[aad_len + 4..].copy_from_slice(&ciphertext_length_bytes);
         } else {
-            auth_data_no_aad[..4].copy_from_slice(&last_chunk_indicator_bytes);
-            auth_data_no_aad[4..].copy_from_slice(&ciphertext_length_bytes);
+            auth_data[..4].copy_from_slice(&last_chunk_indicator_bytes);
+            auth_data[4..].copy_from_slice(&ciphertext_length_bytes);
         }
 
+        println!("auth data len: {}", auth_data.len());
+
         let ct = if aad.is_some() {
-            chapoly_encrypt(&key, chunk_number, &auth_data_aad, &prev[..prev_read])
+            chapoly_encrypt(&key, chunk_number, &auth_data, &prev[..prev_read])
         } else {
-            chapoly_encrypt(&key, chunk_number, &auth_data_no_aad, &prev[..prev_read])
+            chapoly_encrypt(&key, chunk_number, &auth_data, &prev[..prev_read])
         };
 
         ciphertext.write(&chunk_number.to_be_bytes())?;

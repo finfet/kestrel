@@ -274,7 +274,7 @@ mod test {
         let salt = b"yellowsubmarine.";
         let result = key_from_pass(password, salt);
         let expected =
-            hex::decode("2e4a8df526366fdd0ab881ef012ea0f2edaf041a0b9a275def08c015697283b0")
+            hex::decode("3ebb9ac0d1da595f755407fe8fc246fe67fe6075730fc6e853351c2834bd6157")
                 .unwrap();
 
         assert_eq!(&expected, &result);
