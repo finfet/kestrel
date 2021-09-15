@@ -1,5 +1,5 @@
 mod decrypt;
-mod encrypt;
+pub mod encrypt;
 pub mod errors;
 mod noise;
 

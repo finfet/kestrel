@@ -62,15 +62,15 @@ impl TryFrom<&str> for EncodedSk {
 }
 
 // WRN in ASCII + file format version (0x20 hex)
-pub const KEY_FILE_MAGIC: [u8; 4] = [0x57, 0x52, 0x4e, 0x20];
+const KEY_FILE_MAGIC: [u8; 4] = [0x57, 0x52, 0x4e, 0x20];
 
 const MAX_NAME_SIZE: usize = 128;
 
 #[derive(Debug)]
 pub struct Key {
-    name: String,
-    public_key: EncodedPk,
-    private_key: Option<EncodedSk>,
+    pub name: String,
+    pub public_key: EncodedPk,
+    pub private_key: Option<EncodedSk>,
 }
 
 #[derive(Debug)]
@@ -82,6 +82,15 @@ impl Keyring {
     pub fn new(config: &str) -> Result<Keyring, KeyringError> {
         let keys = Keyring::parse_config(config)?;
         Ok(Keyring { keys })
+    }
+
+    pub fn get_key(&self, name: &str) -> Option<&Key> {
+        for key in &self.keys {
+            if key.name.as_str() == name {
+                return Some(key);
+            }
+        }
+        None
     }
 
     /// Encrypt a private key using ChaCha20-Poly1305 with a key derived from
@@ -150,7 +159,7 @@ impl Keyring {
         EncodedPk(base64::encode_config(&encoded, base64::URL_SAFE_NO_PAD))
     }
 
-    fn decode_public_key(encoded_pk: &EncodedPk) -> Result<PublicKey, KeyringError> {
+    pub fn decode_public_key(encoded_pk: &EncodedPk) -> Result<PublicKey, KeyringError> {
         let enc_pk = base64::decode_config(encoded_pk.as_ref(), base64::URL_SAFE_NO_PAD)
             .expect("Public key hex decode failed.");
         let enc_pk_bytes = enc_pk.as_slice();
@@ -187,23 +196,38 @@ impl Keyring {
         let mut key_found = false;
 
         for line in config.lines() {
-            if line.starts_with("[Key]") {
+            let mut cleaned_line = line.to_string();
+            cleaned_line.retain(|c| c != '\t');
+            cleaned_line = cleaned_line.trim().to_string();
+            if cleaned_line.starts_with("[Key]") {
                 if key_found {
-                    Keyring::add_key(
-                        &mut keys,
-                        key_name.as_ref(),
-                        key_public.as_ref(),
-                        key_private.as_ref(),
-                    )?;
+                    if key_name.is_none() {
+                        return Err(KeyringError::ParseConfig("Key must have a Name".into()));
+                    } else if key_public.is_none() {
+                        return Err(KeyringError::ParseConfig(
+                            "Key must have a PublicKey".into(),
+                        ));
+                    } else {
+                        Keyring::add_key(
+                            &mut keys,
+                            key_name.as_ref(),
+                            key_public.as_ref(),
+                            key_private.as_ref(),
+                        )?;
+                        key_name = None;
+                        key_public = None;
+                        key_private = None;
+                    }
                 }
                 key_found = true;
                 continue;
-            }
-            if !key_found {
-                continue;
-            }
-            if line.trim().starts_with("Name") {
-                let name = match line.split_once('=') {
+            } else if cleaned_line.starts_with("Name") {
+                if !key_found {
+                    return Err(KeyringError::ParseConfig(
+                        "Name found outside of [Key] section".into(),
+                    ));
+                }
+                let name = match cleaned_line.split_once('=') {
                     Some((_, n)) => n.trim(),
                     None => {
                         return Err(KeyringError::ParseConfig(
@@ -216,8 +240,13 @@ impl Keyring {
                     return Err(KeyringError::ParseConfig("Name is too long.".into()));
                 }
                 key_name = Some(name.into());
-            } else if line.trim().starts_with("PublicKey") {
-                let pubkey = match line.split_once('=') {
+            } else if cleaned_line.starts_with("PublicKey") {
+                if !key_found {
+                    return Err(KeyringError::ParseConfig(
+                        "PublicKey found outside of [Key] section".into(),
+                    ));
+                }
+                let pubkey = match cleaned_line.split_once('=') {
                     Some((_, pk)) => pk.trim(),
                     None => {
                         return Err(KeyringError::ParseConfig(
@@ -235,8 +264,13 @@ impl Keyring {
                 }
 
                 key_public = Some(EncodedPk(pubkey.into()));
-            } else if line.trim().starts_with("PrivateKey") {
-                let seckey = match line.split_once('=') {
+            } else if cleaned_line.starts_with("PrivateKey") {
+                if !key_found {
+                    return Err(KeyringError::ParseConfig(
+                        "PrivateKey found outside of [Key] section".into(),
+                    ));
+                }
+                let seckey = match cleaned_line.split_once('=') {
                     Some((_, sk)) => sk.trim(),
                     None => {
                         return Err(KeyringError::ParseConfig(
@@ -254,11 +288,21 @@ impl Keyring {
                 }
 
                 key_private = Some(EncodedSk(seckey.into()));
+            } else if cleaned_line.starts_with("#") || cleaned_line.is_empty() {
+                // Ignore empty lines and comments lines starting with #
+                continue;
+            } else {
+                return Err(KeyringError::ParseConfig(
+                    "Invalid data found in configuration file".into(),
+                ));
             }
         }
 
-        // Add the final key to the keyring.
-        if key_found {
+        if !key_found {
+            return Err(KeyringError::ParseConfig(
+                "No keys found in configuration file".into(),
+            ));
+        } else {
             Keyring::add_key(
                 &mut keys,
                 key_name.as_ref(),
@@ -318,6 +362,7 @@ mod tests {
     use std::convert::TryInto;
     const KEYRING_INI: &str = "
 [Key]
+# comment lines are fine.
 Name = joe
 PublicKey = Yd0wuCcNzHgScHDWO19B9-BwYNfHj3fePM2jnIkkMASYQJvq
 PrivateKey = V1JOIE3CwmCQYInSjQlNctXSpnlz3jPWGJrk0d8uEd4_XmpwDY7yd8HpB2PVYQNx54Zg58pDWAvn3FKhuox2iHuA5p8

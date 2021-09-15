@@ -130,8 +130,6 @@ pub(crate) fn encrypt_chunks<T: Read, U: Write>(
             auth_data[4..].copy_from_slice(&ciphertext_length_bytes);
         }
 
-        println!("auth data len: {}", auth_data.len());
-
         let ct = if aad.is_some() {
             chapoly_encrypt(&key, chunk_number, &auth_data, &prev[..prev_read])
         } else {
@@ -173,7 +171,6 @@ mod test {
     use super::encrypt_internal;
     use super::{PrivateKey, PublicKey};
     use std::convert::TryInto;
-    use std::fs::File;
 
     #[test]
     fn test_encrypt() {
@@ -198,7 +195,7 @@ mod test {
         let plaintext_data = b"Hello, world!";
         let mut plaintext = Vec::new();
         plaintext.extend_from_slice(plaintext_data);
-        let mut ciphertext = File::create("/tmp/hello-world.txt.wrn").unwrap();
+        let mut ciphertext = Vec::new();
 
         encrypt_internal(
             &mut plaintext.as_slice(),

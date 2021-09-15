@@ -1,10 +1,14 @@
 use std::convert::TryInto;
+use std::ffi::OsStr;
+use std::fs::File;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
 use crate::crypto;
 use crate::crypto::PrivateKey;
 use crate::keyring::{EncodedSk, Keyring};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 
 #[derive(Debug)]
 pub(crate) enum KeyCommand {
@@ -45,8 +49,86 @@ pub(crate) struct PasswordOptions {
 }
 
 pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
-    println!("Encrypting...");
-    println!("{:?}", opts);
+    let infile = opts.infile;
+    let to = opts.to;
+    let from = opts.from;
+    let outfile = opts.outfile;
+    let keyring = opts.keyring;
+    let pass = opts.pass;
+
+    let infile_path = PathBuf::from(infile);
+    let outfile_path = if let Some(o) = outfile {
+        PathBuf::from(o)
+    } else {
+        let mut outfile = infile_path.clone();
+        add_file_ext(&mut outfile, "wrn");
+        if outfile.exists() {
+            let overwrite = confirm_overwrite(&outfile)?;
+            if !overwrite {
+                return Ok(());
+            }
+        }
+        outfile
+    };
+
+    if !infile_path.exists() {
+        return Err(anyhow!("Input file does not exist."));
+    }
+
+    let keyring = open_keyring(keyring)?;
+    let recipient_key = keyring.get_key(&to);
+    if recipient_key.is_none() {
+        return Err(anyhow!("Recipient key not found."));
+    }
+    let recipient_key = recipient_key.unwrap();
+    let recipient_public = Keyring::decode_public_key(&recipient_key.public_key)?;
+
+    let sender_key = keyring.get_key(&from);
+    if sender_key.is_none() {
+        return Err(anyhow!("Sender key not found."));
+    }
+    let sender_key = sender_key.unwrap();
+    if sender_key.private_key.is_none() {
+        return Err(anyhow!("Sender needs a private key."));
+    }
+    let sender_key = sender_key.private_key.as_ref().unwrap();
+    let unlock_prompt = format!("Unlock '{}' key: ", &from);
+    let pass = if let Some(p) = pass {
+        p
+    } else {
+        ask_pass_stderr(&unlock_prompt)?
+    };
+
+    let mut pass = pass;
+    let sender_private = loop {
+        match Keyring::unlock_private_key(sender_key, pass.as_bytes()) {
+            Ok(sk) => break sk,
+            Err(_) => {
+                eprintln!("Key unlock failed.");
+                let p = ask_pass_stderr(&unlock_prompt)?;
+                pass = p;
+            }
+        }
+    };
+
+    let mut plaintext = File::open(infile_path).context("Could not read plaintext file.")?;
+    let mut ciphertext = File::create(&outfile_path)?;
+
+    if let Err(e) = crypto::encrypt::encrypt(
+        &mut plaintext,
+        &mut ciphertext,
+        &sender_private,
+        &recipient_public,
+    ) {
+        if let Err(_) = std::fs::remove_file(&outfile_path) {
+            eprintln!(
+                "Failed to remove ciphertext file: {}",
+                &outfile_path.display()
+            );
+        }
+        return Err(anyhow::Error::new(e)); // TODO: Refactor this.
+    }
+
     Ok(())
 }
 
@@ -68,7 +150,9 @@ pub(crate) fn gen_key(name: String) -> Result<(), anyhow::Error> {
     let key_config =
         Keyring::serialize_key(name.as_str(), &encoded_public_key, &encoded_private_key);
 
-    println!();
+    if atty::is(atty::Stream::Stdout) {
+        println!();
+    }
     print!("{}", key_config);
 
     Ok(())
@@ -135,4 +219,92 @@ fn confirm_password_stderr(prompt: &str) -> Result<String, anyhow::Error> {
     };
 
     Ok(password)
+}
+
+fn ask_pass_stderr(prompt: &str) -> Result<String, anyhow::Error> {
+    let pass = rpassword::prompt_password_stderr(prompt)?;
+    Ok(pass)
+}
+
+fn confirm_overwrite<T: AsRef<Path>>(path: T) -> Result<bool, anyhow::Error> {
+    let filename = extract_filename(path.as_ref().file_name())?;
+    let prompt = format!("File '{}' already exists. Overwrite? (y/n): ", &filename);
+    let confirm = ask_user(&prompt)?;
+    if !(confirm == "y" || confirm == "Y") {
+        Ok(false)
+    } else {
+        Ok(true)
+    }
+}
+
+fn ask_user(prompt: &str) -> Result<String, anyhow::Error> {
+    let mut line = String::new();
+    print!("{}", prompt);
+    std::io::stdout().flush()?;
+    std::io::stdin().read_line(&mut line)?;
+    line = line.trim().into();
+    Ok(line)
+}
+
+// Extract a rust String file name from a std::path::Path::file_name()
+fn extract_filename(name: Option<&OsStr>) -> Result<String, anyhow::Error> {
+    match name {
+        Some(name) => match name.to_str() {
+            Some(n) => Ok(n.to_string()),
+            None => Err(anyhow!("Filename has unsupported characters.")),
+        },
+        None => Err(anyhow!("Filename has unsupported characters.")),
+    }
+}
+
+fn open_keyring(keyring_loc: Option<String>) -> Result<Keyring, anyhow::Error> {
+    let path = if let Some(loc) = keyring_loc {
+        PathBuf::from(loc)
+    } else {
+        match std::env::var("WREN_KEYRING") {
+            Ok(loc) => PathBuf::from(loc),
+            Err(e) => match e {
+                std::env::VarError::NotPresent => {
+                    return Err(anyhow!(
+                        "Specify a keyring with -k or set the WREN_KEYRING env var"
+                    ))
+                }
+                std::env::VarError::NotUnicode(_) => {
+                    return Err(anyhow!("Could not read data from WREN_KEYRING env var"));
+                }
+            },
+        }
+    };
+
+    let keyring_data = std::fs::read_to_string(path)?;
+
+    Ok(Keyring::new(&keyring_data)?)
+}
+
+pub fn add_file_ext(path: &mut PathBuf, extension: impl AsRef<OsStr>) {
+    match path.extension() {
+        Some(ext) => {
+            let mut ext = ext.to_os_string();
+            ext.push(".");
+            ext.push(extension);
+            path.set_extension(ext)
+        }
+        None => path.set_extension(extension),
+    };
+}
+
+fn remove_file_ext<T: AsRef<Path>>(path: T, extension: &str) -> Option<PathBuf> {
+    if path.as_ref().extension().is_none() {
+        return None;
+    }
+    let ext = path.as_ref().extension().unwrap();
+    if ext.to_str().is_none() {
+        return None;
+    }
+    let ext = ext.to_str().unwrap();
+    if ext == extension {
+        Some(path.as_ref().to_path_buf().with_extension(""))
+    } else {
+        None
+    }
 }
