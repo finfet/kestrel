@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::io::Cursor;
 use std::io::Write;
 
@@ -21,6 +21,8 @@ impl AsRef<str> for EncodedPk {
 impl TryFrom<&str> for EncodedPk {
     type Error = &'static str;
 
+    // Decode a base64 encoded public key to make sure that it is the right
+    // amount of bytes
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         match base64::decode_config(s, base64::URL_SAFE_NO_PAD) {
             Ok(s) => {
@@ -45,6 +47,8 @@ impl AsRef<str> for EncodedSk {
 impl TryFrom<&str> for EncodedSk {
     type Error = &'static str;
 
+    // Decode a base64 encoded private key to make sure that it is the
+    // right amount of bytes
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         match base64::decode_config(s, base64::URL_SAFE_NO_PAD) {
             Ok(s) => {
@@ -255,15 +259,10 @@ impl Keyring {
                     }
                 };
 
-                // Public keys are 32 bytes 4 byte SHA256 checksum appended
-                // represented as base64 url safe no padding
-                if pubkey.len() != 48
-                    || base64::decode_config(pubkey.as_bytes(), base64::URL_SAFE_NO_PAD).is_err()
-                {
-                    return Err(KeyringError::ParseConfig("Malformed public key".into()));
-                }
-
-                key_public = Some(EncodedPk(pubkey.into()));
+                let encoded_pk = pubkey
+                    .try_into()
+                    .map_err(|_| KeyringError::ParseConfig("Malformed public key".into()))?;
+                key_public = Some(encoded_pk);
             } else if cleaned_line.starts_with("PrivateKey") {
                 if !key_found {
                     return Err(KeyringError::ParseConfig(
@@ -279,15 +278,10 @@ impl Keyring {
                     }
                 };
 
-                // Secret keys are 68 bytes of base64 urlsafe nopadding
-                // making keys 91 characters long
-                if seckey.len() != 91
-                    || base64::decode_config(&seckey, base64::URL_SAFE_NO_PAD).is_err()
-                {
-                    return Err(KeyringError::ParseConfig("Malformed private key".into()));
-                }
-
-                key_private = Some(EncodedSk(seckey.into()));
+                let encoded_sk = seckey
+                    .try_into()
+                    .map_err(|_| KeyringError::ParseConfig("Malformed private key".into()))?;
+                key_private = Some(encoded_sk);
             } else if cleaned_line.starts_with("#") || cleaned_line.is_empty() {
                 // Ignore empty lines and comments lines starting with #
                 continue;
@@ -357,7 +351,6 @@ impl Keyring {
 mod tests {
     use super::Keyring;
     use super::{EncodedPk, EncodedSk};
-    use crate::crypto;
     use crate::crypto::{PrivateKey, PublicKey};
     use std::convert::TryInto;
     const KEYRING_INI: &str = "
