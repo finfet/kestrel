@@ -54,4 +54,4 @@ X  bytes : ciphertext
 Chunks may repeat many times. Chunks are 64KiB by default.
 Last chunk indicator is set to 1 for the last chunk in the message.
 Header magic number, chunk number, and last chunk indicator are included in
-the additional authenticated data.
+the additional authenticated data for each chunk.

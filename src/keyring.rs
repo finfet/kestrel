@@ -112,12 +112,8 @@ impl Keyring {
         key_data.write_all(&KEY_FILE_MAGIC).unwrap();
         key_data.write_all(&salt).unwrap();
         let derived_key = crypto::key_from_pass(password, &salt);
-        let sk_ct = crypto::chapoly_encrypt(
-            derived_key.as_slice(),
-            0,
-            &KEY_FILE_MAGIC,
-            private_key.as_bytes(),
-        );
+        let sk_ct =
+            crypto::chapoly_encrypt(&derived_key, 0, &KEY_FILE_MAGIC, private_key.as_bytes());
         key_data.write_all(sk_ct.as_slice()).unwrap();
 
         let key_data = key_data.into_inner();
