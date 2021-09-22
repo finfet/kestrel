@@ -121,7 +121,7 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
         &recipient_public,
     ) {
         eprintln!("failed");
-        return Err(anyhow::Error::new(e));
+        return Err(anyhow!(e));
     }
     eprintln!("done");
 
@@ -226,7 +226,7 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     if let Err(e) = crypto::encrypt::pass_encrypt(&mut plaintext, &mut ciphertext, pass.as_bytes())
     {
         eprintln!("failed");
-        return Err(anyhow::Error::new(e));
+        return Err(anyhow!(e));
     }
     eprintln!("done");
 
