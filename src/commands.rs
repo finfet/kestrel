@@ -57,23 +57,23 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     let pass = opts.pass;
 
     let infile_path = PathBuf::from(infile);
-    let outfile_path = if let Some(o) = outfile {
-        PathBuf::from(o)
-    } else {
-        let mut outfile = infile_path.clone();
-        add_file_ext(&mut outfile, "wrn");
-        if outfile.exists() {
-            let overwrite = confirm_overwrite(&outfile)?;
-            if !overwrite {
-                return Ok(());
-            }
-        }
-        outfile
-    };
-
     if !infile_path.exists() {
-        return Err(anyhow!("Input file does not exist."));
+        return Err(anyhow!("Input file does not exist"));
     }
+    let outfile_path = match outfile {
+        Some(o) => PathBuf::from(o),
+        None => {
+            let mut outfile = infile_path.clone();
+            add_file_ext(&mut outfile, "wrn");
+            if outfile.exists() {
+                let overwrite = confirm_overwrite(&outfile)?;
+                if !overwrite {
+                    return Ok(());
+                }
+            }
+            outfile
+        }
+    };
 
     let keyring = open_keyring(keyring)?;
     let recipient_key = keyring.get_key(&to);
@@ -93,10 +93,9 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     }
     let sender_key = sender_key.private_key.as_ref().unwrap();
     let unlock_prompt = format!("Unlock '{}' key: ", &from);
-    let pass = if let Some(p) = pass {
-        p
-    } else {
-        ask_pass_stderr(&unlock_prompt)?
+    let pass = match pass {
+        Some(p) => p,
+        None => ask_pass_stderr(&unlock_prompt)?,
     };
 
     let mut pass = pass;
@@ -111,23 +110,20 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
         }
     };
 
-    let mut plaintext = File::open(infile_path).context("Could not read plaintext file.")?;
+    let mut plaintext = File::open(infile_path).context("Could not open input file.")?;
     let mut ciphertext = File::create(&outfile_path)?;
 
+    eprint!("Encrypting...");
     if let Err(e) = crypto::encrypt::encrypt(
         &mut plaintext,
         &mut ciphertext,
         &sender_private,
         &recipient_public,
     ) {
-        if let Err(_) = std::fs::remove_file(&outfile_path) {
-            eprintln!(
-                "Failed to remove ciphertext file: {}",
-                &outfile_path.display()
-            );
-        }
-        return Err(anyhow::Error::new(e)); // TODO: Refactor this.
+        eprintln!("failed");
+        return Err(anyhow::Error::new(e));
     }
+    eprintln!("done");
 
     Ok(())
 }
@@ -196,8 +192,44 @@ pub(crate) fn extract_pub(private_key: String) -> Result<(), anyhow::Error> {
 }
 
 pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
-    println!("password encrypting");
-    println!("{:?}", opts);
+    let infile = opts.infile;
+    let outfile = opts.outfile;
+    let pass = opts.pass;
+    let infile_path = PathBuf::from(infile);
+    if !infile_path.exists() {
+        return Err(anyhow!("Input file does not exist"));
+    }
+    let outfile_path = match outfile {
+        Some(o) => PathBuf::from(o),
+        None => {
+            let mut outfile = infile_path.clone();
+            add_file_ext(&mut outfile, "wrn");
+            if outfile.exists() {
+                let overwrite = confirm_overwrite(&outfile)?;
+                if !overwrite {
+                    return Ok(());
+                }
+            }
+            outfile
+        }
+    };
+
+    let pass = match pass {
+        Some(p) => p,
+        None => confirm_password_stderr("New password: ")?,
+    };
+
+    let mut plaintext = File::open(infile_path).context("Could not open input file")?;
+    let mut ciphertext = File::create(&outfile_path)?;
+
+    eprint!("Encrypting...");
+    if let Err(e) = crypto::encrypt::pass_encrypt(&mut plaintext, &mut ciphertext, pass.as_bytes())
+    {
+        eprintln!("failed");
+        return Err(anyhow::Error::new(e));
+    }
+    eprintln!("done");
+
     Ok(())
 }
 
