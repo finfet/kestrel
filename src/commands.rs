@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use crate::crypto;
 use crate::crypto::PrivateKey;
+use crate::encrypt;
 use crate::keyring::{EncodedSk, Keyring};
 
 use anyhow::{anyhow, Context};
@@ -114,7 +115,7 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     let mut ciphertext = File::create(&outfile_path)?;
 
     eprint!("Encrypting...");
-    if let Err(e) = crypto::encrypt::encrypt(
+    if let Err(e) = encrypt::encrypt(
         &mut plaintext,
         &mut ciphertext,
         &sender_private,
@@ -223,8 +224,7 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let mut ciphertext = File::create(&outfile_path)?;
 
     eprint!("Encrypting...");
-    if let Err(e) = crypto::encrypt::pass_encrypt(&mut plaintext, &mut ciphertext, pass.as_bytes())
-    {
+    if let Err(e) = encrypt::pass_encrypt(&mut plaintext, &mut ciphertext, pass.as_bytes()) {
         eprintln!("failed");
         return Err(anyhow!(e));
     }

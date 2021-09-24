@@ -1,5 +1,7 @@
 mod commands;
 mod crypto;
+mod decrypt;
+mod encrypt;
 mod errors;
 mod keyring;
 

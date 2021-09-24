@@ -1,8 +1,7 @@
 use std::io::{Read, Write};
 
 use crate::crypto;
-use crate::crypto::chapoly_encrypt;
-use crate::crypto::noise::HandshakeState;
+use crate::crypto::{chapoly_encrypt, noise_encrypt};
 use crate::crypto::{PrivateKey, PublicKey};
 
 use crate::crypto::errors::EncryptError;
@@ -36,7 +35,8 @@ fn encrypt_internal<T: Read, U: Write>(
     ephemeral: Option<&PrivateKey>,
     payload_key: [u8; 32],
 ) -> Result<(), EncryptError> {
-    let (file_enc_key, noise_message) = noise_encrypt(sender, recipient, ephemeral, payload_key);
+    let (file_enc_key, noise_message) =
+        noise_encrypt(sender, recipient, ephemeral, &PROLOGUE, payload_key);
 
     ciphertext.write(&PROLOGUE)?;
     ciphertext.write(&noise_message)?;
@@ -44,41 +44,6 @@ fn encrypt_internal<T: Read, U: Write>(
     encrypt_chunks(plaintext, ciphertext, file_enc_key, None)?;
 
     Ok(())
-}
-
-/// Perform a noise handshake message. Pass None to ephemeral to generate a
-/// new key pair. This is almost certainly what you want.
-/// Returns the channel bound file encryption key and the noise ciphertext.
-pub fn noise_encrypt(
-    sender: &PrivateKey,
-    recipient: &PublicKey,
-    ephemeral: Option<&PrivateKey>,
-    payload_key: [u8; 32],
-) -> ([u8; 32], Vec<u8>) {
-    let sender_keypair = sender.into();
-    let ephem_keypair = ephemeral.map_or(None, |e| Some(e.into()));
-    let mut handshake_state = HandshakeState::initialize(
-        true,
-        &PROLOGUE,
-        Some(sender_keypair),
-        ephem_keypair,
-        Some(recipient.clone()),
-        None,
-    );
-
-    // Encrypt the payload key
-    let (ciphertext, _) = handshake_state.write_message(&payload_key);
-
-    let handshake_hash = handshake_state.symmetric_state.get_handshake_hash();
-
-    // ikm = payload_key || handshake_hash
-    let mut ikm = [0u8; 64];
-    ikm[..32].copy_from_slice(&payload_key);
-    ikm[32..].copy_from_slice(&handshake_hash);
-
-    let derived_key = crypto::derive_key(&ikm);
-
-    (derived_key, ciphertext)
 }
 
 /// Chunked file encryption
@@ -184,10 +149,10 @@ pub(crate) fn pass_encrypt_internal<T: Read, U: Write>(
 
 #[cfg(test)]
 mod test {
+    use super::CHUNK_SIZE;
     use super::{encrypt_internal, pass_encrypt_internal};
     use super::{PrivateKey, PublicKey};
-    use crate::crypto;
-    use crate::crypto::encrypt::CHUNK_SIZE;
+    use crate::crypto::hash;
     use std::convert::TryInto;
     use std::io::Read;
 
@@ -228,7 +193,13 @@ mod test {
         )
         .unwrap();
 
+        let expected_hash =
+            hex::decode("9138286121d425c20d83a116560bd00f8896d34d4c4ce4191561e080401a41e7")
+                .unwrap();
+        let got_hash = hash(ciphertext.as_slice());
+
         assert_eq!(ciphertext.len(), 177);
+        assert_eq!(expected_hash.as_slice(), &got_hash);
     }
 
     #[test]
@@ -257,7 +228,13 @@ mod test {
         )
         .unwrap();
 
+        let expected_hash =
+            hex::decode("94c32d8b9c2040ea9c8bb88eb0576911e4cf5119810b5685fae7ea3e83947273")
+                .unwrap();
+        let got_hash = hash(ciphertext.as_slice());
+
         assert_eq!(ciphertext.len(), 65700);
+        assert_eq!(expected_hash.as_slice(), &got_hash);
     }
 
     #[test]
@@ -287,7 +264,13 @@ mod test {
         )
         .unwrap();
 
+        let expected_hash =
+            hex::decode("28a705ee2ae105f891e4012f09f2f049e3c167bf88e9c1f3629611e542067d56")
+                .unwrap();
+        let got_hash = hash(ciphertext.as_slice());
+
         assert_eq!(ciphertext.len(), 65733);
+        assert_eq!(expected_hash.as_slice(), &got_hash);
     }
 
     #[test]
@@ -301,7 +284,13 @@ mod test {
 
         pass_encrypt_internal(&mut pt.as_slice(), &mut ciphertext, pass, salt.as_slice()).unwrap();
 
+        let expected_hash =
+            hex::decode("60f39bca91c8491d7782f2d38f3f20b87d14dacf72c80b7474341a8351cb7274")
+                .unwrap();
+        let got_hash = hash(ciphertext.as_slice());
+
         assert_eq!(ciphertext.len(), 82);
+        assert_eq!(expected_hash.as_slice(), &got_hash);
     }
 
     fn get_key_data() -> KeyData {

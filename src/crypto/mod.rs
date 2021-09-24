@@ -1,5 +1,3 @@
-mod decrypt;
-pub mod encrypt;
 pub mod errors;
 mod noise;
 
@@ -14,7 +12,8 @@ use x25519_dalek::X25519_BASEPOINT_BYTES;
 use hmac::{Hmac, Mac, NewMac};
 use sha2::{Digest, Sha256};
 
-use crate::crypto::errors::ChaPolyDecryptError;
+use errors::ChaPolyDecryptError;
+use noise::HandshakeState;
 
 // WREN_SALT_VER_01 with trailing zero bytes
 const WREN_SALT: [u8; 32] = [
@@ -105,6 +104,42 @@ impl From<&[u8]> for PrivateKey {
 /// Performs X25519 diffie hellman, returning the shared secret.
 pub fn x25519(private_key: &PrivateKey, public_key: &PublicKey) -> [u8; 32] {
     x25519_dalek::x25519(private_key.key, public_key.key)
+}
+
+/// Perform a noise handshake message. Pass None to ephemeral to generate a
+/// new key pair. This is almost certainly what you want.
+/// Returns the channel bound file encryption key and the noise ciphertext.
+pub fn noise_encrypt(
+    sender: &PrivateKey,
+    recipient: &PublicKey,
+    ephemeral: Option<&PrivateKey>,
+    prologue: &[u8],
+    payload_key: [u8; 32],
+) -> ([u8; 32], Vec<u8>) {
+    let sender_keypair = sender.into();
+    let ephem_keypair = ephemeral.map_or(None, |e| Some(e.into()));
+    let mut handshake_state = HandshakeState::initialize(
+        true,
+        prologue,
+        Some(sender_keypair),
+        ephem_keypair,
+        Some(recipient.clone()),
+        None,
+    );
+
+    // Encrypt the payload key
+    let (ciphertext, _) = handshake_state.write_message(&payload_key);
+
+    let handshake_hash = handshake_state.symmetric_state.get_handshake_hash();
+
+    // ikm = payload_key || handshake_hash
+    let mut ikm = [0u8; 64];
+    ikm[..32].copy_from_slice(&payload_key);
+    ikm[32..].copy_from_slice(&handshake_hash);
+
+    let derived_key = derive_key(&ikm);
+
+    (derived_key, ciphertext)
 }
 
 /// Performs ChaCha20-Poly1305 encryption
