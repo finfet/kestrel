@@ -106,9 +106,10 @@ pub fn x25519(private_key: &PrivateKey, public_key: &PublicKey) -> [u8; 32] {
     x25519_dalek::x25519(private_key.key, public_key.key)
 }
 
-/// Perform a noise handshake message. Pass None to ephemeral to generate a
-/// new key pair. This is almost certainly what you want.
-/// Returns the channel bound file encryption key and the noise ciphertext.
+/// Encrypt the payload key using the noise X protocol.
+/// Passing None to ephemeral generates a new key pair. This is almost
+/// certainly what you want. Returns the channel bound file encryption key
+/// and the noise handshake message.
 pub fn noise_encrypt(
     sender: &PrivateKey,
     recipient: &PublicKey,
@@ -140,6 +141,40 @@ pub fn noise_encrypt(
     let derived_key = derive_key(&ikm);
 
     (derived_key, ciphertext)
+}
+
+/// Decrypt the payload key using the noise protocol.
+/// Returns the channel bound file encryption key and the sender's [PublicKey]
+pub fn noise_decrypt(
+    recipient: &PrivateKey,
+    prologue: &[u8],
+    handshake_message: &[u8],
+) -> Result<([u8; 32], PublicKey), ChaPolyDecryptError> {
+    let recipient_pair = recipient.into();
+    let initiator = false;
+    let mut handshake_state = noise::HandshakeState::initialize(
+        initiator,
+        prologue,
+        Some(recipient_pair),
+        None,
+        None,
+        None,
+    );
+    let (payload_key, _) = handshake_state.read_message(handshake_message)?;
+
+    let handshake_hash = handshake_state.symmetric_state.get_handshake_hash();
+    let sender_pubkey = handshake_state
+        .get_pubkey()
+        .expect("Expected to send the sender's public key");
+
+    // ikm = payload_key || handshake_hash
+    let mut ikm = [0u8; 64];
+    ikm[..32].copy_from_slice(payload_key.as_slice());
+    ikm[32..].copy_from_slice(&handshake_hash);
+
+    let derived_key = derive_key(&ikm);
+
+    Ok((derived_key, sender_pubkey))
 }
 
 /// Performs ChaCha20-Poly1305 encryption

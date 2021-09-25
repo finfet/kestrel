@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::crypto::errors::ChaPolyDecryptError;
 use crate::crypto::{
     chapoly_decrypt, chapoly_encrypt, hash, noise_hkdf, x25519, KeyPair, PrivateKey, PublicKey,
@@ -34,7 +36,7 @@ pub struct HandshakeState {
     rs: Option<PublicKey>, // The remote party's static public key
     re: Option<PublicKey>, // The remote party's ephemeral public key
     initiator: bool,
-    message_pattern: [Token; 4],
+    message_patterns: VecDeque<Vec<Token>>,
 }
 
 impl CipherState {
@@ -193,8 +195,10 @@ impl HandshakeState {
             symmetric_state.mix_hash(s_pair.public_key.as_bytes());
         }
 
-        let message_pattern = [Token::E, Token::ES, Token::S, Token::SS];
-
+        let mut message_patterns: VecDeque<Vec<Token>> = VecDeque::new();
+        // X pattern
+        let pattern = vec![Token::E, Token::ES, Token::S, Token::SS];
+        message_patterns.push_back(pattern);
         Self {
             symmetric_state,
             s,
@@ -202,7 +206,7 @@ impl HandshakeState {
             rs,
             re,
             initiator,
-            message_pattern,
+            message_patterns,
         }
     }
 
@@ -222,7 +226,11 @@ impl HandshakeState {
 
     pub fn write_message(&mut self, payload: &[u8]) -> (Vec<u8>, CipherState) {
         let mut message_buffer = Vec::<u8>::new();
-        for pattern in self.message_pattern {
+        let message_pattern = self
+            .message_patterns
+            .pop_front()
+            .expect("X pattern consists of a single pattern");
+        for pattern in message_pattern {
             match pattern {
                 Token::E => {
                     if self.e.is_none() {
@@ -282,8 +290,12 @@ impl HandshakeState {
         &mut self,
         message: &[u8],
     ) -> Result<(Vec<u8>, CipherState), ChaPolyDecryptError> {
+        let message_pattern = self
+            .message_patterns
+            .pop_front()
+            .expect("X pattern consists of a single message");
         let mut msgidx: usize = 0;
-        for pattern in self.message_pattern {
+        for pattern in message_pattern {
             match pattern {
                 Token::E => {
                     let remote_ephem_bytes = &message[msgidx..(msgidx + DH_LEN)];
