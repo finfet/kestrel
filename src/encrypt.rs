@@ -4,7 +4,7 @@ use crate::crypto;
 use crate::crypto::{chapoly_encrypt, noise_encrypt};
 use crate::crypto::{PrivateKey, PublicKey};
 
-use crate::crypto::errors::EncryptError;
+use crate::errors::EncryptError;
 
 const PROLOGUE: [u8; 4] = [0x57, 0x52, 0x4e, 0x10];
 
@@ -99,10 +99,21 @@ pub(crate) fn encrypt_chunks<T: Read, U: Write>(
             chapoly_encrypt(&key, chunk_number, &auth_data, &prev[..prev_read])
         };
 
-        ciphertext.write(&chunk_number.to_be_bytes())?;
-        ciphertext.write(&last_chunk_indicator_bytes)?;
-        ciphertext.write(&ciphertext_length_bytes)?;
-        ciphertext.write(ct.as_slice())?;
+        let mut chunk_header = [0u8; 16];
+        chunk_header[..8].copy_from_slice(&chunk_number.to_be_bytes());
+        chunk_header[8..12].copy_from_slice(&last_chunk_indicator_bytes);
+        chunk_header[12..].copy_from_slice(&ciphertext_length_bytes);
+
+        let num_written = ciphertext.write(&chunk_header)?;
+        if num_written != 16 {
+            return Err(EncryptError::WriteLen);
+        }
+
+        let ct_data = ct.as_slice();
+        let num_written = ciphertext.write(ct_data)?;
+        if num_written != ct_data.len() {
+            return Err(EncryptError::WriteLen);
+        }
 
         if done {
             break;
