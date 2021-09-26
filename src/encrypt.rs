@@ -11,7 +11,6 @@ const PROLOGUE: [u8; 4] = [0x57, 0x52, 0x4e, 0x10];
 const PASS_FILE_MAGIC: [u8; 4] = [0x57, 0x52, 0x4e, 0x30];
 
 const CHUNK_SIZE: usize = 65536;
-const TAG_SIZE: u32 = 16;
 
 /// Encrypt a file. From the sender key to the recipient key.
 pub fn encrypt<T: Read, U: Write>(
@@ -38,8 +37,8 @@ fn encrypt_internal<T: Read, U: Write>(
     let (file_enc_key, noise_message) =
         noise_encrypt(sender, recipient, ephemeral, &PROLOGUE, payload_key);
 
-    ciphertext.write(&PROLOGUE)?;
-    ciphertext.write(&noise_message)?;
+    ciphertext.write_all(&PROLOGUE)?;
+    ciphertext.write_all(&noise_message)?;
 
     encrypt_chunks(plaintext, ciphertext, file_enc_key, None)?;
 
@@ -57,11 +56,9 @@ pub(crate) fn encrypt_chunks<T: Read, U: Write>(
     aad: Option<&[u8]>,
 ) -> Result<(), EncryptError> {
     let mut buff = vec![0; CHUNK_SIZE];
-    let mut auth_data = if let Some(aad) = aad {
-        // 4 last chunk indicator + 4 ciphertext size
-        vec![0; aad.len() + 8]
-    } else {
-        vec![0; 8]
+    let mut auth_data = match aad {
+        Some(aad) => vec![0; aad.len() + 8],
+        None => vec![0; 8],
     };
     let mut done = false;
     let mut chunk_number: u64 = 0;
@@ -83,14 +80,17 @@ pub(crate) fn encrypt_chunks<T: Read, U: Write>(
         let last_chunk_indicator_bytes = last_chunk_indicator.to_be_bytes();
         let ciphertext_length: u32 = prev_read as u32;
         let ciphertext_length_bytes = ciphertext_length.to_be_bytes();
-        if let Some(aad) = aad {
-            let aad_len = aad.len();
-            auth_data[..aad_len].copy_from_slice(aad);
-            auth_data[aad_len..aad_len + 4].copy_from_slice(&last_chunk_indicator_bytes);
-            auth_data[aad_len + 4..].copy_from_slice(&ciphertext_length_bytes);
-        } else {
-            auth_data[..4].copy_from_slice(&last_chunk_indicator_bytes);
-            auth_data[4..].copy_from_slice(&ciphertext_length_bytes);
+        match aad {
+            Some(aad) => {
+                let aad_len = aad.len();
+                auth_data[..aad_len].copy_from_slice(aad);
+                auth_data[aad_len..aad_len + 4].copy_from_slice(&last_chunk_indicator_bytes);
+                auth_data[aad_len + 4..].copy_from_slice(&ciphertext_length_bytes);
+            }
+            None => {
+                auth_data[..4].copy_from_slice(&last_chunk_indicator_bytes);
+                auth_data[4..].copy_from_slice(&ciphertext_length_bytes);
+            }
         }
 
         let ct = if aad.is_some() {
@@ -104,16 +104,8 @@ pub(crate) fn encrypt_chunks<T: Read, U: Write>(
         chunk_header[8..12].copy_from_slice(&last_chunk_indicator_bytes);
         chunk_header[12..].copy_from_slice(&ciphertext_length_bytes);
 
-        let num_written = ciphertext.write(&chunk_header)?;
-        if num_written != 16 {
-            return Err(EncryptError::WriteLen);
-        }
-
-        let ct_data = ct.as_slice();
-        let num_written = ciphertext.write(ct_data)?;
-        if num_written != ct_data.len() {
-            return Err(EncryptError::WriteLen);
-        }
+        ciphertext.write_all(&chunk_header)?;
+        ciphertext.write_all(ct.as_slice())?;
 
         if done {
             break;

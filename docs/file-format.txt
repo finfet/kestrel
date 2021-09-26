@@ -40,7 +40,7 @@ random, resulting in a fresh key each time.
 
 ## Password Derived Symmetric Encryption
 
-[HEADER]
+[HEADER] - 20 bytes
 4  bytes : WRN in ASCII + Version (0x30 hex) (57 52 4E 30)
 16 bytes : salt
 
