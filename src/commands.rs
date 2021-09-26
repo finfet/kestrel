@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use crate::crypto;
 use crate::crypto::PrivateKey;
+use crate::decrypt;
 use crate::encrypt;
 use crate::keyring::{EncodedSk, Keyring};
 
@@ -61,19 +62,14 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     if !infile_path.exists() {
         return Err(anyhow!("Input file does not exist"));
     }
-    let outfile_path = match outfile {
-        Some(o) => PathBuf::from(o),
-        None => {
-            let mut outfile = infile_path.clone();
-            add_file_ext(&mut outfile, "wrn");
-            if outfile.exists() {
-                let overwrite = confirm_overwrite(&outfile)?;
-                if !overwrite {
-                    return Ok(());
-                }
-            }
-            outfile
-        }
+    let outfile_path = calculate_output_path(
+        &infile_path,
+        outfile.as_ref(),
+        ExtensionAction::AddExtension,
+    )?;
+    let outfile_path = match outfile_path {
+        Some(o) => o,
+        None => return Ok(()), // The user didn't want to overwrite the file.
     };
 
     let keyring = open_keyring(keyring)?;
@@ -200,28 +196,23 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     if !infile_path.exists() {
         return Err(anyhow!("Input file does not exist"));
     }
-    let outfile_path = match outfile {
-        Some(o) => PathBuf::from(o),
-        None => {
-            let mut outfile = infile_path.clone();
-            add_file_ext(&mut outfile, "wrn");
-            if outfile.exists() {
-                let overwrite = confirm_overwrite(&outfile)?;
-                if !overwrite {
-                    return Ok(());
-                }
-            }
-            outfile
-        }
+    let outfile_path = calculate_output_path(
+        &infile_path,
+        outfile.as_ref(),
+        ExtensionAction::AddExtension,
+    )?;
+    let outfile_path = match outfile_path {
+        Some(o) => o,
+        None => return Ok(()), // The user didn't want to overwrite the file.
     };
 
     let pass = match pass {
         Some(p) => p,
-        None => confirm_password_stderr("New password: ")?,
+        None => confirm_password_stderr("Use password: ")?,
     };
 
-    let mut plaintext = File::open(infile_path).context("Could not open input file")?;
-    let mut ciphertext = File::create(&outfile_path)?;
+    let mut plaintext = File::open(infile_path).context("Could not open plaintext file")?;
+    let mut ciphertext = File::create(&outfile_path).context("Could not create ciphertext file")?;
 
     eprint!("Encrypting...");
     if let Err(e) = encrypt::pass_encrypt(&mut plaintext, &mut ciphertext, pass.as_bytes()) {
@@ -234,9 +225,87 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
 }
 
 pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
-    println!("password decrypting");
-    println!("{:?}", opts);
+    let infile = opts.infile;
+    let outfile = opts.outfile;
+    let pass = opts.pass;
+    let infile_path = PathBuf::from(infile);
+    if !infile_path.exists() {
+        return Err(anyhow!("Input file does not exist"));
+    }
+
+    let outfile_path = calculate_output_path(
+        &infile_path,
+        outfile.as_ref(),
+        ExtensionAction::RemoveExtension,
+    )?;
+    let outfile_path = match outfile_path {
+        Some(o) => o,
+        None => return Ok(()), // The user didn't want to overwrite the file.
+    };
+
+    let pass = match pass {
+        Some(p) => p,
+        None => ask_pass_stderr("Password: ")?,
+    };
+
+    let mut ciphertext = File::open(&infile_path).context("Could not open ciphertext file")?;
+    let mut plaintext = File::create(&outfile_path).context("Could not create plaintext file")?;
+
+    eprint!("Decrypting...");
+    if let Err(e) = decrypt::pass_decrypt(&mut ciphertext, &mut plaintext, pass.as_bytes()) {
+        eprintln!("failed");
+        return Err(anyhow!(e));
+    }
+    eprintln!("done");
+
     Ok(())
+}
+
+enum ExtensionAction {
+    AddExtension,
+    RemoveExtension,
+}
+
+/// Try to remove or add the .wrn extension to the given path.
+/// If the output path already exists, the user will be asked to confirm if
+/// they want to overwrite.
+/// If the return was Ok but the PathBuf is None, then the user chose not
+/// to overwrite the file.
+fn calculate_output_path<T: AsRef<Path>, U: Into<PathBuf>>(
+    infile: T,
+    outfile: Option<U>,
+    action: ExtensionAction,
+) -> Result<Option<PathBuf>, anyhow::Error> {
+    let outfile_path = if let Some(o) = outfile {
+        Some(o.into())
+    } else {
+        let outpath = match action {
+            ExtensionAction::AddExtension => {
+                Some(add_file_ext(&infile.as_ref().to_path_buf(), "wrn"))
+            }
+            ExtensionAction::RemoveExtension => {
+                remove_file_ext(&infile.as_ref().to_path_buf(), "wrn")
+            }
+        };
+
+        match outpath {
+            Some(op) => {
+                if op.exists() {
+                    let should_overwrite = confirm_overwrite(&op)?;
+                    if !should_overwrite {
+                        return Ok(None);
+                    } else {
+                        Some(op)
+                    }
+                } else {
+                    Some(op)
+                }
+            }
+            None => return Err(anyhow!("Please specify an output filename.")),
+        }
+    };
+
+    Ok(outfile_path)
 }
 
 fn confirm_password_stderr(prompt: &str) -> Result<String, anyhow::Error> {
@@ -262,10 +331,10 @@ fn confirm_overwrite<T: AsRef<Path>>(path: T) -> Result<bool, anyhow::Error> {
     let filename = extract_filename(path.as_ref().file_name())?;
     let prompt = format!("File '{}' already exists. Overwrite? (y/n): ", &filename);
     let confirm = ask_user(&prompt)?;
-    if !(confirm == "y" || confirm == "Y") {
-        Ok(false)
-    } else {
+    if confirm == "y" || confirm == "Y" {
         Ok(true)
+    } else {
+        Ok(false)
     }
 }
 
@@ -313,16 +382,18 @@ fn open_keyring(keyring_loc: Option<String>) -> Result<Keyring, anyhow::Error> {
     Ok(Keyring::new(&keyring_data)?)
 }
 
-pub fn add_file_ext(path: &mut PathBuf, extension: impl AsRef<OsStr>) {
+pub fn add_file_ext(path: &PathBuf, extension: impl AsRef<OsStr>) -> PathBuf {
+    let mut new_path = path.clone();
     match path.extension() {
         Some(ext) => {
             let mut ext = ext.to_os_string();
             ext.push(".");
             ext.push(extension);
-            path.set_extension(ext)
+            new_path.set_extension(ext)
         }
-        None => path.set_extension(extension),
+        None => new_path.set_extension(extension),
     };
+    new_path
 }
 
 fn remove_file_ext<T: AsRef<Path>>(path: T, extension: &str) -> Option<PathBuf> {

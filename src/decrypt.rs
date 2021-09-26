@@ -1,10 +1,11 @@
 use std::convert::TryInto;
 use std::io::{Read, Write};
 
-use crate::crypto::{chapoly_decrypt, noise_decrypt, PrivateKey, PublicKey};
+use crate::crypto::{chapoly_decrypt, key_from_pass, noise_decrypt, PrivateKey, PublicKey};
 use crate::errors::DecryptError;
 
 const PROLOGUE: [u8; 4] = [0x57, 0x52, 0x4e, 0x10];
+const PASS_FILE_MAGIC: [u8; 4] = [0x57, 0x52, 0x4e, 0x30];
 const CHUNK_SIZE: usize = 65536;
 const TAG_SIZE: usize = 16;
 
@@ -26,6 +27,28 @@ pub fn decrypt<T: Read, U: Write>(
     decrypt_chunks(ciphertext, plaintext, key, None)?;
 
     Ok(sender_public)
+}
+
+pub fn pass_decrypt<T: Read, U: Write>(
+    ciphertext: &mut T,
+    plaintext: &mut U,
+    password: &[u8],
+) -> Result<(), DecryptError> {
+    let mut pass_magic_num = [0u8; 4];
+    ciphertext.read_exact(&mut pass_magic_num)?;
+    if &pass_magic_num != &PASS_FILE_MAGIC {
+        return Err(DecryptError::FileFormat);
+    }
+
+    let mut salt = [0u8; 16];
+    ciphertext.read_exact(&mut salt)?;
+
+    let key = key_from_pass(password, &salt);
+    let aad = Some(&pass_magic_num[..]);
+
+    decrypt_chunks(ciphertext, plaintext, key, aad)?;
+
+    Ok(())
 }
 
 pub(crate) fn decrypt_chunks<T: Read, U: Write>(
