@@ -97,6 +97,15 @@ impl Keyring {
         None
     }
 
+    pub fn get_name_from_key(&self, pk: &EncodedPk) -> Option<String> {
+        for key in &self.keys {
+            if key.public_key.as_ref() == pk.as_ref() {
+                return Some(key.name.clone());
+            }
+        }
+        None
+    }
+
     /// Encrypt a private key using ChaCha20-Poly1305 with a key derived from
     /// a password using scrypt. The salt MUST be used only once.
     /// Use [gen_salt()](crate::crypto::gen_salt) to get fresh nonces.
@@ -278,7 +287,7 @@ impl Keyring {
                     .try_into()
                     .map_err(|_| KeyringError::ParseConfig("Malformed private key".into()))?;
                 key_private = Some(encoded_sk);
-            } else if cleaned_line.starts_with("#") || cleaned_line.is_empty() {
+            } else if cleaned_line.starts_with('#') || cleaned_line.is_empty() {
                 // Ignore empty lines and comments lines starting with #
                 continue;
             } else {

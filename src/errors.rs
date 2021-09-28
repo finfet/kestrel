@@ -55,7 +55,6 @@ impl Error for EncryptError {
 
 #[derive(Debug)]
 pub enum DecryptError {
-    FileFormat,
     ChunkLen,
     ChaPolyDecrypt,
     UnexpectedData,
@@ -65,11 +64,10 @@ pub enum DecryptError {
 impl std::fmt::Display for DecryptError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            DecryptError::FileFormat => write!(f, "Unsupported file type."),
             DecryptError::ChunkLen => write!(f, "Chunk length is too large."),
             DecryptError::ChaPolyDecrypt => write!(
                 f,
-                "File decryption failed. Either the wrong key was used or the file was modified."
+                "File decryption failed. The file may have been modified."
             ),
             DecryptError::UnexpectedData => write!(f, "Expected end of stream. Found extra data."),
             DecryptError::IOError(e) => e.fmt(f),
@@ -84,7 +82,7 @@ impl From<std::io::Error> for DecryptError {
 }
 
 impl From<ChaPolyDecryptError> for DecryptError {
-    fn from(e: ChaPolyDecryptError) -> DecryptError {
+    fn from(_e: ChaPolyDecryptError) -> DecryptError {
         DecryptError::ChaPolyDecrypt
     }
 }
@@ -92,7 +90,6 @@ impl From<ChaPolyDecryptError> for DecryptError {
 impl Error for DecryptError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            DecryptError::FileFormat => None,
             DecryptError::ChunkLen => None,
             DecryptError::ChaPolyDecrypt => None,
             DecryptError::UnexpectedData => None,

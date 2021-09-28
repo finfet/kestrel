@@ -8,6 +8,7 @@ use crate::crypto::{
 const HASH_LEN: usize = 32;
 const DH_LEN: usize = 32;
 
+#[allow(dead_code)]
 #[derive(Clone, Copy)]
 enum Token {
     E,
@@ -87,6 +88,7 @@ impl CipherState {
         Ok(plaintext)
     }
 
+    #[allow(dead_code)]
     pub fn rekey(&mut self) {
         let pt = [0u8; 32];
         let key = self.key.unwrap();
@@ -182,14 +184,12 @@ impl HandshakeState {
         symmetric_state.mix_hash(prologue);
 
         // Public key mixing here is hardcoded for the X pattern.
+        assert!(s.is_some());
         if initiator {
-            assert!(s.is_some());
             assert!(rs.is_some());
             let rs_public_key = rs.as_ref().unwrap();
             symmetric_state.mix_hash(rs_public_key.as_bytes());
         } else {
-            assert!(s.is_some());
-
             let s_pair = s.as_ref().unwrap();
 
             symmetric_state.mix_hash(s_pair.public_key.as_bytes());
@@ -263,16 +263,16 @@ impl HandshakeState {
                     // a message.
                     debug_assert!(self.initiator);
                     let e = self.e.as_ref().unwrap();
-                    let rs = self.rs.unwrap();
-                    self.symmetric_state.mix_key(&x25519(&e.private_key, &rs));
+                    let rs = self.rs.as_ref().unwrap();
+                    self.symmetric_state.mix_key(&x25519(&e.private_key, rs));
                 }
                 Token::SE => {
                     unimplemented!("SE not used in the X pattern");
                 }
                 Token::SS => {
                     let s = self.s.as_ref().unwrap();
-                    let rs = self.rs.unwrap();
-                    self.symmetric_state.mix_key(&x25519(&s.private_key, &rs));
+                    let rs = self.rs.as_ref().unwrap();
+                    self.symmetric_state.mix_key(&x25519(&s.private_key, rs));
                 }
             }
         }
@@ -300,7 +300,7 @@ impl HandshakeState {
                 Token::E => {
                     let remote_ephem_bytes = &message[msgidx..(msgidx + DH_LEN)];
                     let re = PublicKey::from(remote_ephem_bytes);
-                    self.re = Some(re);
+                    self.re = Some(re.clone());
                     self.symmetric_state.mix_hash(re.as_bytes());
                     msgidx += DH_LEN;
                 }
@@ -325,16 +325,16 @@ impl HandshakeState {
                     // a message
                     debug_assert!(!self.initiator);
                     let s = self.s.as_ref().unwrap();
-                    let re = self.re.unwrap();
-                    self.symmetric_state.mix_key(&x25519(&s.private_key, &re));
+                    let re = self.re.as_ref().unwrap();
+                    self.symmetric_state.mix_key(&x25519(&s.private_key, re));
                 }
                 Token::SE => {
                     unimplemented!("SE not used in the X pattern")
                 }
                 Token::SS => {
                     let s = self.s.as_ref().unwrap();
-                    let rs = self.rs.unwrap();
-                    self.symmetric_state.mix_key(&x25519(&s.private_key, &rs));
+                    let rs = self.rs.as_ref().unwrap();
+                    self.symmetric_state.mix_key(&x25519(&s.private_key, rs));
                 }
             }
         }

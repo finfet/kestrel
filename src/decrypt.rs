@@ -4,8 +4,8 @@ use std::io::{Read, Write};
 use crate::crypto::{chapoly_decrypt, key_from_pass, noise_decrypt, PrivateKey, PublicKey};
 use crate::errors::DecryptError;
 
-const PROLOGUE: [u8; 4] = [0x57, 0x52, 0x4e, 0x10];
-const PASS_FILE_MAGIC: [u8; 4] = [0x57, 0x52, 0x4e, 0x30];
+pub const PROLOGUE: [u8; 4] = [0x57, 0x52, 0x4e, 0x10];
+pub const PASS_FILE_MAGIC: [u8; 4] = [0x57, 0x52, 0x4e, 0x30];
 const CHUNK_SIZE: usize = 65536;
 const TAG_SIZE: usize = 16;
 
@@ -16,9 +16,6 @@ pub fn decrypt<T: Read, U: Write>(
 ) -> Result<PublicKey, DecryptError> {
     let mut prologue = [0u8; 4];
     ciphertext.read_exact(&mut prologue)?;
-    if &prologue != &PROLOGUE {
-        return Err(DecryptError::FileFormat);
-    }
 
     let mut handshake_message = [0u8; 128];
     ciphertext.read_exact(&mut handshake_message)?;
@@ -36,9 +33,6 @@ pub fn pass_decrypt<T: Read, U: Write>(
 ) -> Result<(), DecryptError> {
     let mut pass_magic_num = [0u8; 4];
     ciphertext.read_exact(&mut pass_magic_num)?;
-    if &pass_magic_num != &PASS_FILE_MAGIC {
-        return Err(DecryptError::FileFormat);
-    }
 
     let mut salt = [0u8; 16];
     ciphertext.read_exact(&mut salt)?;

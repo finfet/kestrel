@@ -189,9 +189,7 @@ fn parse_key(args: &[&str]) -> Result<KeyCommand, Option<String>> {
             Ok(priv_key) => Ok(KeyCommand::ExtractPub(priv_key)),
             Err(e) => Err(e),
         },
-        _ => {
-            return Err(None);
-        }
+        _ => Err(None),
     }
 }
 

@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 use std::ffi::OsStr;
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use crate::crypto;
@@ -60,7 +60,10 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
 
     let infile_path = PathBuf::from(infile);
     if !infile_path.exists() {
-        return Err(anyhow!("Input file does not exist"));
+        return Err(anyhow!(
+            "Input file '{}' does not exist",
+            extract_filename(infile_path.file_name())
+        ));
     }
     let outfile_path = calculate_output_path(
         &infile_path,
@@ -75,18 +78,18 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     let keyring = open_keyring(keyring)?;
     let recipient_key = keyring.get_key(&to);
     if recipient_key.is_none() {
-        return Err(anyhow!("Recipient key not found."));
+        return Err(anyhow!("Recipient key '{}' not found.", &to));
     }
     let recipient_key = recipient_key.unwrap();
     let recipient_public = Keyring::decode_public_key(&recipient_key.public_key)?;
 
     let sender_key = keyring.get_key(&from);
     if sender_key.is_none() {
-        return Err(anyhow!("Sender key not found."));
+        return Err(anyhow!("Sender key '{}' not found.", &from));
     }
     let sender_key = sender_key.unwrap();
     if sender_key.private_key.is_none() {
-        return Err(anyhow!("Sender needs a private key."));
+        return Err(anyhow!("Sender '{}' needs a private key.", &from));
     }
     let sender_key = sender_key.private_key.as_ref().unwrap();
     let unlock_prompt = format!("Unlock '{}' key: ", &from);
@@ -126,8 +129,94 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
 }
 
 pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
-    println!("Decrypting...");
-    println!("{:?}", opts);
+    let infile = opts.infile;
+    let to = opts.to;
+    let outfile = opts.outfile;
+    let keyring = opts.keyring;
+    let pass = opts.pass;
+
+    let infile_path = PathBuf::from(infile);
+    if !infile_path.exists() {
+        return Err(anyhow!(
+            "Input file '{}' does not exist",
+            extract_filename(infile_path.file_name())
+        ));
+    }
+
+    {
+        let mut prologue = [0u8; 4];
+        let mut ct_file = File::open(&infile_path).context("Could not open ciphertext file")?;
+        ct_file.read_exact(&mut prologue)?;
+        if prologue == decrypt::PASS_FILE_MAGIC {
+            return Err(anyhow!(
+                "Wrong file type. Try this with the password decrypt command"
+            ));
+        }
+        if prologue != decrypt::PROLOGUE {
+            return Err(anyhow!("Unsupported file type."));
+        }
+    }
+
+    let outfile_path = calculate_output_path(
+        &infile_path,
+        outfile.as_ref(),
+        ExtensionAction::RemoveExtension,
+    )?;
+    let outfile_path = match outfile_path {
+        Some(o) => o,
+        None => return Ok(()), // The user didn't want to overwrite the file.
+    };
+
+    let keyring = open_keyring(keyring)?;
+    let recipient_key = keyring.get_key(&to);
+    let recipient_key = match recipient_key {
+        Some(k) => k,
+        None => return Err(anyhow!("Key '{}' not found", &to)),
+    };
+    let recipient_key = match &recipient_key.private_key {
+        Some(k) => k,
+        None => return Err(anyhow!("Key '{}' needs a private key", &to)),
+    };
+    let unlock_prompt = format!("Unlock '{}' key: ", &to);
+    let pass = match pass {
+        Some(p) => p,
+        None => ask_pass_stderr(&unlock_prompt)?,
+    };
+
+    let mut pass = pass;
+    let recipient_private = loop {
+        match Keyring::unlock_private_key(recipient_key, pass.as_bytes()) {
+            Ok(sk) => break sk,
+            Err(_) => {
+                eprintln!("Key unlock failed.");
+                let p = ask_pass_stderr(&unlock_prompt)?;
+                pass = p;
+            }
+        }
+    };
+
+    let mut ciphertext = File::open(&infile_path).context("Could not open input file")?;
+    let mut plaintext = File::create(&outfile_path)?;
+
+    eprint!("Decrypting...");
+    let sender_public = match decrypt::decrypt(&mut ciphertext, &mut plaintext, &recipient_private)
+    {
+        Ok(pk) => pk,
+        Err(e) => {
+            eprintln!("failed");
+            return Err(anyhow!(e));
+        }
+    };
+    eprintln!("done");
+    let encoded_public = Keyring::encode_public_key(&sender_public);
+    match keyring.get_name_from_key(&encoded_public) {
+        Some(name) => println!("Success. File from: {}", name),
+        None => {
+            println!("Caution. File is from an unknown key.");
+            println!("Unknown key: {}", encoded_public.as_ref());
+        }
+    }
+
     Ok(())
 }
 
@@ -147,6 +236,9 @@ pub(crate) fn gen_key(name: String) -> Result<(), anyhow::Error> {
         println!();
     }
     print!("{}", key_config);
+    if atty::isnt(atty::Stream::Stdout) {
+        println!();
+    }
 
     Ok(())
 }
@@ -231,6 +323,20 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let infile_path = PathBuf::from(infile);
     if !infile_path.exists() {
         return Err(anyhow!("Input file does not exist"));
+    }
+
+    {
+        let mut file_magic_num = [0u8; 4];
+        let mut ct_file = File::open(&infile_path).context("Could not open ciphertext file")?;
+        ct_file.read_exact(&mut file_magic_num)?;
+        if file_magic_num == decrypt::PROLOGUE {
+            return Err(anyhow!(
+                "Wrong file type. Try this with the regular decrypt command"
+            ));
+        }
+        if file_magic_num != decrypt::PASS_FILE_MAGIC {
+            return Err(anyhow!("Unsupported file type."));
+        }
     }
 
     let outfile_path = calculate_output_path(
@@ -328,7 +434,7 @@ fn ask_pass_stderr(prompt: &str) -> Result<String, anyhow::Error> {
 }
 
 fn confirm_overwrite<T: AsRef<Path>>(path: T) -> Result<bool, anyhow::Error> {
-    let filename = extract_filename(path.as_ref().file_name())?;
+    let filename = extract_filename(path.as_ref().file_name());
     let prompt = format!("File '{}' already exists. Overwrite? (y/n): ", &filename);
     let confirm = ask_user(&prompt)?;
     if confirm == "y" || confirm == "Y" {
@@ -348,13 +454,13 @@ fn ask_user(prompt: &str) -> Result<String, anyhow::Error> {
 }
 
 // Extract a rust String file name from a std::path::Path::file_name()
-fn extract_filename(name: Option<&OsStr>) -> Result<String, anyhow::Error> {
+fn extract_filename(name: Option<&OsStr>) -> String {
     match name {
         Some(name) => match name.to_str() {
-            Some(n) => Ok(n.to_string()),
-            None => Err(anyhow!("Filename has unsupported characters.")),
+            Some(n) => n.to_string(),
+            None => "[Err: Unknown filename]".to_string(),
         },
-        None => Err(anyhow!("Filename has unsupported characters.")),
+        None => "[Err: Unknown filename]".to_string(),
     }
 }
 
@@ -382,8 +488,8 @@ fn open_keyring(keyring_loc: Option<String>) -> Result<Keyring, anyhow::Error> {
     Ok(Keyring::new(&keyring_data)?)
 }
 
-pub fn add_file_ext(path: &PathBuf, extension: impl AsRef<OsStr>) -> PathBuf {
-    let mut new_path = path.clone();
+pub fn add_file_ext(path: &Path, extension: impl AsRef<OsStr>) -> PathBuf {
+    let mut new_path = path.to_path_buf();
     match path.extension() {
         Some(ext) => {
             let mut ext = ext.to_os_string();
@@ -397,14 +503,8 @@ pub fn add_file_ext(path: &PathBuf, extension: impl AsRef<OsStr>) -> PathBuf {
 }
 
 fn remove_file_ext<T: AsRef<Path>>(path: T, extension: &str) -> Option<PathBuf> {
-    if path.as_ref().extension().is_none() {
-        return None;
-    }
-    let ext = path.as_ref().extension().unwrap();
-    if ext.to_str().is_none() {
-        return None;
-    }
-    let ext = ext.to_str().unwrap();
+    let ext = path.as_ref().extension()?;
+    let ext = ext.to_str()?;
     if ext == extension {
         Some(path.as_ref().to_path_buf().with_extension(""))
     } else {

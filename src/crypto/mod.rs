@@ -22,23 +22,24 @@ const WREN_SALT: [u8; 32] = [
 ];
 
 /// X25519 Public Key
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct PublicKey {
     key: [u8; 32],
 }
 
 /// X25519 Private Key
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct PrivateKey {
     key: [u8; 32],
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct KeyPair {
     private_key: PrivateKey,
     public_key: PublicKey,
 }
 
+#[allow(dead_code)]
 impl KeyPair {
     fn new(private_key: &PrivateKey, public_key: &PublicKey) -> Self {
         Self {
@@ -118,7 +119,7 @@ pub fn noise_encrypt(
     payload_key: [u8; 32],
 ) -> ([u8; 32], Vec<u8>) {
     let sender_keypair = sender.into();
-    let ephem_keypair = ephemeral.map_or(None, |e| Some(e.into()));
+    let ephem_keypair = ephemeral.map(|e| e.into());
     let mut handshake_state = HandshakeState::initialize(
         true,
         prologue,
@@ -242,8 +243,7 @@ pub fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
     let mut mac = Hmac::<Sha256>::new_from_slice(key).unwrap();
     mac.update(data);
     let res = mac.finalize();
-    let res = res.into_bytes().try_into().unwrap();
-    res
+    res.into_bytes().try_into().unwrap()
 }
 
 fn noise_hkdf(chaining_key: &[u8], ikm: &[u8]) -> ([u8; 32], [u8; 32]) {

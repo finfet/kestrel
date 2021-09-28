@@ -93,11 +93,7 @@ pub(crate) fn encrypt_chunks<T: Read, U: Write>(
             }
         }
 
-        let ct = if aad.is_some() {
-            chapoly_encrypt(&key, chunk_number, &auth_data, &prev[..prev_read])
-        } else {
-            chapoly_encrypt(&key, chunk_number, &auth_data, &prev[..prev_read])
-        };
+        let ct = chapoly_encrypt(&key, chunk_number, &auth_data, &prev[..prev_read]);
 
         let mut chunk_header = [0u8; 16];
         chunk_header[..8].copy_from_slice(&chunk_number.to_be_bytes());
@@ -130,9 +126,7 @@ pub fn pass_encrypt<T: Read, U: Write>(
     password: &[u8],
 ) -> Result<(), EncryptError> {
     let salt = crypto::gen_salt();
-    Ok(pass_encrypt_internal(
-        plaintext, ciphertext, password, &salt,
-    )?)
+    pass_encrypt_internal(plaintext, ciphertext, password, &salt)
 }
 
 pub(crate) fn pass_encrypt_internal<T: Read, U: Write>(
@@ -144,10 +138,10 @@ pub(crate) fn pass_encrypt_internal<T: Read, U: Write>(
     let key = crypto::key_from_pass(password, salt);
     let aad = Some(&PASS_FILE_MAGIC[..]);
 
-    ciphertext.write(&PASS_FILE_MAGIC)?;
-    ciphertext.write(salt)?;
+    ciphertext.write_all(&PASS_FILE_MAGIC)?;
+    ciphertext.write_all(salt)?;
 
-    Ok(encrypt_chunks(plaintext, ciphertext, key, aad)?)
+    encrypt_chunks(plaintext, ciphertext, key, aad)
 }
 
 #[cfg(test)]
