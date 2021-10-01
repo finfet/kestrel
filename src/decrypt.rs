@@ -121,3 +121,111 @@ pub(crate) fn decrypt_chunks<T: Read, U: Write>(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod test {
+    use super::{decrypt, pass_decrypt};
+    use super::{PrivateKey, PublicKey};
+    use crate::crypto::hash;
+    use crate::encrypt::test::{
+        encrypt_one_chunk, encrypt_small, encrypt_two_chunks, pass_encrypt,
+    };
+
+    #[allow(dead_code)]
+    struct KeyData {
+        alice_private: PrivateKey,
+        alice_public: PublicKey,
+        bob_private: PrivateKey,
+        bob_public: PublicKey,
+    }
+
+    #[test]
+    fn test_decrypt_small() {
+        let expected_plaintext = b"Hello, world!";
+        let key_data = get_key_data();
+        let expected_sender = key_data.alice_public;
+        let recipient = key_data.bob_private;
+        let ciphertext = encrypt_small();
+        let mut plaintext = Vec::new();
+        let sender_public =
+            decrypt(&mut ciphertext.as_slice(), &mut plaintext, &recipient).unwrap();
+
+        assert_eq!(&expected_plaintext[..], plaintext.as_slice());
+        assert_eq!(expected_sender.as_bytes(), sender_public.as_bytes());
+    }
+
+    #[test]
+    fn test_decrypt_one_chunk() {
+        let expected_hash =
+            hex::decode("916b144867c340614f515c7b0e5415c74832d899c05264ded2a277a6e81d81ff")
+                .unwrap();
+        let key_data = get_key_data();
+        let expected_sender = key_data.alice_public;
+        let recipient = key_data.bob_private;
+        let ciphertext = encrypt_one_chunk();
+        let mut plaintext = Vec::new();
+        let sender_public =
+            decrypt(&mut ciphertext.as_slice(), &mut plaintext, &recipient).unwrap();
+        let got_hash = hash(plaintext.as_slice());
+
+        assert_eq!(expected_hash.as_slice(), &got_hash[..]);
+        assert_eq!(expected_sender.as_bytes(), sender_public.as_bytes());
+    }
+
+    #[test]
+    fn test_decrypt_two_chunks() {
+        let expected_hash =
+            hex::decode("6cb0ccb39028c57dd7db638d27c88fd1acc1794c8582fefe0949c091a2035ac7")
+                .unwrap();
+        let key_data = get_key_data();
+        let expected_sender = key_data.alice_public;
+        let recipient = key_data.bob_private;
+        let ciphertext = encrypt_two_chunks();
+        let mut plaintext = Vec::new();
+        let sender_public =
+            decrypt(&mut ciphertext.as_slice(), &mut plaintext, &recipient).unwrap();
+        let got_hash = hash(plaintext.as_slice());
+
+        assert_eq!(expected_hash.as_slice(), &got_hash[..]);
+        assert_eq!(expected_sender.as_bytes(), sender_public.as_bytes());
+    }
+
+    #[test]
+    fn test_pass_decrypt() {
+        let expected_pt = b"Be sure to drink your Ovaltine";
+        let pass = b"hackme";
+
+        let ciphertext = pass_encrypt();
+        let mut plaintext = Vec::new();
+        pass_decrypt(&mut ciphertext.as_slice(), &mut plaintext, pass).unwrap();
+
+        assert_eq!(&expected_pt[..], plaintext.as_slice());
+    }
+
+    fn get_key_data() -> KeyData {
+        let alice_private =
+            hex::decode("46acb4ad2a6ffb9d70245798634ad0d5caf7a9738e5f3b60905dee7a7b973bd5")
+                .unwrap();
+        let alice_private = PrivateKey::from(alice_private.as_slice());
+        let alice_public =
+            hex::decode("3cf3637b4dfdc4596544a936b3983fca09324505f39568d4b8537bc01a92cf6d")
+                .unwrap();
+        let alice_public = PublicKey::from(alice_public.as_slice());
+
+        let bob_private =
+            hex::decode("461299525a53333e8597a2b065703ec751356f8462d2704e630c108037567bd4")
+                .unwrap();
+        let bob_private = PrivateKey::from(bob_private.as_slice());
+        let bob_public =
+            hex::decode("98459724b39e6b9e90b60d214df2887093e224b163714e07e527a4d37edc2d03")
+                .unwrap();
+        let bob_public = PublicKey::from(bob_public.as_slice());
+
+        KeyData {
+            alice_private,
+            alice_public,
+            bob_private,
+            bob_public,
+        }
+    }
+}

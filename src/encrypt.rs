@@ -26,7 +26,7 @@ pub fn encrypt<T: Read, U: Write>(
     Ok(())
 }
 
-fn encrypt_internal<T: Read, U: Write>(
+pub(crate) fn encrypt_internal<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,
     sender: &PrivateKey,
@@ -145,7 +145,7 @@ pub(crate) fn pass_encrypt_internal<T: Read, U: Write>(
 }
 
 #[cfg(test)]
-mod test {
+pub(crate) mod test {
     use super::CHUNK_SIZE;
     use super::{encrypt_internal, pass_encrypt_internal};
     use super::{PrivateKey, PublicKey};
@@ -153,6 +153,7 @@ mod test {
     use std::convert::TryInto;
     use std::io::Read;
 
+    #[allow(dead_code)]
     struct KeyData {
         alice_private: PrivateKey,
         alice_public: PublicKey,
@@ -162,6 +163,18 @@ mod test {
 
     #[test]
     fn test_encrypt_small() {
+        let ciphertext = encrypt_small();
+
+        let expected_hash =
+            hex::decode("9138286121d425c20d83a116560bd00f8896d34d4c4ce4191561e080401a41e7")
+                .unwrap();
+        let got_hash = hash(ciphertext.as_slice());
+
+        assert_eq!(ciphertext.len(), 177);
+        assert_eq!(expected_hash.as_slice(), &got_hash);
+    }
+
+    pub(crate) fn encrypt_small() -> Vec<u8> {
         let ephemeral_private =
             hex::decode("fdbc28d8f4c2a97013e460836cece7a4bdf59df0cb4b3a185146d13615884f38")
                 .unwrap();
@@ -190,17 +203,23 @@ mod test {
         )
         .unwrap();
 
-        let expected_hash =
-            hex::decode("9138286121d425c20d83a116560bd00f8896d34d4c4ce4191561e080401a41e7")
-                .unwrap();
-        let got_hash = hash(ciphertext.as_slice());
-
-        assert_eq!(ciphertext.len(), 177);
-        assert_eq!(expected_hash.as_slice(), &got_hash);
+        ciphertext
     }
 
     #[test]
     fn test_encrypt_one_chunk() {
+        let ciphertext = encrypt_one_chunk();
+
+        let expected_hash =
+            hex::decode("94c32d8b9c2040ea9c8bb88eb0576911e4cf5119810b5685fae7ea3e83947273")
+                .unwrap();
+        let got_hash = hash(ciphertext.as_slice());
+
+        assert_eq!(ciphertext.len(), 65700);
+        assert_eq!(expected_hash.as_slice(), &got_hash);
+    }
+
+    pub(crate) fn encrypt_one_chunk() -> Vec<u8> {
         let ephemeral_private =
             hex::decode("fdf2b46d965e4bb85d856971d657fdd6dc1fe8993f27587980e4f07f6409927f")
                 .unwrap();
@@ -225,17 +244,23 @@ mod test {
         )
         .unwrap();
 
-        let expected_hash =
-            hex::decode("94c32d8b9c2040ea9c8bb88eb0576911e4cf5119810b5685fae7ea3e83947273")
-                .unwrap();
-        let got_hash = hash(ciphertext.as_slice());
-
-        assert_eq!(ciphertext.len(), 65700);
-        assert_eq!(expected_hash.as_slice(), &got_hash);
+        ciphertext
     }
 
     #[test]
-    fn test_encrypt_two_chuks() {
+    fn test_encrypt_two_chunks() {
+        let ciphertext = encrypt_two_chunks();
+
+        let expected_hash =
+            hex::decode("28a705ee2ae105f891e4012f09f2f049e3c167bf88e9c1f3629611e542067d56")
+                .unwrap();
+        let got_hash = hash(ciphertext.as_slice());
+
+        assert_eq!(ciphertext.len(), 65733);
+        assert_eq!(expected_hash.as_slice(), &got_hash);
+    }
+
+    pub(crate) fn encrypt_two_chunks() -> Vec<u8> {
         // Plaintext greater than 64k will trigger the need for an extra chunk
         let ephemeral_private =
             hex::decode("90ecf9d1dca6ed1e6997585228513a73d4db36bd7dd7c758acb55a6d333bb2fb")
@@ -261,17 +286,23 @@ mod test {
         )
         .unwrap();
 
-        let expected_hash =
-            hex::decode("28a705ee2ae105f891e4012f09f2f049e3c167bf88e9c1f3629611e542067d56")
-                .unwrap();
-        let got_hash = hash(ciphertext.as_slice());
-
-        assert_eq!(ciphertext.len(), 65733);
-        assert_eq!(expected_hash.as_slice(), &got_hash);
+        ciphertext
     }
 
     #[test]
     fn test_pass_encrypt() {
+        let ciphertext = pass_encrypt();
+
+        let expected_hash =
+            hex::decode("60f39bca91c8491d7782f2d38f3f20b87d14dacf72c80b7474341a8351cb7274")
+                .unwrap();
+        let got_hash = hash(ciphertext.as_slice());
+
+        assert_eq!(ciphertext.len(), 82);
+        assert_eq!(expected_hash.as_slice(), &got_hash);
+    }
+
+    pub(crate) fn pass_encrypt() -> Vec<u8> {
         let salt = hex::decode("506d95450c0a74f848185ec2105a6770").unwrap();
         let pass = b"hackme";
         let plaintext = b"Be sure to drink your Ovaltine";
@@ -281,13 +312,7 @@ mod test {
 
         pass_encrypt_internal(&mut pt.as_slice(), &mut ciphertext, pass, salt.as_slice()).unwrap();
 
-        let expected_hash =
-            hex::decode("60f39bca91c8491d7782f2d38f3f20b87d14dacf72c80b7474341a8351cb7274")
-                .unwrap();
-        let got_hash = hash(ciphertext.as_slice());
-
-        assert_eq!(ciphertext.len(), 82);
-        assert_eq!(expected_hash.as_slice(), &got_hash);
+        ciphertext
     }
 
     fn get_key_data() -> KeyData {

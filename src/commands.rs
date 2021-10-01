@@ -210,7 +210,7 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
 }
 
 pub(crate) fn gen_key() -> Result<(), anyhow::Error> {
-    let name = ask_user("Key name: ")?;
+    let name = ask_user_stderr("Key name: ")?;
     let pass = confirm_password_stderr("New password: ")?;
     let private_key = PrivateKey::new();
     let public_key = private_key.to_public();
@@ -222,13 +222,8 @@ pub(crate) fn gen_key() -> Result<(), anyhow::Error> {
     let key_config =
         Keyring::serialize_key(name.as_str(), &encoded_public_key, &encoded_private_key);
 
-    if atty::is(atty::Stream::Stdout) {
-        println!();
-    }
+    println!();
     print!("{}", key_config);
-    if atty::isnt(atty::Stream::Stdout) {
-        println!();
-    }
 
     Ok(())
 }
@@ -420,7 +415,7 @@ fn ask_pass_stderr(prompt: &str) -> Result<String, anyhow::Error> {
 fn confirm_overwrite<T: AsRef<Path>>(path: T) -> Result<bool, anyhow::Error> {
     let filename = extract_filename(path.as_ref().file_name());
     let prompt = format!("File '{}' already exists. Overwrite? (y/n): ", &filename);
-    let confirm = ask_user(&prompt)?;
+    let confirm = ask_user_stderr(&prompt)?;
     if confirm == "y" || confirm == "Y" {
         Ok(true)
     } else {
@@ -428,9 +423,9 @@ fn confirm_overwrite<T: AsRef<Path>>(path: T) -> Result<bool, anyhow::Error> {
     }
 }
 
-fn ask_user(prompt: &str) -> Result<String, anyhow::Error> {
+fn ask_user_stderr(prompt: &str) -> Result<String, anyhow::Error> {
     let mut line = String::new();
-    print!("{}", prompt);
+    eprint!("{}", prompt);
     std::io::stdout().flush()?;
     std::io::stdin().read_line(&mut line)?;
     line = line.trim().into();

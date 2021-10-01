@@ -20,7 +20,8 @@ const USAGE: &str = "USAGE:
     wren key extract-pub PRIVATE-KEY
     wren password encrypt|decrypt FILE [-o FILE]
 
-    Aliases enc, dec, and pass can be used as encrypt, decrypt, and password.
+    Aliases enc, dec, pass, and gen can be used as encrypt, decrypt,
+    password, and generate respectively.
     Option -k is required unless WREN_KEYRING env var is set.
 
 OPTIONS:
@@ -66,7 +67,7 @@ fn main() -> Result<(), anyhow::Error> {
             },
             Err(e) => print_usage(e)?,
         },
-        "password" | "pass" => match parse_password(args.as_slice()) {
+        "pass" | "password" => match parse_password(args.as_slice()) {
             Ok(pass_command) => match pass_command {
                 PasswordCommand::Encrypt(pass_opts) => commands::pass_encrypt(pass_opts)?,
                 PasswordCommand::Decrypt(pass_opts) => commands::pass_decrypt(pass_opts)?,
@@ -166,7 +167,13 @@ fn parse_decrypt(args: &[&str]) -> Result<DecryptOptions, Option<String>> {
 
 fn parse_key(args: &[&str]) -> Result<KeyCommand, Option<String>> {
     match args[2] {
-        "generate" => Ok(KeyCommand::Generate),
+        "gen" | "generate" => {
+            if args.len() == 3 {
+                Ok(KeyCommand::Generate)
+            } else {
+                Err(None)
+            }
+        }
         "change-pass" => {
             if args.len() == 4 {
                 let priv_key = args[3].to_string();
