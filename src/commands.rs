@@ -14,7 +14,7 @@ use anyhow::{anyhow, Context};
 
 #[derive(Debug)]
 pub(crate) enum KeyCommand {
-    Generate(String),
+    Generate,
     ChangePass(String),
     ExtractPub(String),
 }
@@ -31,7 +31,6 @@ pub(crate) struct EncryptOptions {
     pub from: String,
     pub outfile: Option<String>,
     pub keyring: Option<String>,
-    pub pass: Option<String>,
 }
 
 #[derive(Debug)]
@@ -40,14 +39,12 @@ pub(crate) struct DecryptOptions {
     pub to: String,
     pub outfile: Option<String>,
     pub keyring: Option<String>,
-    pub pass: Option<String>,
 }
 
 #[derive(Debug)]
 pub(crate) struct PasswordOptions {
     pub infile: String,
     pub outfile: Option<String>,
-    pub pass: Option<String>,
 }
 
 pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
@@ -56,7 +53,6 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     let from = opts.from;
     let outfile = opts.outfile;
     let keyring = opts.keyring;
-    let pass = opts.pass;
 
     let infile_path = PathBuf::from(infile);
     if !infile_path.exists() {
@@ -93,10 +89,7 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     }
     let sender_key = sender_key.private_key.as_ref().unwrap();
     let unlock_prompt = format!("Unlock '{}' key: ", &from);
-    let pass = match pass {
-        Some(p) => p,
-        None => ask_pass_stderr(&unlock_prompt)?,
-    };
+    let pass = ask_pass_stderr(&unlock_prompt)?;
 
     let mut pass = pass;
     let sender_private = loop {
@@ -133,7 +126,6 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
     let to = opts.to;
     let outfile = opts.outfile;
     let keyring = opts.keyring;
-    let pass = opts.pass;
 
     let infile_path = PathBuf::from(infile);
     if !infile_path.exists() {
@@ -178,10 +170,7 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
         None => return Err(anyhow!("Key '{}' needs a private key", &to)),
     };
     let unlock_prompt = format!("Unlock '{}' key: ", &to);
-    let pass = match pass {
-        Some(p) => p,
-        None => ask_pass_stderr(&unlock_prompt)?,
-    };
+    let pass = ask_pass_stderr(&unlock_prompt)?;
 
     let mut pass = pass;
     let recipient_private = loop {
@@ -220,11 +209,12 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-pub(crate) fn gen_key(name: String) -> Result<(), anyhow::Error> {
+pub(crate) fn gen_key() -> Result<(), anyhow::Error> {
+    let name = ask_user("Key name: ")?;
+    let pass = confirm_password_stderr("New password: ")?;
     let private_key = PrivateKey::new();
     let public_key = private_key.to_public();
     let salt = crypto::gen_salt();
-    let pass = confirm_password_stderr("New Password: ")?;
 
     let encoded_private_key = Keyring::lock_private_key(&private_key, pass.as_bytes(), salt);
     let encoded_public_key = Keyring::encode_public_key(&public_key);
@@ -244,8 +234,8 @@ pub(crate) fn gen_key(name: String) -> Result<(), anyhow::Error> {
 }
 
 pub(crate) fn change_pass(private_key: String) -> Result<(), anyhow::Error> {
-    let old_pass = rpassword::prompt_password_stderr("Old Password: ")?;
-    let new_pass = confirm_password_stderr("New Password: ")?;
+    let old_pass = rpassword::prompt_password_stderr("Old password: ")?;
+    let new_pass = confirm_password_stderr("New password: ")?;
 
     let old_sk: EncodedSk = private_key
         .as_str()
@@ -283,7 +273,7 @@ pub(crate) fn extract_pub(private_key: String) -> Result<(), anyhow::Error> {
 pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let infile = opts.infile;
     let outfile = opts.outfile;
-    let pass = opts.pass;
+
     let infile_path = PathBuf::from(infile);
     if !infile_path.exists() {
         return Err(anyhow!("Input file does not exist"));
@@ -298,10 +288,7 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
         None => return Ok(()), // The user didn't want to overwrite the file.
     };
 
-    let pass = match pass {
-        Some(p) => p,
-        None => confirm_password_stderr("Use password: ")?,
-    };
+    let pass = confirm_password_stderr("Use password: ")?;
 
     let mut plaintext = File::open(infile_path).context("Could not open plaintext file")?;
     let mut ciphertext = File::create(&outfile_path).context("Could not create ciphertext file")?;
@@ -319,7 +306,7 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
 pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let infile = opts.infile;
     let outfile = opts.outfile;
-    let pass = opts.pass;
+
     let infile_path = PathBuf::from(infile);
     if !infile_path.exists() {
         return Err(anyhow!("Input file does not exist"));
@@ -349,10 +336,7 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
         None => return Ok(()), // The user didn't want to overwrite the file.
     };
 
-    let pass = match pass {
-        Some(p) => p,
-        None => ask_pass_stderr("Password: ")?,
-    };
+    let pass = ask_pass_stderr("Password: ")?;
 
     let mut ciphertext = File::open(&infile_path).context("Could not open ciphertext file")?;
     let mut plaintext = File::create(&outfile_path).context("Could not create plaintext file")?;
@@ -417,7 +401,7 @@ fn calculate_output_path<T: AsRef<Path>, U: Into<PathBuf>>(
 fn confirm_password_stderr(prompt: &str) -> Result<String, anyhow::Error> {
     let password = loop {
         let pass = rpassword::prompt_password_stderr(prompt)?;
-        let confirm_pass = rpassword::prompt_password_stderr("Confirm Password: ")?;
+        let confirm_pass = rpassword::prompt_password_stderr("Confirm password: ")?;
         if pass != confirm_pass {
             eprintln!("Passwords do not match");
         } else {
