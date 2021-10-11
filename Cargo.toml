@@ -5,17 +5,17 @@ edition = "2018"
 resolver = "2"
 
 [dependencies]
-getrandom = "0.2.3"
-x25519-dalek = "1.2.0"
-chacha20poly1305 = "0.9.0"
-sha2 = "0.9.8"
-hmac = "0.11.0"
-scrypt = { version = "0.8.0", default-features = false }
-hex = "0.4.3"
+wren-crypto = { path = "./wren-crypto", version = "0.1.0" }
 base64 = "0.13.0"
 getopts = "0.2.21"
 anyhow = "1.0.44"
 rpassword = "5.0.1"
+
+[dev-dependencies]
+hex = "0.4.3"
+
+[workspace]
+members = ["wren-crypto"]
 
 [profile.dev.package.scrypt]
 opt-level = 3

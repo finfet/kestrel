@@ -1,5 +1,6 @@
-use crate::crypto::errors::ChaPolyDecryptError;
 use std::error::Error;
+
+use wren_crypto::errors::ChaPolyDecryptError;
 
 #[derive(Debug)]
 pub enum KeyringError {

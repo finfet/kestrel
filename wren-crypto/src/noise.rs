@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
-use crate::crypto::errors::ChaPolyDecryptError;
-use crate::crypto::{
+use crate::errors::ChaPolyDecryptError;
+use crate::{
     chapoly_decrypt, chapoly_encrypt, hash, noise_hkdf, x25519, KeyPair, PrivateKey, PublicKey,
 };
 

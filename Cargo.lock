@@ -391,12 +391,20 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64",
- "chacha20poly1305",
  "getopts",
+ "hex",
+ "rpassword",
+ "wren-crypto",
+]
+
+[[package]]
+name = "wren-crypto"
+version = "0.1.0"
+dependencies = [
+ "chacha20poly1305",
  "getrandom 0.2.3",
  "hex",
  "hmac",
- "rpassword",
  "scrypt",
  "sha2",
  "x25519-dalek",

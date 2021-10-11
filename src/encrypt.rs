@@ -1,12 +1,9 @@
+use crate::errors::EncryptError;
+use crate::utils::*;
+
 use std::io::{Read, Write};
 
-use crate::crypto;
-use crate::crypto::{chapoly_encrypt, noise_encrypt};
-use crate::crypto::{PrivateKey, PublicKey};
-
-use crate::errors::EncryptError;
-
-use crate::utils::*;
+use wren_crypto::{chapoly_encrypt, noise_encrypt, PrivateKey, PublicKey};
 
 /// Encrypt a file. From the sender key to the recipient key.
 pub fn encrypt<T: Read, U: Write>(
@@ -15,7 +12,7 @@ pub fn encrypt<T: Read, U: Write>(
     sender: &PrivateKey,
     recipient: &PublicKey,
 ) -> Result<(), EncryptError> {
-    let payload_key = crypto::gen_key();
+    let payload_key = wren_crypto::gen_key();
 
     encrypt_internal(plaintext, ciphertext, sender, recipient, None, payload_key)?;
 
@@ -38,7 +35,7 @@ pub(crate) fn encrypt_internal<T: Read, U: Write>(
     ikm[..32].copy_from_slice(&payload_key);
     ikm[32..].copy_from_slice(&handshake_hash);
 
-    let file_enc_key = crypto::hkdf_extract(Some(&WREN_SALT), &ikm);
+    let file_enc_key = wren_crypto::hkdf_extract(Some(&WREN_SALT), &ikm);
 
     ciphertext.write_all(&PROLOGUE)?;
     ciphertext.write_all(&noise_message)?;
@@ -128,7 +125,7 @@ pub fn pass_encrypt<T: Read, U: Write>(
     ciphertext: &mut U,
     password: &[u8],
 ) -> Result<(), EncryptError> {
-    let salt = crypto::gen_salt();
+    let salt = wren_crypto::gen_salt();
     pass_encrypt_internal(plaintext, ciphertext, password, &salt)
 }
 
@@ -138,7 +135,7 @@ pub(crate) fn pass_encrypt_internal<T: Read, U: Write>(
     password: &[u8],
     salt: &[u8],
 ) -> Result<(), EncryptError> {
-    let key = crypto::scrypt(password, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
+    let key = wren_crypto::scrypt(password, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
     let aad = Some(&PASS_FILE_MAGIC[..]);
 
     ciphertext.write_all(&PASS_FILE_MAGIC)?;
@@ -152,9 +149,9 @@ pub(crate) mod test {
     use super::CHUNK_SIZE;
     use super::{encrypt_internal, pass_encrypt_internal};
     use super::{PrivateKey, PublicKey};
-    use crate::crypto::hash;
     use std::convert::TryInto;
     use std::io::Read;
+    use wren_crypto::hash;
 
     #[allow(dead_code)]
     struct KeyData {

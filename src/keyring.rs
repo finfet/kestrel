@@ -1,11 +1,11 @@
+use crate::errors::KeyringError;
+use crate::utils::{SCRYPT_N, SCRYPT_P, SCRYPT_R};
+
 use std::convert::{TryFrom, TryInto};
 use std::io::Cursor;
 use std::io::Write;
 
-use crate::crypto;
-use crate::crypto::{PrivateKey, PublicKey};
-use crate::errors::KeyringError;
-use crate::utils::{SCRYPT_N, SCRYPT_P, SCRYPT_R};
+use wren_crypto::{PrivateKey, PublicKey};
 
 #[derive(Debug, Clone)]
 pub struct EncodedPk(String);
@@ -121,9 +121,9 @@ impl Keyring {
         // unless the allocator fails, which will cause a panic anyway.
         key_data.write_all(&KEY_FILE_MAGIC).unwrap();
         key_data.write_all(&salt).unwrap();
-        let derived_key = crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
+        let derived_key = wren_crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
         let sk_ct =
-            crypto::chapoly_encrypt(&derived_key, 0, &KEY_FILE_MAGIC, private_key.as_bytes());
+            wren_crypto::chapoly_encrypt(&derived_key, 0, &KEY_FILE_MAGIC, private_key.as_bytes());
         key_data.write_all(sk_ct.as_slice()).unwrap();
 
         let key_data = key_data.into_inner();
@@ -146,9 +146,9 @@ impl Keyring {
         let salt = &enc_sk[4..20];
         let ct = &enc_sk[20..];
 
-        let key = crypto::scrypt(password, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
+        let key = wren_crypto::scrypt(password, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
 
-        let pt = match crypto::chapoly_decrypt(&key, 0, header, ct) {
+        let pt = match wren_crypto::chapoly_decrypt(&key, 0, header, ct) {
             Ok(pt) => pt,
             Err(_) => return Err(KeyringError::PrivateKeyDecrypt),
         };
@@ -161,7 +161,7 @@ impl Keyring {
     // appended at the end. Represented as base64 urlsafe no padding.
     pub fn encode_public_key(public_key: &PublicKey) -> EncodedPk {
         let pk = public_key.as_bytes();
-        let checksum = crypto::hash(pk);
+        let checksum = wren_crypto::hash(pk);
         let mut encoded = [0u8; 36];
         encoded[..32].copy_from_slice(pk);
         encoded[32..].copy_from_slice(&checksum[..4]);
@@ -176,7 +176,7 @@ impl Keyring {
         let pk = &enc_pk_bytes[..32];
         let checksum = &enc_pk_bytes[32..];
 
-        let exp_checksum = crypto::hash(pk);
+        let exp_checksum = wren_crypto::hash(pk);
         let exp_checksum: &[u8] = &exp_checksum[..4];
 
         if checksum != exp_checksum {
@@ -357,8 +357,8 @@ impl Keyring {
 mod tests {
     use super::Keyring;
     use super::{EncodedPk, EncodedSk};
-    use crate::crypto::{PrivateKey, PublicKey};
     use std::convert::TryInto;
+    use wren_crypto::{PrivateKey, PublicKey};
     const KEYRING_INI: &str = "
 [Key]
 # comment lines are fine.

@@ -1,10 +1,10 @@
+use crate::errors::DecryptError;
+use crate::utils::*;
+
 use std::convert::TryInto;
 use std::io::{Read, Write};
 
-use crate::crypto;
-use crate::crypto::{chapoly_decrypt, noise_decrypt, PrivateKey, PublicKey};
-use crate::errors::DecryptError;
-use crate::utils::*;
+use wren_crypto::{chapoly_decrypt, noise_decrypt, PrivateKey, PublicKey};
 
 const TAG_SIZE: usize = 16;
 
@@ -25,7 +25,7 @@ pub fn decrypt<T: Read, U: Write>(
     let mut ikm = [0u8; 64];
     ikm[..32].copy_from_slice(&payload_key);
     ikm[32..].copy_from_slice(&handshake_hash);
-    let derived_key = crypto::hkdf_extract(Some(&WREN_SALT), &ikm);
+    let derived_key = wren_crypto::hkdf_extract(Some(&WREN_SALT), &ikm);
 
     decrypt_chunks(ciphertext, plaintext, derived_key, None)?;
 
@@ -43,7 +43,7 @@ pub fn pass_decrypt<T: Read, U: Write>(
     let mut salt = [0u8; 16];
     ciphertext.read_exact(&mut salt)?;
 
-    let key = crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
+    let key = wren_crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
     let aad = Some(&pass_magic_num[..]);
 
     decrypt_chunks(ciphertext, plaintext, key, aad)?;
@@ -132,10 +132,10 @@ pub(crate) fn decrypt_chunks<T: Read, U: Write>(
 mod test {
     use super::{decrypt, pass_decrypt};
     use super::{PrivateKey, PublicKey};
-    use crate::crypto::hash;
     use crate::encrypt::test::{
         encrypt_one_chunk, encrypt_small, encrypt_two_chunks, pass_encrypt,
     };
+    use wren_crypto::hash;
 
     #[allow(dead_code)]
     struct KeyData {

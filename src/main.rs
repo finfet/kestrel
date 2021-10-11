@@ -1,15 +1,14 @@
 mod commands;
-mod crypto;
 mod decrypt;
 mod encrypt;
 mod errors;
 mod keyring;
 mod utils;
 
+use commands::{DecryptOptions, EncryptOptions, KeyCommand, PasswordCommand, PasswordOptions};
+
 use anyhow::anyhow;
 use getopts::Options;
-
-use commands::{DecryptOptions, EncryptOptions, KeyCommand, PasswordCommand, PasswordOptions};
 
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
