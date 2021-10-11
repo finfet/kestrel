@@ -9,6 +9,7 @@ use crate::crypto::PrivateKey;
 use crate::decrypt;
 use crate::encrypt;
 use crate::keyring::{EncodedSk, Keyring};
+use crate::utils::{PASS_FILE_MAGIC, PROLOGUE};
 
 use anyhow::{anyhow, Context};
 
@@ -139,12 +140,12 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
         let mut prologue = [0u8; 4];
         let mut ct_file = File::open(&infile_path).context("Could not open ciphertext file")?;
         ct_file.read_exact(&mut prologue)?;
-        if prologue == decrypt::PASS_FILE_MAGIC {
+        if prologue == PASS_FILE_MAGIC {
             return Err(anyhow!(
                 "Wrong file type. Try this with the password decrypt command"
             ));
         }
-        if prologue != decrypt::PROLOGUE {
+        if prologue != PROLOGUE {
             return Err(anyhow!("Unsupported file type."));
         }
     }
@@ -311,12 +312,12 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
         let mut file_magic_num = [0u8; 4];
         let mut ct_file = File::open(&infile_path).context("Could not open ciphertext file")?;
         ct_file.read_exact(&mut file_magic_num)?;
-        if file_magic_num == decrypt::PROLOGUE {
+        if file_magic_num == PROLOGUE {
             return Err(anyhow!(
                 "Wrong file type. Try this with the regular decrypt command"
             ));
         }
-        if file_magic_num != decrypt::PASS_FILE_MAGIC {
+        if file_magic_num != PASS_FILE_MAGIC {
             return Err(anyhow!("Unsupported file type."));
         }
     }

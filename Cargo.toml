@@ -16,7 +16,6 @@ base64 = "0.13.0"
 getopts = "0.2.21"
 anyhow = "1.0.44"
 rpassword = "5.0.1"
-atty = "0.2.14"
 
 [profile.dev.package.scrypt]
 opt-level = 3

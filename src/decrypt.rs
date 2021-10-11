@@ -1,12 +1,11 @@
 use std::convert::TryInto;
 use std::io::{Read, Write};
 
-use crate::crypto::{chapoly_decrypt, key_from_pass, noise_decrypt, PrivateKey, PublicKey};
+use crate::crypto;
+use crate::crypto::{chapoly_decrypt, noise_decrypt, PrivateKey, PublicKey};
 use crate::errors::DecryptError;
+use crate::utils::*;
 
-pub const PROLOGUE: [u8; 4] = [0x57, 0x52, 0x4e, 0x10];
-pub const PASS_FILE_MAGIC: [u8; 4] = [0x57, 0x52, 0x4e, 0x30];
-const CHUNK_SIZE: usize = 65536;
 const TAG_SIZE: usize = 16;
 
 pub fn decrypt<T: Read, U: Write>(
@@ -19,9 +18,16 @@ pub fn decrypt<T: Read, U: Write>(
 
     let mut handshake_message = [0u8; 128];
     ciphertext.read_exact(&mut handshake_message)?;
-    let (key, sender_public) = noise_decrypt(recipient, &prologue, &handshake_message)?;
+    let (payload_key, handshake_hash, sender_public) =
+        noise_decrypt(recipient, &prologue, &handshake_message)?;
 
-    decrypt_chunks(ciphertext, plaintext, key, None)?;
+    // ikm = payload_key || handshake_hash
+    let mut ikm = [0u8; 64];
+    ikm[..32].copy_from_slice(&payload_key);
+    ikm[32..].copy_from_slice(&handshake_hash);
+    let derived_key = crypto::hkdf_extract(Some(&WREN_SALT), &ikm);
+
+    decrypt_chunks(ciphertext, plaintext, derived_key, None)?;
 
     Ok(sender_public)
 }
@@ -37,7 +43,7 @@ pub fn pass_decrypt<T: Read, U: Write>(
     let mut salt = [0u8; 16];
     ciphertext.read_exact(&mut salt)?;
 
-    let key = key_from_pass(password, &salt);
+    let key = crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
     let aad = Some(&pass_magic_num[..]);
 
     decrypt_chunks(ciphertext, plaintext, key, aad)?;

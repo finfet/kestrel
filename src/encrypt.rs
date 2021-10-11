@@ -6,11 +6,7 @@ use crate::crypto::{PrivateKey, PublicKey};
 
 use crate::errors::EncryptError;
 
-const PROLOGUE: [u8; 4] = [0x57, 0x52, 0x4e, 0x10];
-
-const PASS_FILE_MAGIC: [u8; 4] = [0x57, 0x52, 0x4e, 0x30];
-
-const CHUNK_SIZE: usize = 65536;
+use crate::utils::*;
 
 /// Encrypt a file. From the sender key to the recipient key.
 pub fn encrypt<T: Read, U: Write>(
@@ -34,8 +30,15 @@ pub(crate) fn encrypt_internal<T: Read, U: Write>(
     ephemeral: Option<&PrivateKey>,
     payload_key: [u8; 32],
 ) -> Result<(), EncryptError> {
-    let (file_enc_key, noise_message) =
-        noise_encrypt(sender, recipient, ephemeral, &PROLOGUE, payload_key);
+    let (handshake_hash, noise_message) =
+        noise_encrypt(sender, recipient, ephemeral, &PROLOGUE, &payload_key);
+
+    // ikm = payload_key || handshake_hash
+    let mut ikm = [0u8; 64];
+    ikm[..32].copy_from_slice(&payload_key);
+    ikm[32..].copy_from_slice(&handshake_hash);
+
+    let file_enc_key = crypto::hkdf_extract(Some(&WREN_SALT), &ikm);
 
     ciphertext.write_all(&PROLOGUE)?;
     ciphertext.write_all(&noise_message)?;
@@ -135,7 +138,7 @@ pub(crate) fn pass_encrypt_internal<T: Read, U: Write>(
     password: &[u8],
     salt: &[u8],
 ) -> Result<(), EncryptError> {
-    let key = crypto::key_from_pass(password, salt);
+    let key = crypto::scrypt(password, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
     let aad = Some(&PASS_FILE_MAGIC[..]);
 
     ciphertext.write_all(&PASS_FILE_MAGIC)?;

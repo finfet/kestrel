@@ -4,6 +4,7 @@ mod decrypt;
 mod encrypt;
 mod errors;
 mod keyring;
+mod utils;
 
 use anyhow::anyhow;
 use getopts::Options;

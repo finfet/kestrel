@@ -5,6 +5,7 @@ use std::io::Write;
 use crate::crypto;
 use crate::crypto::{PrivateKey, PublicKey};
 use crate::errors::KeyringError;
+use crate::utils::{SCRYPT_N, SCRYPT_P, SCRYPT_R};
 
 #[derive(Debug, Clone)]
 pub struct EncodedPk(String);
@@ -120,7 +121,7 @@ impl Keyring {
         // unless the allocator fails, which will cause a panic anyway.
         key_data.write_all(&KEY_FILE_MAGIC).unwrap();
         key_data.write_all(&salt).unwrap();
-        let derived_key = crypto::key_from_pass(password, &salt);
+        let derived_key = crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
         let sk_ct =
             crypto::chapoly_encrypt(&derived_key, 0, &KEY_FILE_MAGIC, private_key.as_bytes());
         key_data.write_all(sk_ct.as_slice()).unwrap();
@@ -145,7 +146,7 @@ impl Keyring {
         let salt = &enc_sk[4..20];
         let ct = &enc_sk[20..];
 
-        let key = crypto::key_from_pass(password, salt);
+        let key = crypto::scrypt(password, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
 
         let pt = match crypto::chapoly_decrypt(&key, 0, header, ct) {
             Ok(pt) => pt,

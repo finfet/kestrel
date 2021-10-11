@@ -15,11 +15,11 @@ use sha2::{Digest, Sha256};
 use errors::ChaPolyDecryptError;
 use noise::HandshakeState;
 
-// WREN_SALT_VER_01 with trailing zero bytes
-const WREN_SALT: [u8; 32] = [
-    0x57, 0x52, 0x45, 0x4e, 0x5f, 0x53, 0x41, 0x4c, 0x54, 0x5f, 0x56, 0x45, 0x52, 0x5f, 0x30, 0x31,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-];
+/// Noise handshake hash
+pub type HandshakeHash = [u8; 32];
+
+/// Noise Payload Key
+pub type PayloadKey = [u8; 32];
 
 /// X25519 Public Key
 #[derive(Clone)]
@@ -109,15 +109,16 @@ pub fn x25519(private_key: &PrivateKey, public_key: &PublicKey) -> [u8; 32] {
 
 /// Encrypt the payload key using the noise X protocol.
 /// Passing None to ephemeral generates a new key pair. This is almost
-/// certainly what you want. Returns the channel bound file encryption key
-/// and the noise handshake message.
+/// certainly what you want. Returns the handshake hash and the noise handshake
+/// message ciphertext. Use noise channel binding to combine the handshake
+/// hash and payload key.
 pub fn noise_encrypt(
     sender: &PrivateKey,
     recipient: &PublicKey,
     ephemeral: Option<&PrivateKey>,
     prologue: &[u8],
-    payload_key: [u8; 32],
-) -> ([u8; 32], Vec<u8>) {
+    payload_key: &PayloadKey,
+) -> (HandshakeHash, Vec<u8>) {
     let sender_keypair = sender.into();
     let ephem_keypair = ephemeral.map(|e| e.into());
     let mut handshake_state = HandshakeState::initialize(
@@ -130,27 +131,20 @@ pub fn noise_encrypt(
     );
 
     // Encrypt the payload key
-    let (ciphertext, _) = handshake_state.write_message(&payload_key);
+    let (ciphertext, _) = handshake_state.write_message(payload_key);
 
     let handshake_hash = handshake_state.symmetric_state.get_handshake_hash();
 
-    // ikm = payload_key || handshake_hash
-    let mut ikm = [0u8; 64];
-    ikm[..32].copy_from_slice(&payload_key);
-    ikm[32..].copy_from_slice(&handshake_hash);
-
-    let derived_key = derive_key(&ikm);
-
-    (derived_key, ciphertext)
+    (handshake_hash, ciphertext)
 }
 
 /// Decrypt the payload key using the noise protocol.
-/// Returns the channel bound file encryption key and the sender's [PublicKey]
+/// Returns the payload key, handshake hash, and the sender's [PublicKey]
 pub fn noise_decrypt(
     recipient: &PrivateKey,
     prologue: &[u8],
     handshake_message: &[u8],
-) -> Result<([u8; 32], PublicKey), ChaPolyDecryptError> {
+) -> Result<(PayloadKey, HandshakeHash, PublicKey), ChaPolyDecryptError> {
     let recipient_pair = recipient.into();
     let initiator = false;
     let mut handshake_state = noise::HandshakeState::initialize(
@@ -161,21 +155,17 @@ pub fn noise_decrypt(
         None,
         None,
     );
+
+    // Decrypt the payload key
     let (payload_key, _) = handshake_state.read_message(handshake_message)?;
+    let payload_key: [u8; 32] = payload_key.try_into().unwrap();
 
     let handshake_hash = handshake_state.symmetric_state.get_handshake_hash();
     let sender_pubkey = handshake_state
         .get_pubkey()
         .expect("Expected to send the sender's public key");
 
-    // ikm = payload_key || handshake_hash
-    let mut ikm = [0u8; 64];
-    ikm[..32].copy_from_slice(payload_key.as_slice());
-    ikm[32..].copy_from_slice(&handshake_hash);
-
-    let derived_key = derive_key(&ikm);
-
-    Ok((derived_key, sender_pubkey))
+    Ok((payload_key, handshake_hash, sender_pubkey))
 }
 
 /// Performs ChaCha20-Poly1305 encryption
@@ -258,8 +248,11 @@ fn noise_hkdf(chaining_key: &[u8], ikm: &[u8]) -> ([u8; 32], [u8; 32]) {
 }
 
 /// Derives a secret key from a password and a salt using scrypt
-pub fn key_from_pass(password: &[u8], salt: &[u8]) -> [u8; 32] {
-    let scrypt_params = scrypt::Params::new(15, 8, 1).unwrap();
+/// Recommended parameters are n = 32768, r = 8, p = 1
+/// n must be a power of 2 and > 1. r and p must be < 2^32
+pub fn scrypt(password: &[u8], salt: &[u8], n: u32, r: u32, p: u32) -> [u8; 32] {
+    let n = (n as f64).log2() as u8;
+    let scrypt_params = scrypt::Params::new(n, r, p).unwrap();
     let mut key = [0u8; 32];
 
     scrypt::scrypt(password, salt, &scrypt_params, &mut key).expect("scrypt kdf failed");
@@ -270,11 +263,15 @@ pub fn key_from_pass(password: &[u8], salt: &[u8]) -> [u8; 32] {
 /// Derive a pseudorandom key from input key material
 /// Performs HMAC_SHA256(salt, ikm) using [`WREN_SALT`] and the ikm.
 /// This is equivalent to hkdf-extract
-fn derive_key(ikm: &[u8]) -> [u8; 32] {
-    hmac_sha256(&WREN_SALT, ikm)
+pub fn hkdf_extract(salt: Option<&[u8]>, ikm: &[u8]) -> [u8; 32] {
+    let salt = match salt {
+        Some(s) => s,
+        None => &[0u8; 32],
+    };
+    hmac_sha256(salt, ikm)
 }
 
-/// Generates 16 CSPRNG bytes to use as a salt for [`key_from_pass`]
+/// Generates 16 CSPRNG bytes to use as a salt for [`scrypt`]
 pub fn gen_salt() -> [u8; 16] {
     let mut salt = [0u8; 16];
     getrandom(&mut salt).expect("CSPRNG for salt gen failed");
@@ -290,7 +287,7 @@ pub fn gen_key() -> [u8; 32] {
 
 #[cfg(test)]
 mod test {
-    use super::{chapoly_decrypt, chapoly_encrypt, hash, key_from_pass, x25519};
+    use super::{chapoly_decrypt, chapoly_encrypt, hash, hkdf_extract, scrypt, x25519};
     use super::{PrivateKey, PublicKey};
 
     #[test]
@@ -339,15 +336,33 @@ mod test {
     }
 
     #[test]
-    fn test_key_from_pass() {
+    fn test_scrypt() {
         let password = b"hackme";
         let salt = b"yellowsubmarine.";
-        let result = key_from_pass(password, salt);
+        let result = scrypt(password, salt, 32768, 8, 1);
         let expected =
             hex::decode("3ebb9ac0d1da595f755407fe8fc246fe67fe6075730fc6e853351c2834bd6157")
                 .unwrap();
 
         assert_eq!(&expected, &result);
+    }
+
+    #[test]
+    fn test_hkdf_extract() {
+        let ikm = hex::decode("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b").unwrap();
+        let salt = hex::decode("000102030405060708090a0b0c").unwrap();
+        let expected_prk =
+            hex::decode("077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5")
+                .unwrap();
+        let prk = hkdf_extract(Some(&salt), ikm.as_slice());
+        assert_eq!(expected_prk.as_slice(), &prk);
+
+        let expected_prk2 =
+            hex::decode("4b1d8f46b0b39cf9134050912513746cda32ea0d095da8a941993cb692b3e9c3")
+                .unwrap();
+        let ikm2 = b"yellowsubmarine.";
+        let prk2 = hkdf_extract(None, ikm2);
+        assert_eq!(expected_prk2.as_slice(), &prk2);
     }
 
     #[test]
