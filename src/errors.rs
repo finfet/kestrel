@@ -68,7 +68,7 @@ impl std::fmt::Display for DecryptError {
             DecryptError::ChunkLen => write!(f, "Chunk length is too large."),
             DecryptError::ChaPolyDecrypt => write!(
                 f,
-                "File decryption failed. The file may have been modified."
+                "Decrypt failed. Check key used. File may have been modified."
             ),
             DecryptError::UnexpectedData => write!(f, "Expected end of stream. Found extra data."),
             DecryptError::IOError(e) => e.fmt(f),

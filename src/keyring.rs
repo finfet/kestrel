@@ -246,8 +246,8 @@ impl Keyring {
                     }
                 };
 
-                if name.len() > MAX_NAME_SIZE {
-                    return Err(KeyringError::ParseConfig("Name is too long.".into()));
+                if !Keyring::valid_key_name(name) {
+                    return Err(KeyringError::ParseConfig("Invalid Name".into()));
                 }
                 key_name = Some(name.into());
             } else if cleaned_line.starts_with("PublicKey") {
@@ -350,6 +350,13 @@ impl Keyring {
         keys.push(key);
 
         Ok(())
+    }
+
+    pub fn valid_key_name(name: &str) -> bool {
+        if name.len() < 1 || name.len() > MAX_NAME_SIZE {
+            return false;
+        }
+        true
     }
 }
 
