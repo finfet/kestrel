@@ -37,7 +37,8 @@ fn main() -> Result<(), anyhow::Error> {
     let args: Vec<&str> = args.iter().map(|arg| arg.as_str()).collect();
 
     if args.len() <= 1 {
-        return Err(anyhow!("{}", USAGE));
+        print_help();
+        return Ok(());
     }
 
     if args[1] == "-v" || args[1] == "--version" {
