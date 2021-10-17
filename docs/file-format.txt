@@ -2,10 +2,8 @@
 
 ## Encrypted File Format
 
-[Prologue] - 4 bytes
-4 bytes  : WRN in ASCII and Version (0x10 hex) (57 52 4E 10)
-
-[Noise Handshake Message] - 128 bytes
+[Noise Handshake Message] - 132 bytes (4 prologue + 128 noise handshake)
+4  bytes : prologue is WRN in ASCII + Version 0x10 (57 52 4E 10)
 32 bytes : ephemeral public key
 48 bytes : chapoly encrypted 32 byte public key (+ 16 byte tag)
 48 bytes : chapoly encrypted 32 byte symmetric key payload (+ 16 byte tag)
@@ -20,13 +18,12 @@ X  bytes : ciphertext
 Chunks may repeat many times. Chunks are 64KiB by default.
 Last chunk indicator is set to 1 for the last chunk in the message.
 Ciphertext length and last chunk indicator are included in the additional
-authenticated data. The Noise handshake message and prologue are authenticated
-as part of noise channel binding with the payload key.
+authenticated data.
 
 ## Encrypted Private Key Format
 
 [HEADER] - 20 bytes
-4  bytes : WRN in ASCII + Version (0x20 hex) (57 52 4E 20)
+4  bytes : WRN in ASCII + Version 0x20 (57 52 4E 20)
 16 bytes : salt
 
 [Encrypted Plaintext] - (Overhead of 16)
@@ -41,7 +38,7 @@ random, resulting in a fresh key each time.
 ## Password Derived Symmetric Encryption
 
 [HEADER] - 20 bytes
-4  bytes : WRN in ASCII + Version (0x30 hex) (57 52 4E 30)
+4  bytes : WRN in ASCII + Version 0x30 (57 52 4E 30)
 16 bytes : salt
 
 [Encrypted Plaintext Chunks] (overhead of 32)

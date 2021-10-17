@@ -353,9 +353,10 @@ impl Keyring {
     }
 
     pub fn valid_key_name(name: &str) -> bool {
-        if name.len() < 1 || name.len() > MAX_NAME_SIZE {
+        if name.is_empty() || name.len() > MAX_NAME_SIZE {
             return false;
         }
+
         true
     }
 }

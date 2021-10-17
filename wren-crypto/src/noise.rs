@@ -136,6 +136,7 @@ impl SymmetricState {
 
     // MixKeyAndHash() function not needed by this application
 
+    #[allow(dead_code)]
     pub fn get_handshake_hash(&self) -> [u8; 32] {
         self.hash_output
     }
@@ -234,7 +235,7 @@ impl HandshakeState {
             match pattern {
                 Token::E => {
                     if self.e.is_none() {
-                        let ephem_private_key = PrivateKey::new();
+                        let ephem_private_key = PrivateKey::generate();
                         let ephem_public_key = ephem_private_key.to_public();
                         let ephem_pair = KeyPair {
                             private_key: ephem_private_key,

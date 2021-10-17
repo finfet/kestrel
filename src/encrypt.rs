@@ -27,20 +27,12 @@ pub(crate) fn encrypt_internal<T: Read, U: Write>(
     ephemeral: Option<&PrivateKey>,
     payload_key: [u8; 32],
 ) -> Result<(), EncryptError> {
-    let (handshake_hash, noise_message) =
-        noise_encrypt(sender, recipient, ephemeral, &PROLOGUE, &payload_key);
-
-    // ikm = payload_key || handshake_hash
-    let mut ikm = [0u8; 64];
-    ikm[..32].copy_from_slice(&payload_key);
-    ikm[32..].copy_from_slice(&handshake_hash);
-
-    let file_enc_key = wren_crypto::hkdf_extract(Some(&WREN_SALT), &ikm);
+    let noise_message = noise_encrypt(sender, recipient, ephemeral, &PROLOGUE, &payload_key);
 
     ciphertext.write_all(&PROLOGUE)?;
     ciphertext.write_all(&noise_message)?;
 
-    encrypt_chunks(plaintext, ciphertext, file_enc_key, None)?;
+    encrypt_chunks(plaintext, ciphertext, payload_key, None)?;
 
     Ok(())
 }
@@ -166,7 +158,7 @@ pub(crate) mod test {
         let ciphertext = encrypt_small();
 
         let expected_hash =
-            hex::decode("9138286121d425c20d83a116560bd00f8896d34d4c4ce4191561e080401a41e7")
+            hex::decode("f04c8c96aa56b1eced99ed6cf11d369c557f6bd271c1be5540c0182ca997b226")
                 .unwrap();
         let got_hash = hash(ciphertext.as_slice());
 
@@ -211,7 +203,7 @@ pub(crate) mod test {
         let ciphertext = encrypt_one_chunk();
 
         let expected_hash =
-            hex::decode("94c32d8b9c2040ea9c8bb88eb0576911e4cf5119810b5685fae7ea3e83947273")
+            hex::decode("d6517860f152d3c6d725243a365a9198447571d57b4568377698616f9b7357b4")
                 .unwrap();
         let got_hash = hash(ciphertext.as_slice());
 
@@ -252,7 +244,7 @@ pub(crate) mod test {
         let ciphertext = encrypt_two_chunks();
 
         let expected_hash =
-            hex::decode("28a705ee2ae105f891e4012f09f2f049e3c167bf88e9c1f3629611e542067d56")
+            hex::decode("318772267155e50a52bdebc59fe6b46b096f424f7aa6b208a8e51fe840894ff2")
                 .unwrap();
         let got_hash = hash(ciphertext.as_slice());
 

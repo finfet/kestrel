@@ -215,7 +215,7 @@ pub(crate) fn gen_key() -> Result<(), anyhow::Error> {
         return Err(anyhow!("Name must be at least 1 and < 128 UTF-8 bytes."));
     }
     let pass = confirm_password_stderr("New password: ")?;
-    let private_key = PrivateKey::new();
+    let private_key = PrivateKey::generate();
     let public_key = private_key.to_public();
     let salt = wren_crypto::gen_salt();
 

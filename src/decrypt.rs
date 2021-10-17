@@ -18,16 +18,9 @@ pub fn decrypt<T: Read, U: Write>(
 
     let mut handshake_message = [0u8; 128];
     ciphertext.read_exact(&mut handshake_message)?;
-    let (payload_key, handshake_hash, sender_public) =
-        noise_decrypt(recipient, &prologue, &handshake_message)?;
+    let (payload_key, sender_public) = noise_decrypt(recipient, &prologue, &handshake_message)?;
 
-    // ikm = payload_key || handshake_hash
-    let mut ikm = [0u8; 64];
-    ikm[..32].copy_from_slice(&payload_key);
-    ikm[32..].copy_from_slice(&handshake_hash);
-    let derived_key = wren_crypto::hkdf_extract(Some(&WREN_SALT), &ikm);
-
-    decrypt_chunks(ciphertext, plaintext, derived_key, None)?;
+    decrypt_chunks(ciphertext, plaintext, payload_key, None)?;
 
     Ok(sender_public)
 }

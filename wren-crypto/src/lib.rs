@@ -35,18 +35,8 @@ pub struct PrivateKey {
 
 #[derive(Clone)]
 pub struct KeyPair {
-    private_key: PrivateKey,
-    public_key: PublicKey,
-}
-
-#[allow(dead_code)]
-impl KeyPair {
-    fn new(private_key: &PrivateKey, public_key: &PublicKey) -> Self {
-        Self {
-            private_key: private_key.clone(),
-            public_key: public_key.clone(),
-        }
-    }
+    pub private_key: PrivateKey,
+    pub public_key: PublicKey,
 }
 
 impl From<&PrivateKey> for KeyPair {
@@ -76,7 +66,7 @@ impl From<&[u8]> for PublicKey {
 
 impl PrivateKey {
     /// Generate a new private key from 32 secure random bytes
-    pub fn new() -> PrivateKey {
+    pub fn generate() -> PrivateKey {
         let mut key = [0u8; 32];
         getrandom(&mut key).expect("CSPRNG failed");
         PrivateKey { key }
@@ -109,16 +99,14 @@ pub fn x25519(private_key: &PrivateKey, public_key: &PublicKey) -> [u8; 32] {
 
 /// Encrypt the payload key using the noise X protocol.
 /// Passing None to ephemeral generates a new key pair. This is almost
-/// certainly what you want. Returns the handshake hash and the noise handshake
-/// message ciphertext. Use noise channel binding to combine the handshake
-/// hash and payload key.
+/// certainly what you want. Returns the handshake messsage ciphertext.
 pub fn noise_encrypt(
     sender: &PrivateKey,
     recipient: &PublicKey,
     ephemeral: Option<&PrivateKey>,
     prologue: &[u8],
     payload_key: &PayloadKey,
-) -> (HandshakeHash, Vec<u8>) {
+) -> Vec<u8> {
     let sender_keypair = sender.into();
     let ephem_keypair = ephemeral.map(|e| e.into());
     let mut handshake_state = HandshakeState::initialize(
@@ -133,18 +121,16 @@ pub fn noise_encrypt(
     // Encrypt the payload key
     let (ciphertext, _) = handshake_state.write_message(payload_key);
 
-    let handshake_hash = handshake_state.symmetric_state.get_handshake_hash();
-
-    (handshake_hash, ciphertext)
+    ciphertext
 }
 
 /// Decrypt the payload key using the noise protocol.
-/// Returns the payload key, handshake hash, and the sender's [PublicKey]
+/// Returns the payload key, and the sender's [PublicKey]
 pub fn noise_decrypt(
     recipient: &PrivateKey,
     prologue: &[u8],
     handshake_message: &[u8],
-) -> Result<(PayloadKey, HandshakeHash, PublicKey), ChaPolyDecryptError> {
+) -> Result<(PayloadKey, PublicKey), ChaPolyDecryptError> {
     let recipient_pair = recipient.into();
     let initiator = false;
     let mut handshake_state = noise::HandshakeState::initialize(
@@ -160,12 +146,11 @@ pub fn noise_decrypt(
     let (payload_key, _) = handshake_state.read_message(handshake_message)?;
     let payload_key: [u8; 32] = payload_key.try_into().unwrap();
 
-    let handshake_hash = handshake_state.symmetric_state.get_handshake_hash();
     let sender_pubkey = handshake_state
         .get_pubkey()
         .expect("Expected to send the sender's public key");
 
-    Ok((payload_key, handshake_hash, sender_pubkey))
+    Ok((payload_key, sender_pubkey))
 }
 
 /// Performs ChaCha20-Poly1305 encryption
@@ -229,6 +214,7 @@ pub fn hash(data: &[u8]) -> [u8; 32] {
     res
 }
 
+/// HMAC-SHA-256
 pub fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
     let mut mac = Hmac::<Sha256>::new_from_slice(key).unwrap();
     mac.update(data);
@@ -260,17 +246,6 @@ pub fn scrypt(password: &[u8], salt: &[u8], n: u32, r: u32, p: u32) -> [u8; 32] 
     key.to_vec().try_into().unwrap()
 }
 
-/// Derive a pseudorandom key from input key material
-/// Performs HMAC_SHA256(salt, ikm) using [`WREN_SALT`] and the ikm.
-/// This is equivalent to hkdf-extract
-pub fn hkdf_extract(salt: Option<&[u8]>, ikm: &[u8]) -> [u8; 32] {
-    let salt = match salt {
-        Some(s) => s,
-        None => &[0u8; 32],
-    };
-    hmac_sha256(salt, ikm)
-}
-
 /// Generates 16 CSPRNG bytes to use as a salt for [`scrypt`]
 pub fn gen_salt() -> [u8; 16] {
     let mut salt = [0u8; 16];
@@ -287,7 +262,7 @@ pub fn gen_key() -> [u8; 32] {
 
 #[cfg(test)]
 mod test {
-    use super::{chapoly_decrypt, chapoly_encrypt, hash, hkdf_extract, scrypt, x25519};
+    use super::{chapoly_decrypt, chapoly_encrypt, hash, hmac_sha256, scrypt, x25519};
     use super::{PrivateKey, PublicKey};
 
     #[test]
@@ -348,21 +323,15 @@ mod test {
     }
 
     #[test]
-    fn test_hkdf_extract() {
-        let ikm = hex::decode("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b").unwrap();
-        let salt = hex::decode("000102030405060708090a0b0c").unwrap();
-        let expected_prk =
-            hex::decode("077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5")
+    fn test_hmac_sha256() {
+        let key = b"yellowsubmarine.yellowsubmarine.";
+        let message = b"Hello, world!";
+        let expected =
+            hex::decode("3cb82dc71c26dfe8be75805f6438027d5170f3fdcd8057f0a55d1c7c1743224c")
                 .unwrap();
-        let prk = hkdf_extract(Some(&salt), ikm.as_slice());
-        assert_eq!(expected_prk.as_slice(), &prk);
+        let result = hmac_sha256(key, message);
 
-        let expected_prk2 =
-            hex::decode("4b1d8f46b0b39cf9134050912513746cda32ea0d095da8a941993cb692b3e9c3")
-                .unwrap();
-        let ikm2 = b"yellowsubmarine.";
-        let prk2 = hkdf_extract(None, ikm2);
-        assert_eq!(expected_prk2.as_slice(), &prk2);
+        assert_eq!(&expected, &result);
     }
 
     #[test]
