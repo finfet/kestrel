@@ -5,7 +5,7 @@ edition = "2018"
 resolver = "2"
 
 [dependencies]
-wren-crypto = { path = "./wren-crypto", version = "0.1.0" }
+wren-crypto = { path = "./crypto", version = "0.1.0" }
 base64 = "0.13.0"
 getopts = "0.2.21"
 anyhow = "1.0.44"
@@ -15,7 +15,7 @@ rpassword = "5.0.1"
 hex = "0.4.3"
 
 [workspace]
-members = ["wren-crypto"]
+members = ["crypto"]
 
 [profile.dev.package.scrypt]
 opt-level = 3
