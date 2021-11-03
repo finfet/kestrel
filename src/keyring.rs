@@ -66,8 +66,8 @@ impl TryFrom<&str> for EncodedSk {
     }
 }
 
-// WRN in ASCII + file format version (0x20 hex)
-const KEY_FILE_MAGIC: [u8; 4] = [0x57, 0x52, 0x4e, 0x20];
+// 101, 103, 107 + Version 0x20
+const KEY_FILE_MAGIC: [u8; 4] = [0x65, 0x67, 0x6b, 0x20];
 
 const MAX_NAME_SIZE: usize = 128;
 
@@ -370,13 +370,13 @@ mod tests {
     const KEYRING_INI: &str = "
 [Key]
 # comment lines are fine.
-Name = joe
-PublicKey = Yd0wuCcNzHgScHDWO19B9-BwYNfHj3fePM2jnIkkMASYQJvq
-PrivateKey = V1JOIE3CwmCQYInSjQlNctXSpnlz3jPWGJrk0d8uEd4_XmpwDY7yd8HpB2PVYQNx54Zg58pDWAvn3FKhuox2iHuA5p8
+Name = alice
+PublicKey = 0YUbN2K3hAzvwDbrhGUADhkcpupnc0JwqFxBzRSH-BpOJGlk
+PrivateKey = ZWdrIMAez7VI9Mx-CXADZmb2w6mq2DkFpCkkvdTdprrKMAt5a_6VayIQYUfP0A3DPy7ZUC2gAYPHl5w-Jg0KdaeLrP0
 
 [Key]
 Name = Bobby Bobertson
-PublicKey = OLeSLSt20keX2tmzSseljDZzV816uqkNYzgTTibcrgTeWCLt
+PublicKey = yyoJOky-YvlJapDY9A5M4yEpVir8oe9NPgxdKHP-NVUco-Lr
 ";
     #[test]
     fn test_keyring_config() {
@@ -387,15 +387,15 @@ PublicKey = OLeSLSt20keX2tmzSseljDZzV816uqkNYzgTTibcrgTeWCLt
     #[test]
     fn test_lock_private_key() {
         let sk_bytes =
-            hex::decode("bdc7819fecaa1e668082fdcd9cc3fca45acc6f808dcd93bfb2128274acd0d0ac")
+            hex::decode("42d010ed1797fb3187351423f164caee1ce15eb5a462cf6194457b7a736938f5")
                 .unwrap();
 
-        let locked_sk = "V1JOIE3CwmCQYInSjQlNctXSpnlz3jPWGJrk0d8uEd4_XmpwDY7yd8HpB2PVYQNx54Zg58pDWAvn3FKhuox2iHuA5p8";
+        let locked_sk = "ZWdrIMAez7VI9Mx-CXADZmb2w6mq2DkFpCkkvdTdprrKMAt5a_6VayIQYUfP0A3DPy7ZUC2gAYPHl5w-Jg0KdaeLrP0";
 
         let sk = PrivateKey::from(sk_bytes.as_slice());
 
-        let password = b"joe";
-        let salt = hex::decode("4dc2c260906089d28d094d72d5d2a679").unwrap();
+        let password = b"alice";
+        let salt = hex::decode("c01ecfb548f4cc7e0970036666f6c3a9").unwrap();
         let salt: [u8; 16] = salt.as_slice().try_into().unwrap();
 
         let enc_sk = Keyring::lock_private_key(&sk, password, salt);
@@ -405,13 +405,13 @@ PublicKey = OLeSLSt20keX2tmzSseljDZzV816uqkNYzgTTibcrgTeWCLt
 
     #[test]
     fn test_unlock_private_key() {
-        let sk = "V1JOIE3CwmCQYInSjQlNctXSpnlz3jPWGJrk0d8uEd4_XmpwDY7yd8HpB2PVYQNx54Zg58pDWAvn3FKhuox2iHuA5p8";
+        let sk = "ZWdrIMAez7VI9Mx-CXADZmb2w6mq2DkFpCkkvdTdprrKMAt5a_6VayIQYUfP0A3DPy7ZUC2gAYPHl5w-Jg0KdaeLrP0";
         let encoded_sk = EncodedSk(String::from(sk));
 
-        assert!(Keyring::unlock_private_key(&encoded_sk, b"joe").is_ok());
+        assert!(Keyring::unlock_private_key(&encoded_sk, b"alice").is_ok());
         assert!(Keyring::unlock_private_key(&encoded_sk, b"badpass").is_err());
 
-        let bad_sk = "W1JOIE3CwmCQYInSjQlNctXSpnlz3jPWGJrk0d8uEd4_XmpwDY7yd8HpB2PVYQNx54Zg58pDWAvn3FKhuox2iHuA5p8";
+        let bad_sk = "AWdrIMAez7VI9Mx-CXADZmb2w6mq2DkFpCkkvdTdprrKMAt5a_6VayIQYUfP0A3DPy7ZUC2gAYPHl5w-Jg0KdaeLrP0";
         let bad_encoded_sk = EncodedSk(String::from(bad_sk));
         assert!(Keyring::unlock_private_key(&bad_encoded_sk, b"hackme").is_err());
     }
@@ -419,9 +419,9 @@ PublicKey = OLeSLSt20keX2tmzSseljDZzV816uqkNYzgTTibcrgTeWCLt
     #[test]
     fn test_encode_public_key() {
         let pk_bytes =
-            hex::decode("61dd30b8270dcc78127070d63b5f41f7e07060d7c78f77de3ccda39c89243004")
+            hex::decode("cb2a093a4cbe62f9496a90d8f40e4ce32129562afca1ef4d3e0c5d2873fe3555")
                 .unwrap();
-        let expected = "Yd0wuCcNzHgScHDWO19B9-BwYNfHj3fePM2jnIkkMASYQJvq";
+        let expected = "yyoJOky-YvlJapDY9A5M4yEpVir8oe9NPgxdKHP-NVUco-Lr";
         let pk = PublicKey::from(pk_bytes.as_slice());
         let got = Keyring::encode_public_key(&pk);
 
@@ -430,12 +430,12 @@ PublicKey = OLeSLSt20keX2tmzSseljDZzV816uqkNYzgTTibcrgTeWCLt
 
     #[test]
     fn test_decode_public_key() {
-        let good_public = "OLeSLSt20keX2tmzSseljDZzV816uqkNYzgTTibcrgTeWCLt";
+        let good_public = "yyoJOky-YvlJapDY9A5M4yEpVir8oe9NPgxdKHP-NVUco-Lr";
 
         let encoded = EncodedPk(String::from(good_public));
         assert!(Keyring::decode_public_key(&encoded).is_ok());
 
-        let bad_public = "PLeSLSt20keX2tmzSseljDZzV816uqkNYzgTTibcrgTeWCLt";
+        let bad_public = "YyoJOky-YvlJapDY9A5M4yEpVir8oe9NPgxdKHP-NVUco-Lr";
         let bad_encoded = EncodedPk(String::from(bad_public));
         assert!(Keyring::decode_public_key(&bad_encoded).is_err());
     }

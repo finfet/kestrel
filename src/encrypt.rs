@@ -158,7 +158,7 @@ pub(crate) mod test {
         let ciphertext = encrypt_small();
 
         let expected_hash =
-            hex::decode("f04c8c96aa56b1eced99ed6cf11d369c557f6bd271c1be5540c0182ca997b226")
+            hex::decode("54fa99e9850f4c3ecb7243b95ba107bbf1d2162e0dc8ead43b09d8416207296f")
                 .unwrap();
         let got_hash = hash(ciphertext.as_slice());
 
@@ -203,7 +203,7 @@ pub(crate) mod test {
         let ciphertext = encrypt_one_chunk();
 
         let expected_hash =
-            hex::decode("d6517860f152d3c6d725243a365a9198447571d57b4568377698616f9b7357b4")
+            hex::decode("3486aaf3d15c03a7a1edac2804b7806b857602ac635608cfdb21606c2481657d")
                 .unwrap();
         let got_hash = hash(ciphertext.as_slice());
 
@@ -244,7 +244,7 @@ pub(crate) mod test {
         let ciphertext = encrypt_two_chunks();
 
         let expected_hash =
-            hex::decode("318772267155e50a52bdebc59fe6b46b096f424f7aa6b208a8e51fe840894ff2")
+            hex::decode("45c8d872c26c6cea338994c1f09a31812df7413277854637a67f14bb5dfd5abb")
                 .unwrap();
         let got_hash = hash(ciphertext.as_slice());
 
@@ -286,7 +286,7 @@ pub(crate) mod test {
         let ciphertext = pass_encrypt();
 
         let expected_hash =
-            hex::decode("60f39bca91c8491d7782f2d38f3f20b87d14dacf72c80b7474341a8351cb7274")
+            hex::decode("bb1aa0a571fe5ac9bd405fb0a04767f4601845493d65069c4e0d0d4e9f2ab6e5")
                 .unwrap();
         let got_hash = hash(ciphertext.as_slice());
 
