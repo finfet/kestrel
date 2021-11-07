@@ -5,28 +5,21 @@ use std::io::{Read, Write};
 
 use wren_crypto::{chapoly_encrypt, noise_encrypt, PrivateKey, PublicKey};
 
-/// Encrypt a file. From the sender key to the recipient key.
+/// Encrypt a file from sender key to recipient key
+/// Passing None for ephemeral_key and payload_key will generate fresh keys.
+/// This is almost certainly what you want.
 pub fn encrypt<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,
     sender: &PrivateKey,
     recipient: &PublicKey,
-) -> Result<(), EncryptError> {
-    let payload_key = wren_crypto::gen_key();
-
-    encrypt_internal(plaintext, ciphertext, sender, recipient, None, payload_key)?;
-
-    Ok(())
-}
-
-pub(crate) fn encrypt_internal<T: Read, U: Write>(
-    plaintext: &mut T,
-    ciphertext: &mut U,
-    sender: &PrivateKey,
-    recipient: &PublicKey,
     ephemeral: Option<&PrivateKey>,
-    payload_key: [u8; 32],
+    payload_key: Option<[u8; 32]>,
 ) -> Result<(), EncryptError> {
+    let payload_key = match payload_key {
+        Some(pk) => pk,
+        None => wren_crypto::gen_key(),
+    };
     let noise_message = noise_encrypt(sender, recipient, ephemeral, &PROLOGUE, &payload_key);
 
     ciphertext.write_all(&PROLOGUE)?;
@@ -111,27 +104,19 @@ pub(crate) fn encrypt_chunks<T: Read, U: Write>(
     Ok(())
 }
 
-/// Encrypt a file with symmetric encryption with a key derived from a password.
+/// Encrypt a file with symmetric encryption using a key derived from a password.
+/// Salt must be a 16 byte nonce
 pub fn pass_encrypt<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,
     password: &[u8],
+    salt: [u8; 16],
 ) -> Result<(), EncryptError> {
-    let salt = wren_crypto::gen_salt();
-    pass_encrypt_internal(plaintext, ciphertext, password, &salt)
-}
-
-pub(crate) fn pass_encrypt_internal<T: Read, U: Write>(
-    plaintext: &mut T,
-    ciphertext: &mut U,
-    password: &[u8],
-    salt: &[u8],
-) -> Result<(), EncryptError> {
-    let key = wren_crypto::scrypt(password, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
+    let key = wren_crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
     let aad = Some(&PASS_FILE_MAGIC[..]);
 
     ciphertext.write_all(&PASS_FILE_MAGIC)?;
-    ciphertext.write_all(salt)?;
+    ciphertext.write_all(&salt)?;
 
     encrypt_chunks(plaintext, ciphertext, key, aad)
 }
@@ -139,7 +124,7 @@ pub(crate) fn pass_encrypt_internal<T: Read, U: Write>(
 #[cfg(test)]
 pub(crate) mod test {
     use super::CHUNK_SIZE;
-    use super::{encrypt_internal, pass_encrypt_internal};
+    use super::{encrypt, pass_encrypt};
     use super::{PrivateKey, PublicKey};
     use std::convert::TryInto;
     use std::io::Read;
@@ -166,7 +151,7 @@ pub(crate) mod test {
         assert_eq!(expected_hash.as_slice(), &got_hash);
     }
 
-    pub(crate) fn encrypt_small() -> Vec<u8> {
+    fn encrypt_small() -> Vec<u8> {
         let ephemeral_private =
             hex::decode("fdbc28d8f4c2a97013e460836cece7a4bdf59df0cb4b3a185146d13615884f38")
                 .unwrap();
@@ -185,13 +170,13 @@ pub(crate) mod test {
         plaintext.extend_from_slice(plaintext_data);
         let mut ciphertext = Vec::new();
 
-        encrypt_internal(
+        encrypt(
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &sender,
             &recipient,
             Some(&ephemeral),
-            payload_key,
+            Some(payload_key),
         )
         .unwrap();
 
@@ -211,7 +196,7 @@ pub(crate) mod test {
         assert_eq!(expected_hash.as_slice(), &got_hash);
     }
 
-    pub(crate) fn encrypt_one_chunk() -> Vec<u8> {
+    fn encrypt_one_chunk() -> Vec<u8> {
         let ephemeral_private =
             hex::decode("fdf2b46d965e4bb85d856971d657fdd6dc1fe8993f27587980e4f07f6409927f")
                 .unwrap();
@@ -226,13 +211,13 @@ pub(crate) mod test {
         std::io::repeat(0x01).read_exact(&mut plaintext).unwrap();
         let mut ciphertext = Vec::new();
 
-        encrypt_internal(
+        encrypt(
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &key_data.alice_private,
             &key_data.bob_public,
             Some(&ephemeral_private),
-            payload_key,
+            Some(payload_key),
         )
         .unwrap();
 
@@ -252,7 +237,7 @@ pub(crate) mod test {
         assert_eq!(expected_hash.as_slice(), &got_hash);
     }
 
-    pub(crate) fn encrypt_two_chunks() -> Vec<u8> {
+    fn encrypt_two_chunks() -> Vec<u8> {
         // Plaintext greater than 64k will trigger the need for an extra chunk
         let ephemeral_private =
             hex::decode("90ecf9d1dca6ed1e6997585228513a73d4db36bd7dd7c758acb55a6d333bb2fb")
@@ -268,13 +253,13 @@ pub(crate) mod test {
         std::io::repeat(0x02).read_exact(&mut plaintext).unwrap();
         let mut ciphertext = Vec::new();
 
-        encrypt_internal(
+        encrypt(
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &key_data.alice_private,
             &key_data.bob_public,
             Some(&ephemeral_private),
-            payload_key,
+            Some(payload_key),
         )
         .unwrap();
 
@@ -283,7 +268,7 @@ pub(crate) mod test {
 
     #[test]
     fn test_pass_encrypt() {
-        let ciphertext = pass_encrypt();
+        let ciphertext = pass_encrypt_util();
 
         let expected_hash =
             hex::decode("bb1aa0a571fe5ac9bd405fb0a04767f4601845493d65069c4e0d0d4e9f2ab6e5")
@@ -294,15 +279,16 @@ pub(crate) mod test {
         assert_eq!(expected_hash.as_slice(), &got_hash);
     }
 
-    pub(crate) fn pass_encrypt() -> Vec<u8> {
+    fn pass_encrypt_util() -> Vec<u8> {
         let salt = hex::decode("506d95450c0a74f848185ec2105a6770").unwrap();
+        let salt: [u8; 16] = salt.try_into().unwrap();
         let pass = b"hackme";
         let plaintext = b"Be sure to drink your Ovaltine";
         let mut pt = Vec::new();
         pt.extend_from_slice(plaintext);
         let mut ciphertext = Vec::new();
 
-        pass_encrypt_internal(&mut pt.as_slice(), &mut ciphertext, pass, salt.as_slice()).unwrap();
+        pass_encrypt(&mut pt.as_slice(), &mut ciphertext, pass, salt).unwrap();
 
         ciphertext
     }

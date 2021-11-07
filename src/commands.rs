@@ -112,6 +112,8 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
         &mut ciphertext,
         &sender_private,
         &recipient_public,
+        None,
+        None,
     ) {
         eprintln!("failed");
         return Err(anyhow!(e));
@@ -292,7 +294,8 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let mut ciphertext = File::create(&outfile_path).context("Could not create ciphertext file")?;
 
     eprint!("Encrypting...");
-    if let Err(e) = encrypt::pass_encrypt(&mut plaintext, &mut ciphertext, pass.as_bytes()) {
+    let salt = wren_crypto::gen_salt();
+    if let Err(e) = encrypt::pass_encrypt(&mut plaintext, &mut ciphertext, pass.as_bytes(), salt) {
         eprintln!("failed");
         return Err(anyhow!(e));
     }

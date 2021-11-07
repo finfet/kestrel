@@ -125,9 +125,10 @@ pub(crate) fn decrypt_chunks<T: Read, U: Write>(
 mod test {
     use super::{decrypt, pass_decrypt};
     use super::{PrivateKey, PublicKey};
-    use crate::encrypt::test::{
-        encrypt_one_chunk, encrypt_small, encrypt_two_chunks, pass_encrypt,
-    };
+    use crate::encrypt::{encrypt, pass_encrypt};
+    use crate::utils::CHUNK_SIZE;
+    use std::convert::TryInto;
+    use std::io::Read;
     use wren_crypto::hash;
 
     #[allow(dead_code)]
@@ -153,6 +154,38 @@ mod test {
         assert_eq!(expected_sender.as_bytes(), sender_public.as_bytes());
     }
 
+    fn encrypt_small() -> Vec<u8> {
+        let ephemeral_private =
+            hex::decode("fdbc28d8f4c2a97013e460836cece7a4bdf59df0cb4b3a185146d13615884f38")
+                .unwrap();
+        let payload_key =
+            hex::decode("a9f9ddef54d0432ec067b75aef26c3db5419ade3b016339743ca1812d89188b2")
+                .unwrap();
+        let key_data = get_key_data();
+
+        let sender = PrivateKey::from(key_data.alice_private.as_bytes());
+        let recipient = PublicKey::from(key_data.bob_public.as_bytes());
+        let ephemeral = PrivateKey::from(ephemeral_private.as_slice());
+        let payload_key: [u8; 32] = payload_key.as_slice().try_into().unwrap();
+
+        let plaintext_data = b"Hello, world!";
+        let mut plaintext = Vec::new();
+        plaintext.extend_from_slice(plaintext_data);
+        let mut ciphertext = Vec::new();
+
+        encrypt(
+            &mut plaintext.as_slice(),
+            &mut ciphertext,
+            &sender,
+            &recipient,
+            Some(&ephemeral),
+            Some(payload_key),
+        )
+        .unwrap();
+
+        ciphertext
+    }
+
     #[test]
     fn test_decrypt_one_chunk() {
         let expected_hash =
@@ -169,6 +202,34 @@ mod test {
 
         assert_eq!(expected_hash.as_slice(), &got_hash[..]);
         assert_eq!(expected_sender.as_bytes(), sender_public.as_bytes());
+    }
+
+    fn encrypt_one_chunk() -> Vec<u8> {
+        let ephemeral_private =
+            hex::decode("fdf2b46d965e4bb85d856971d657fdd6dc1fe8993f27587980e4f07f6409927f")
+                .unwrap();
+        let ephemeral_private = PrivateKey::from(ephemeral_private.as_slice());
+        let payload_key =
+            hex::decode("a300f423e416610a5dd87442f4edc21325f2b3211c4c69f0e0c541cf6cf4eca6")
+                .unwrap();
+        let payload_key: [u8; 32] = payload_key.as_slice().try_into().unwrap();
+        let key_data = get_key_data();
+
+        let mut plaintext = vec![0; CHUNK_SIZE];
+        std::io::repeat(0x01).read_exact(&mut plaintext).unwrap();
+        let mut ciphertext = Vec::new();
+
+        encrypt(
+            &mut plaintext.as_slice(),
+            &mut ciphertext,
+            &key_data.alice_private,
+            &key_data.bob_public,
+            Some(&ephemeral_private),
+            Some(payload_key),
+        )
+        .unwrap();
+
+        ciphertext
     }
 
     #[test]
@@ -189,16 +250,59 @@ mod test {
         assert_eq!(expected_sender.as_bytes(), sender_public.as_bytes());
     }
 
+    fn encrypt_two_chunks() -> Vec<u8> {
+        // Plaintext greater than 64k will trigger the need for an extra chunk
+        let ephemeral_private =
+            hex::decode("90ecf9d1dca6ed1e6997585228513a73d4db36bd7dd7c758acb55a6d333bb2fb")
+                .unwrap();
+        let ephemeral_private = PrivateKey::from(ephemeral_private.as_slice());
+        let payload_key =
+            hex::decode("d3387376438daeb6f7543e815cbde249810e341c1ccab192025b909b9ea4ebe7")
+                .unwrap();
+        let payload_key: [u8; 32] = payload_key.as_slice().try_into().unwrap();
+        let key_data = get_key_data();
+
+        let mut plaintext = vec![0; CHUNK_SIZE + 1];
+        std::io::repeat(0x02).read_exact(&mut plaintext).unwrap();
+        let mut ciphertext = Vec::new();
+
+        encrypt(
+            &mut plaintext.as_slice(),
+            &mut ciphertext,
+            &key_data.alice_private,
+            &key_data.bob_public,
+            Some(&ephemeral_private),
+            Some(payload_key),
+        )
+        .unwrap();
+
+        ciphertext
+    }
+
     #[test]
     fn test_pass_decrypt() {
         let expected_pt = b"Be sure to drink your Ovaltine";
         let pass = b"hackme";
 
-        let ciphertext = pass_encrypt();
+        let ciphertext = pass_encrypt_util();
         let mut plaintext = Vec::new();
         pass_decrypt(&mut ciphertext.as_slice(), &mut plaintext, pass).unwrap();
 
         assert_eq!(&expected_pt[..], plaintext.as_slice());
+    }
+
+    fn pass_encrypt_util() -> Vec<u8> {
+        let salt = hex::decode("506d95450c0a74f848185ec2105a6770").unwrap();
+        let salt: [u8; 16] = salt.try_into().unwrap();
+        let pass = b"hackme";
+        let plaintext = b"Be sure to drink your Ovaltine";
+        let mut pt = Vec::new();
+        pt.extend_from_slice(plaintext);
+        let mut ciphertext = Vec::new();
+
+        pass_encrypt(&mut pt.as_slice(), &mut ciphertext, pass, salt).unwrap();
+
+        ciphertext
     }
 
     fn get_key_data() -> KeyData {
