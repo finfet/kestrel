@@ -1,8 +1,6 @@
 pub mod errors;
 mod noise;
 
-use std::convert::TryInto;
-
 use getrandom::getrandom;
 
 use chacha20poly1305::aead::{Aead, NewAead, Payload};

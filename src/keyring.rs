@@ -1,7 +1,6 @@
 use crate::errors::KeyringError;
 use crate::utils::{SCRYPT_N, SCRYPT_P, SCRYPT_R};
 
-use std::convert::{TryFrom, TryInto};
 use std::io::Cursor;
 use std::io::Write;
 

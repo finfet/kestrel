@@ -1,8 +1,7 @@
 [package]
 name = "wren"
 version = "0.1.0"
-edition = "2018"
-resolver = "2"
+edition = "2021"
 
 [dependencies]
 wren-crypto = { path = "./crypto", version = "0.1.0" }

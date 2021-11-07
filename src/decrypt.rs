@@ -1,7 +1,6 @@
 use crate::errors::DecryptError;
 use crate::utils::*;
 
-use std::convert::TryInto;
 use std::io::{Read, Write};
 
 use wren_crypto::{chapoly_decrypt, noise_decrypt, PrivateKey, PublicKey};
@@ -127,7 +126,6 @@ mod test {
     use super::{PrivateKey, PublicKey};
     use crate::encrypt::{encrypt, pass_encrypt};
     use crate::utils::CHUNK_SIZE;
-    use std::convert::TryInto;
     use std::io::Read;
     use wren_crypto::hash;
 
