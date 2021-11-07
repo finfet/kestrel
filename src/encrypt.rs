@@ -1,9 +1,18 @@
 use crate::errors::EncryptError;
-use crate::utils::*;
 
 use std::io::{Read, Write};
 
 use wren_crypto::{chapoly_encrypt, noise_encrypt, PrivateKey, PublicKey};
+
+pub const PROLOGUE: [u8; 4] = [0x65, 0x67, 0x6b, 0x10];
+
+pub const PASS_FILE_MAGIC: [u8; 4] = [0x65, 0x67, 0x6b, 0x30];
+
+const CHUNK_SIZE: usize = 65536;
+
+pub const SCRYPT_N: u32 = 32768;
+pub const SCRYPT_R: u32 = 8;
+pub const SCRYPT_P: u32 = 1;
 
 /// Encrypt a file from sender key to recipient key
 /// Passing None for ephemeral_key and payload_key will generate fresh keys.

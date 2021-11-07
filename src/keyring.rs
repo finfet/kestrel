@@ -1,8 +1,6 @@
+use crate::decrypt::pass_decrypt;
+use crate::encrypt::pass_encrypt;
 use crate::errors::KeyringError;
-use crate::utils::{SCRYPT_N, SCRYPT_P, SCRYPT_R};
-
-use std::io::Cursor;
-use std::io::Write;
 
 use wren_crypto::{PrivateKey, PublicKey};
 
@@ -12,8 +10,8 @@ pub struct EncodedPk(String);
 #[derive(Debug, Clone)]
 pub struct EncodedSk(String);
 
-impl AsRef<str> for EncodedPk {
-    fn as_ref(&self) -> &str {
+impl EncodedPk {
+    pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
 }
@@ -38,8 +36,12 @@ impl TryFrom<&str> for EncodedPk {
     }
 }
 
-impl AsRef<str> for EncodedSk {
-    fn as_ref(&self) -> &str {
+impl EncodedSk {
+    pub fn as_bytes(&self) -> Vec<u8> {
+        base64::decode_config(&self.0, base64::URL_SAFE_NO_PAD).unwrap()
+    }
+
+    pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
 }
@@ -52,7 +54,7 @@ impl TryFrom<&str> for EncodedSk {
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         match base64::decode_config(s, base64::URL_SAFE_NO_PAD) {
             Ok(s) => {
-                if s.len() != 68 {
+                if s.len() != 84 {
                     return Err("Invalid Private Key length");
                 }
             }
@@ -64,9 +66,6 @@ impl TryFrom<&str> for EncodedSk {
         Ok(EncodedSk(s.into()))
     }
 }
-
-// 101, 103, 107 + Version 0x20
-const KEY_FILE_MAGIC: [u8; 4] = [0x65, 0x67, 0x6b, 0x20];
 
 const MAX_NAME_SIZE: usize = 128;
 
@@ -99,7 +98,7 @@ impl Keyring {
 
     pub fn get_name_from_key(&self, pk: &EncodedPk) -> Option<String> {
         for key in &self.keys {
-            if key.public_key.as_ref() == pk.as_ref() {
+            if key.public_key.as_str() == pk.as_str() {
                 return Some(key.name.clone());
             }
         }
@@ -114,22 +113,13 @@ impl Keyring {
         password: &[u8],
         salt: [u8; 16],
     ) -> EncodedSk {
-        let mut key_data: Cursor<Vec<u8>> = Cursor::new(Vec::new());
+        let mut ciphertext: Vec<u8> = Vec::new();
 
-        // We're unwrapping here because writing to a Vec shouldn't fail
-        // unless the allocator fails, which will cause a panic anyway.
-        key_data.write_all(&KEY_FILE_MAGIC).unwrap();
-        key_data.write_all(&salt).unwrap();
-        let derived_key = wren_crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
-        let sk_ct =
-            wren_crypto::chapoly_encrypt(&derived_key, 0, &KEY_FILE_MAGIC, private_key.as_bytes());
-        key_data.write_all(sk_ct.as_slice()).unwrap();
+        pass_encrypt(&mut private_key.as_bytes(), &mut ciphertext, password, salt)
+            .expect("Locking private key failed.");
 
-        let key_data = key_data.into_inner();
-        debug_assert_eq!(key_data.len(), 68);
-
-        let b64_string = base64::encode_config(key_data, base64::URL_SAFE_NO_PAD);
-        EncodedSk(b64_string)
+        let encoded_key = base64::encode_config(ciphertext, base64::URL_SAFE_NO_PAD);
+        EncodedSk(encoded_key)
     }
 
     /// Decrypt a private key.
@@ -137,22 +127,16 @@ impl Keyring {
         locked_sk: &EncodedSk,
         password: &[u8],
     ) -> Result<PrivateKey, KeyringError> {
-        let enc_sk = base64::decode_config(locked_sk.as_ref(), base64::URL_SAFE_NO_PAD)
-            .expect("Failed to base64 decode private key");
-        assert_eq!(enc_sk.len(), 68);
+        let mut plaintext: Vec<u8> = Vec::new();
 
-        let header = &enc_sk[..4];
-        let salt = &enc_sk[4..20];
-        let ct = &enc_sk[20..];
+        pass_decrypt(
+            &mut locked_sk.as_bytes().as_slice(),
+            &mut plaintext,
+            password,
+        )
+        .map_err(|_| KeyringError::PrivateKeyDecrypt)?;
 
-        let key = wren_crypto::scrypt(password, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
-
-        let pt = match wren_crypto::chapoly_decrypt(&key, 0, header, ct) {
-            Ok(pt) => pt,
-            Err(_) => return Err(KeyringError::PrivateKeyDecrypt),
-        };
-
-        Ok(PrivateKey::from(pt.as_slice()))
+        Ok(PrivateKey::from(plaintext.as_slice()))
     }
 
     /// Encode a [PublicKey](crate::crypto::PublicKey)
@@ -169,7 +153,7 @@ impl Keyring {
     }
 
     pub fn decode_public_key(encoded_pk: &EncodedPk) -> Result<PublicKey, KeyringError> {
-        let enc_pk = base64::decode_config(encoded_pk.as_ref(), base64::URL_SAFE_NO_PAD)
+        let enc_pk = base64::decode_config(encoded_pk.as_str(), base64::URL_SAFE_NO_PAD)
             .expect("Public key hex decode failed.");
         let enc_pk_bytes = enc_pk.as_slice();
         let pk = &enc_pk_bytes[..32];
@@ -190,8 +174,8 @@ impl Keyring {
         let key_config = format!(
             "[Key]\nName = {}\nPublicKey = {}\nPrivateKey = {}\n",
             name,
-            public_key.as_ref(),
-            private_key.as_ref()
+            public_key.as_str(),
+            private_key.as_str()
         );
         key_config
     }
@@ -370,8 +354,8 @@ mod tests {
 [Key]
 # comment lines are fine.
 Name = alice
-PublicKey = 0YUbN2K3hAzvwDbrhGUADhkcpupnc0JwqFxBzRSH-BpOJGlk
-PrivateKey = ZWdrIMAez7VI9Mx-CXADZmb2w6mq2DkFpCkkvdTdprrKMAt5a_6VayIQYUfP0A3DPy7ZUC2gAYPHl5w-Jg0KdaeLrP0
+PublicKey = TmOump9C4epR60L3I5ggPOKFS0Tkb1rn4mCw5k4aXxKmNuL0
+PrivateKey = ZWdrML97YQk900KyiDqd_TPrJ5EAAAAAAAAAAAAAAAEAAAAgDPFEEAg467r6C-acjUxctNdbDeZMhUJ1CknOAWV8ColEIyeqnNgPZ8lKiRpo-zs8
 
 [Key]
 Name = Bobby Bobertson
@@ -389,7 +373,7 @@ PublicKey = yyoJOky-YvlJapDY9A5M4yEpVir8oe9NPgxdKHP-NVUco-Lr
             hex::decode("42d010ed1797fb3187351423f164caee1ce15eb5a462cf6194457b7a736938f5")
                 .unwrap();
 
-        let locked_sk = "ZWdrIMAez7VI9Mx-CXADZmb2w6mq2DkFpCkkvdTdprrKMAt5a_6VayIQYUfP0A3DPy7ZUC2gAYPHl5w-Jg0KdaeLrP0";
+        let locked_sk = "ZWdrMMAez7VI9Mx-CXADZmb2w6kAAAAAAAAAAAAAAAEAAAAgqtg5BaQpJL3U3aa6yjALeWv-lWsiEGFHz9ANwz8u2VCdeHFcG44dytFEfqMh2_uW";
 
         let sk = PrivateKey::from(sk_bytes.as_slice());
 
@@ -399,18 +383,18 @@ PublicKey = yyoJOky-YvlJapDY9A5M4yEpVir8oe9NPgxdKHP-NVUco-Lr
 
         let enc_sk = Keyring::lock_private_key(&sk, password, salt);
 
-        assert_eq!(enc_sk.as_ref(), locked_sk);
+        assert_eq!(enc_sk.as_str(), locked_sk);
     }
 
     #[test]
     fn test_unlock_private_key() {
-        let sk = "ZWdrIMAez7VI9Mx-CXADZmb2w6mq2DkFpCkkvdTdprrKMAt5a_6VayIQYUfP0A3DPy7ZUC2gAYPHl5w-Jg0KdaeLrP0";
+        let sk = "ZWdrMMAez7VI9Mx-CXADZmb2w6kAAAAAAAAAAAAAAAEAAAAgqtg5BaQpJL3U3aa6yjALeWv-lWsiEGFHz9ANwz8u2VCdeHFcG44dytFEfqMh2_uW";
         let encoded_sk = EncodedSk(String::from(sk));
 
         assert!(Keyring::unlock_private_key(&encoded_sk, b"alice").is_ok());
         assert!(Keyring::unlock_private_key(&encoded_sk, b"badpass").is_err());
 
-        let bad_sk = "AWdrIMAez7VI9Mx-CXADZmb2w6mq2DkFpCkkvdTdprrKMAt5a_6VayIQYUfP0A3DPy7ZUC2gAYPHl5w-Jg0KdaeLrP0";
+        let bad_sk = "AWdrMMAez7VI9Mx-CXADZmb2w6kAAAAAAAAAAAAAAAEAAAAgqtg5BaQpJL3U3aa6yjALeWv-lWsiEGFHz9ANwz8u2VCdeHFcG44dytFEfqMh2_uW";
         let bad_encoded_sk = EncodedSk(String::from(bad_sk));
         assert!(Keyring::unlock_private_key(&bad_encoded_sk, b"hackme").is_err());
     }
@@ -424,7 +408,7 @@ PublicKey = yyoJOky-YvlJapDY9A5M4yEpVir8oe9NPgxdKHP-NVUco-Lr
         let pk = PublicKey::from(pk_bytes.as_slice());
         let got = Keyring::encode_public_key(&pk);
 
-        assert_eq!(got.as_ref(), expected);
+        assert_eq!(got.as_str(), expected);
     }
 
     #[test]

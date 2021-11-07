@@ -3,4 +3,4 @@ Easy to use file encryption.
 
 
 ## License
-Apache 2.0
+BSD-3-Clause

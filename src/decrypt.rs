@@ -1,11 +1,16 @@
 use crate::errors::DecryptError;
-use crate::utils::*;
 
 use std::io::{Read, Write};
 
 use wren_crypto::{chapoly_decrypt, noise_decrypt, PrivateKey, PublicKey};
 
 const TAG_SIZE: usize = 16;
+
+const CHUNK_SIZE: usize = 65536;
+
+const SCRYPT_N: u32 = 32768;
+const SCRYPT_R: u32 = 8;
+const SCRYPT_P: u32 = 1;
 
 pub fn decrypt<T: Read, U: Write>(
     ciphertext: &mut T,
@@ -122,10 +127,10 @@ pub(crate) fn decrypt_chunks<T: Read, U: Write>(
 
 #[cfg(test)]
 mod test {
+    use super::CHUNK_SIZE;
     use super::{decrypt, pass_decrypt};
     use super::{PrivateKey, PublicKey};
     use crate::encrypt::{encrypt, pass_encrypt};
-    use crate::utils::CHUNK_SIZE;
     use std::io::Read;
     use wren_crypto::hash;
 

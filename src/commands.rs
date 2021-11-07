@@ -1,7 +1,7 @@
 use crate::decrypt;
 use crate::encrypt;
+use crate::encrypt::{PASS_FILE_MAGIC, PROLOGUE};
 use crate::keyring::{EncodedSk, Keyring};
-use crate::utils::{PASS_FILE_MAGIC, PROLOGUE};
 
 use std::convert::TryInto;
 use std::ffi::OsStr;
@@ -204,7 +204,7 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
         Some(name) => println!("Success. File from: {}", name),
         None => {
             println!("Caution. File is from an unknown key.");
-            println!("Unknown key: {}", encoded_public.as_ref());
+            println!("Unknown key: {}", encoded_public.as_str());
         }
     }
 
@@ -246,7 +246,7 @@ pub(crate) fn change_pass(private_key: String) -> Result<(), anyhow::Error> {
     let salt = wren_crypto::gen_salt();
     let new_sk = Keyring::lock_private_key(&sk, new_pass.as_bytes(), salt);
 
-    println!("PrivateKey = {}", new_sk.as_ref());
+    println!("PrivateKey = {}", new_sk.as_str());
 
     Ok(())
 }
@@ -265,7 +265,7 @@ pub(crate) fn extract_pub(private_key: String) -> Result<(), anyhow::Error> {
 
     let epk = Keyring::encode_public_key(&pk);
 
-    println!("PublicKey = {}", epk.as_ref());
+    println!("PublicKey = {}", epk.as_str());
 
     Ok(())
 }
