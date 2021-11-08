@@ -37,7 +37,7 @@ pub fn pass_decrypt<T: Read, U: Write>(
     let mut pass_magic_num = [0u8; 4];
     ciphertext.read_exact(&mut pass_magic_num)?;
 
-    let mut salt = [0u8; 16];
+    let mut salt = [0u8; 32];
     ciphertext.read_exact(&mut salt)?;
 
     let key = wren_crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
@@ -295,8 +295,9 @@ mod test {
     }
 
     fn pass_encrypt_util() -> Vec<u8> {
-        let salt = hex::decode("506d95450c0a74f848185ec2105a6770").unwrap();
-        let salt: [u8; 16] = salt.try_into().unwrap();
+        let salt = hex::decode("b3e94eb6bba5bc462aab92fd86eb9d9f939320a60ae46e690907918ef2ee3aec")
+            .unwrap();
+        let salt: [u8; 32] = salt.try_into().unwrap();
         let pass = b"hackme";
         let plaintext = b"Be sure to drink your Ovaltine";
         let mut pt = Vec::new();

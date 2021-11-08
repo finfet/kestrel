@@ -6,7 +6,7 @@ use wren_crypto::{chapoly_encrypt, noise_encrypt, PrivateKey, PublicKey};
 
 pub const PROLOGUE: [u8; 4] = [0x65, 0x67, 0x6b, 0x10];
 
-pub const PASS_FILE_MAGIC: [u8; 4] = [0x65, 0x67, 0x6b, 0x30];
+pub const PASS_FILE_MAGIC: [u8; 4] = [0x65, 0x67, 0x6b, 0x20];
 
 const CHUNK_SIZE: usize = 65536;
 
@@ -114,12 +114,12 @@ pub(crate) fn encrypt_chunks<T: Read, U: Write>(
 }
 
 /// Encrypt a file with symmetric encryption using a key derived from a password.
-/// Salt must be a 16 byte nonce
+/// Salt must be a 32 byte nonce
 pub fn pass_encrypt<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,
     password: &[u8],
-    salt: [u8; 16],
+    salt: [u8; 32],
 ) -> Result<(), EncryptError> {
     let key = wren_crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
     let aad = Some(&PASS_FILE_MAGIC[..]);
@@ -280,17 +280,18 @@ pub(crate) mod test {
         let ciphertext = pass_encrypt_util();
 
         let expected_hash =
-            hex::decode("bb1aa0a571fe5ac9bd405fb0a04767f4601845493d65069c4e0d0d4e9f2ab6e5")
+            hex::decode("bef8d086931a2be31875839474b455fb6a9bfa0fbb6669dbeb8a86e51be0c9bd")
                 .unwrap();
         let got_hash = hash(ciphertext.as_slice());
 
-        assert_eq!(ciphertext.len(), 82);
+        assert_eq!(ciphertext.len(), 98);
         assert_eq!(expected_hash.as_slice(), &got_hash);
     }
 
     fn pass_encrypt_util() -> Vec<u8> {
-        let salt = hex::decode("506d95450c0a74f848185ec2105a6770").unwrap();
-        let salt: [u8; 16] = salt.try_into().unwrap();
+        let salt = hex::decode("b3e94eb6bba5bc462aab92fd86eb9d9f939320a60ae46e690907918ef2ee3aec")
+            .unwrap();
+        let salt: [u8; 32] = salt.try_into().unwrap();
         let pass = b"hackme";
         let plaintext = b"Be sure to drink your Ovaltine";
         let mut pt = Vec::new();

@@ -1,8 +1,12 @@
-use crate::decrypt::pass_decrypt;
-use crate::encrypt::pass_encrypt;
 use crate::errors::KeyringError;
 
 use wren_crypto::{PrivateKey, PublicKey};
+
+const PRIVATE_KEY_VERSION: [u8; 2] = [0x00, 0x01];
+const MAX_NAME_SIZE: usize = 128;
+const SCRYPT_N: u32 = 32768;
+const SCRYPT_R: u32 = 8;
+const SCRYPT_P: u32 = 1;
 
 #[derive(Debug, Clone)]
 pub struct EncodedPk(String);
@@ -22,7 +26,7 @@ impl TryFrom<&str> for EncodedPk {
     // Decode a base64 encoded public key to make sure that it is the right
     // amount of bytes
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        match base64::decode_config(s, base64::URL_SAFE_NO_PAD) {
+        match base64::decode(s) {
             Ok(s) => {
                 if s.len() != 36 {
                     return Err("Inavlid Public Key length");
@@ -38,7 +42,7 @@ impl TryFrom<&str> for EncodedPk {
 
 impl EncodedSk {
     pub fn as_bytes(&self) -> Vec<u8> {
-        base64::decode_config(&self.0, base64::URL_SAFE_NO_PAD).unwrap()
+        base64::decode(&self.0).unwrap()
     }
 
     pub fn as_str(&self) -> &str {
@@ -52,9 +56,9 @@ impl TryFrom<&str> for EncodedSk {
     // Decode a base64 encoded private key to make sure that it is the
     // right amount of bytes
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        match base64::decode_config(s, base64::URL_SAFE_NO_PAD) {
+        match base64::decode(s) {
             Ok(s) => {
-                if s.len() != 84 {
+                if s.len() != 66 {
                     return Err("Invalid Private Key length");
                 }
             }
@@ -66,8 +70,6 @@ impl TryFrom<&str> for EncodedSk {
         Ok(EncodedSk(s.into()))
     }
 }
-
-const MAX_NAME_SIZE: usize = 128;
 
 #[derive(Debug)]
 pub struct Key {
@@ -107,18 +109,26 @@ impl Keyring {
 
     /// Encrypt a private key using ChaCha20-Poly1305 with a key derived from
     /// a password using scrypt. The salt MUST be used only once.
-    /// Use [gen_salt()](crate::crypto::gen_salt) to get fresh nonces.
+    /// Use the first 16 bytes of [gen_salt()](crate::crypto::gen_salt)
+    /// to get fresh salt values.
     pub fn lock_private_key(
         private_key: &PrivateKey,
         password: &[u8],
         salt: [u8; 16],
     ) -> EncodedSk {
-        let mut ciphertext: Vec<u8> = Vec::new();
+        let mut encoded_bytes = Vec::<u8>::new();
 
-        pass_encrypt(&mut private_key.as_bytes(), &mut ciphertext, password, salt)
-            .expect("Locking private key failed.");
+        encoded_bytes.extend_from_slice(&PRIVATE_KEY_VERSION);
+        encoded_bytes.extend_from_slice(&salt);
 
-        let encoded_key = base64::encode_config(ciphertext, base64::URL_SAFE_NO_PAD);
+        let key = wren_crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
+
+        let ciphertext =
+            wren_crypto::chapoly_encrypt(&key, 0, &PRIVATE_KEY_VERSION, private_key.as_bytes());
+
+        encoded_bytes.extend_from_slice(ciphertext.as_slice());
+
+        let encoded_key = base64::encode(encoded_bytes);
         EncodedSk(encoded_key)
     }
 
@@ -127,21 +137,22 @@ impl Keyring {
         locked_sk: &EncodedSk,
         password: &[u8],
     ) -> Result<PrivateKey, KeyringError> {
-        let mut plaintext: Vec<u8> = Vec::new();
+        let key_bytes = locked_sk.as_bytes();
+        let key_bytes = key_bytes.as_slice();
+        let version_aad = &key_bytes[..2];
+        let salt = &key_bytes[2..18];
+        let ciphertext = &key_bytes[18..66];
+        let key = wren_crypto::scrypt(password, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
 
-        pass_decrypt(
-            &mut locked_sk.as_bytes().as_slice(),
-            &mut plaintext,
-            password,
-        )
-        .map_err(|_| KeyringError::PrivateKeyDecrypt)?;
+        let plaintext = wren_crypto::chapoly_decrypt(&key, 0, version_aad, ciphertext)
+            .map_err(|_| KeyringError::PrivateKeyDecrypt)?;
 
         Ok(PrivateKey::from(plaintext.as_slice()))
     }
 
     /// Encode a [PublicKey](crate::crypto::PublicKey)
-    // Public keys are 32 bytes with a 4 byte SHA-256 checksum
-    // appended at the end. Represented as base64 urlsafe no padding.
+    /// Public keys are 32 bytes with a 4 byte SHA-256 checksum
+    /// appended at the end. Represented as base64.
     pub fn encode_public_key(public_key: &PublicKey) -> EncodedPk {
         let pk = public_key.as_bytes();
         let checksum = wren_crypto::hash(pk);
@@ -149,12 +160,11 @@ impl Keyring {
         encoded[..32].copy_from_slice(pk);
         encoded[32..].copy_from_slice(&checksum[..4]);
 
-        EncodedPk(base64::encode_config(&encoded, base64::URL_SAFE_NO_PAD))
+        EncodedPk(base64::encode(&encoded))
     }
 
     pub fn decode_public_key(encoded_pk: &EncodedPk) -> Result<PublicKey, KeyringError> {
-        let enc_pk = base64::decode_config(encoded_pk.as_str(), base64::URL_SAFE_NO_PAD)
-            .expect("Public key hex decode failed.");
+        let enc_pk = base64::decode(encoded_pk.as_str()).expect("Public key hex decode failed.");
         let enc_pk_bytes = enc_pk.as_slice();
         let pk = &enc_pk_bytes[..32];
         let checksum = &enc_pk_bytes[32..];
@@ -354,12 +364,12 @@ mod tests {
 [Key]
 # comment lines are fine.
 Name = alice
-PublicKey = TmOump9C4epR60L3I5ggPOKFS0Tkb1rn4mCw5k4aXxKmNuL0
-PrivateKey = ZWdrML97YQk900KyiDqd_TPrJ5EAAAAAAAAAAAAAAAEAAAAgDPFEEAg467r6C-acjUxctNdbDeZMhUJ1CknOAWV8ColEIyeqnNgPZ8lKiRpo-zs8
+PublicKey = Ws+jIx2H5x5UG4ZK+MFiJtq+/0zoujaEsutphJKt+QD7vTmV
+PrivateKey = AAGoWKlYNGTcXPf8+hMdVCONSBZ8tk9sWg0E4IFmTCMkrxB1anR2OkYGmkU5p2alGjDjZ+1aJvupjb9vsY2Qk9du
 
 [Key]
 Name = Bobby Bobertson
-PublicKey = yyoJOky-YvlJapDY9A5M4yEpVir8oe9NPgxdKHP-NVUco-Lr
+PublicKey = OtU9wlWBsYr1Q6Hoz07cK05OSD31p+DVraU+fku4Y3R62CZl
 ";
     #[test]
     fn test_keyring_config() {
@@ -373,7 +383,7 @@ PublicKey = yyoJOky-YvlJapDY9A5M4yEpVir8oe9NPgxdKHP-NVUco-Lr
             hex::decode("42d010ed1797fb3187351423f164caee1ce15eb5a462cf6194457b7a736938f5")
                 .unwrap();
 
-        let locked_sk = "ZWdrMMAez7VI9Mx-CXADZmb2w6kAAAAAAAAAAAAAAAEAAAAgqtg5BaQpJL3U3aa6yjALeWv-lWsiEGFHz9ANwz8u2VCdeHFcG44dytFEfqMh2_uW";
+        let locked_sk = "AAHAHs+1SPTMfglwA2Zm9sOpqtg5BaQpJL3U3aa6yjALeWv+lWsiEGFHz9ANwz8u2VALpkqrecl58zQnIrGfeKop";
 
         let sk = PrivateKey::from(sk_bytes.as_slice());
 
@@ -388,13 +398,13 @@ PublicKey = yyoJOky-YvlJapDY9A5M4yEpVir8oe9NPgxdKHP-NVUco-Lr
 
     #[test]
     fn test_unlock_private_key() {
-        let sk = "ZWdrMMAez7VI9Mx-CXADZmb2w6kAAAAAAAAAAAAAAAEAAAAgqtg5BaQpJL3U3aa6yjALeWv-lWsiEGFHz9ANwz8u2VCdeHFcG44dytFEfqMh2_uW";
+        let sk = "AAHAHs+1SPTMfglwA2Zm9sOpqtg5BaQpJL3U3aa6yjALeWv+lWsiEGFHz9ANwz8u2VALpkqrecl58zQnIrGfeKop";
         let encoded_sk = EncodedSk(String::from(sk));
 
         assert!(Keyring::unlock_private_key(&encoded_sk, b"alice").is_ok());
         assert!(Keyring::unlock_private_key(&encoded_sk, b"badpass").is_err());
 
-        let bad_sk = "AWdrMMAez7VI9Mx-CXADZmb2w6kAAAAAAAAAAAAAAAEAAAAgqtg5BaQpJL3U3aa6yjALeWv-lWsiEGFHz9ANwz8u2VCdeHFcG44dytFEfqMh2_uW";
+        let bad_sk = "BAHAHs+1SPTMfglwA2Zm9sOpqtg5BaQpJL3U3aa6yjALeWv+lWsiEGFHz9ANwz8u2VALpkqrecl58zQnIrGfeKop";
         let bad_encoded_sk = EncodedSk(String::from(bad_sk));
         assert!(Keyring::unlock_private_key(&bad_encoded_sk, b"hackme").is_err());
     }
@@ -402,9 +412,9 @@ PublicKey = yyoJOky-YvlJapDY9A5M4yEpVir8oe9NPgxdKHP-NVUco-Lr
     #[test]
     fn test_encode_public_key() {
         let pk_bytes =
-            hex::decode("cb2a093a4cbe62f9496a90d8f40e4ce32129562afca1ef4d3e0c5d2873fe3555")
+            hex::decode("3ad53dc25581b18af543a1e8cf4edc2b4e4e483df5a7e0d5ada53e7e4bb86374")
                 .unwrap();
-        let expected = "yyoJOky-YvlJapDY9A5M4yEpVir8oe9NPgxdKHP-NVUco-Lr";
+        let expected = "OtU9wlWBsYr1Q6Hoz07cK05OSD31p+DVraU+fku4Y3R62CZl";
         let pk = PublicKey::from(pk_bytes.as_slice());
         let got = Keyring::encode_public_key(&pk);
 
@@ -413,12 +423,12 @@ PublicKey = yyoJOky-YvlJapDY9A5M4yEpVir8oe9NPgxdKHP-NVUco-Lr
 
     #[test]
     fn test_decode_public_key() {
-        let good_public = "yyoJOky-YvlJapDY9A5M4yEpVir8oe9NPgxdKHP-NVUco-Lr";
+        let good_public = "OtU9wlWBsYr1Q6Hoz07cK05OSD31p+DVraU+fku4Y3R62CZl";
 
         let encoded = EncodedPk(String::from(good_public));
         assert!(Keyring::decode_public_key(&encoded).is_ok());
 
-        let bad_public = "YyoJOky-YvlJapDY9A5M4yEpVir8oe9NPgxdKHP-NVUco-Lr";
+        let bad_public = "PtU9wlWBsYr1Q6Hoz07cK05OSD31p+DVraU+fku4Y3R62CZl";
         let bad_encoded = EncodedPk(String::from(bad_public));
         assert!(Keyring::decode_public_key(&bad_encoded).is_err());
     }

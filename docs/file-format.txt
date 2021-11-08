@@ -20,11 +20,12 @@ Last chunk indicator is set to 1 for the last chunk in the message.
 Ciphertext length and last chunk indicator are included in the additional
 authenticated data.
 
+
 ## Password Derived Symmetric Encryption
 
-[HEADER] - 20 bytes
-4  bytes : 101, 103, 107 + Version 0x30 (65 67 6B 30)
-16 bytes : salt
+[HEADER] - 36 bytes
+4  bytes : 101, 103, 107 + Version 0x20 (65 67 6B 20)
+32 bytes : salt
 
 [Encrypted Plaintext Chunks] (overhead of 32)
 8  bytes : chunk number
@@ -37,3 +38,19 @@ Chunks may repeat many times. Chunks are 64KiB by default.
 Last chunk indicator is set to 1 for the last chunk in the message.
 Header magic number, chunk number, and last chunk indicator are included in
 the additional authenticated data for each chunk.
+
+
+## Encrypted Private Key Format
+
+[HEADER] - 18 bytes
+2  bytes : Version 1 (00 01)
+16 bytes : salt
+
+[Encrypted Plaintext] - (Overhead of 16)
+32 bytes : ciphertext of private key
+16 bytes : ciphertext tag
+
+The 2 byte version header is included as additional authenticated data.
+Salt is not included as AAD because it gets included as part of key
+derivation. The chapoly nonce is fixed at zero because the scrypt salt is
+random, resulting in a fresh key each time.

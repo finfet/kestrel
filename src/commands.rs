@@ -219,7 +219,9 @@ pub(crate) fn gen_key() -> Result<(), anyhow::Error> {
     let pass = confirm_password_stderr("New password: ")?;
     let private_key = PrivateKey::generate();
     let public_key = private_key.to_public();
-    let salt = wren_crypto::gen_salt();
+    let mut salt = [0u8; 16];
+    let tmp_salt = wren_crypto::gen_salt();
+    salt.copy_from_slice(&tmp_salt[..16]);
 
     let encoded_private_key = Keyring::lock_private_key(&private_key, pass.as_bytes(), salt);
     let encoded_public_key = Keyring::encode_public_key(&public_key);
@@ -243,7 +245,9 @@ pub(crate) fn change_pass(private_key: String) -> Result<(), anyhow::Error> {
         .map_err(|e| anyhow!("{}", e))?;
     let sk = Keyring::unlock_private_key(&old_sk, old_pass.as_bytes())?;
 
-    let salt = wren_crypto::gen_salt();
+    let mut salt = [0u8; 16];
+    let tmp_salt = wren_crypto::gen_salt();
+    salt.copy_from_slice(&tmp_salt[..16]);
     let new_sk = Keyring::lock_private_key(&sk, new_pass.as_bytes(), salt);
 
     println!("PrivateKey = {}", new_sk.as_str());

@@ -244,9 +244,9 @@ pub fn scrypt(password: &[u8], salt: &[u8], n: u32, r: u32, p: u32) -> [u8; 32] 
     key.to_vec().try_into().unwrap()
 }
 
-/// Generates 16 CSPRNG bytes to use as a salt for [`scrypt`]
-pub fn gen_salt() -> [u8; 16] {
-    let mut salt = [0u8; 16];
+/// Generates 32 CSPRNG bytes to use as a salt for [`scrypt`]
+pub fn gen_salt() -> [u8; 32] {
+    let mut salt = [0u8; 32];
     getrandom(&mut salt).expect("CSPRNG for salt gen failed");
     salt
 }
