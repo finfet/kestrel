@@ -14,9 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-use crate::decrypt;
-use crate::encrypt;
-use crate::encrypt::{PASS_FILE_MAGIC, PROLOGUE};
 use crate::keyring::{EncodedSk, Keyring};
 
 use std::convert::TryInto;
@@ -27,6 +24,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context};
 use kestrel_crypto::PrivateKey;
+use kestrel_crypto::encrypt::{PASS_FILE_MAGIC, PROLOGUE};
+use kestrel_crypto::{encrypt, decrypt};
 
 #[derive(Debug)]
 pub(crate) enum KeyCommand {

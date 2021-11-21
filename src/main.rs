@@ -15,8 +15,6 @@ limitations under the License.
 */
 
 mod commands;
-mod decrypt;
-mod encrypt;
 mod errors;
 mod keyring;
 

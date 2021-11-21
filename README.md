@@ -1,6 +1,74 @@
 # Kestrel
-Easy to use file encryption.
 
+Modern, secure, and easy to use file encryption.
+
+## About
+
+Kestrel is a data-at-rest file encryption program. Think PGP, but less unwieldy.
+
+Kestrel makes it easy to encrypt files for yourself or friends. All you need
+is their public key.
+
+## Features and Advantages
+
+- Encrypt files to anyone. Just grab their public key.
+- Quickly encrypt and decrypt files of any size.
+- Strong security and privacy guarantees. Uses X25519, ChaCha20-Poly1305 and the Noise Protocol. Guarantees sender authentication.
+- Keys are simple strings that are easy to manage and copy-paste.
+- Private keys are always encrypted.
+- Single binary that is easy to run anywhere.
+
+## Disadvantages
+
+- Does not handle with signatures. You can't sign files with this. However, sender authentication is guaranteed. You can trust that your files are from someone that you know.
+- Does not solve the key distribution problem. You have to acquire known-good public keys through some other means.
+
+## Installation
+
+```
+cargo install kestrel-cli
+```
+
+## Contributing
+
+Patches welcome. Please send feedback and bug reports for any issues that you may have.
 
 ## License
+
 Apache 2.0
+
+## Usage
+
+```
+USAGE:
+    kestrel encrypt FILE -t NAME -f NAME [-o FILE] [-k KEYRING]
+    kestrel decrypt FILE -t NAME [-o FILE] [-k KEYRING]
+    kestrel key generate
+    kestrel key change-pass PRIVATE-KEY
+    kestrel key extract-pub PRIVATE-KEY
+    kestrel password encrypt|decrypt FILE [-o FILE]
+
+    Aliases enc, dec, pass, and gen can be used as encrypt, decrypt,
+    password, and generate respectively.
+    Option -k is required unless KESTREL_KEYRING env var is set.
+
+OPTIONS:
+    -t, --to        Recipient key name. Decrypt requires a private key.
+    -f, --from      Sender key name. Must be a private key.
+    -o, --output    Output file name.
+    -k, --keyring   Location of a keyring file.
+    -h, --help      Print help information.
+    -v, --version   Print version information.
+```
+
+## Algorithms
+
+The core of Kestrel is a Noise Protocol handshake that is used to encrypt a fresh 32 byte payload key. The algorithms used are X25519, ChaCha20-Poly1305, and SHA-256, and the X one way pattern.
+
+A file is split into encrypted and authenticated chunks and encrypted with ChaCha20-Poly1305 using the payload key.
+
+Password based encryption can also be used by deriving a key from a password using scrypt instead of using public keys.
+
+## Security Warning
+
+To the best of my knowledge, Kestrel is secure. However, this software has not yet undergone a formal security audit. Swim at your own risk.

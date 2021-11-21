@@ -15,6 +15,8 @@ limitations under the License.
 */
 
 pub mod errors;
+pub mod encrypt;
+pub mod decrypt;
 mod noise;
 
 use getrandom::getrandom;

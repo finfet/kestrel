@@ -18,7 +18,7 @@ use crate::errors::DecryptError;
 
 use std::io::{Read, Write};
 
-use kestrel_crypto::{chapoly_decrypt, noise_decrypt, PrivateKey, PublicKey};
+use crate::{chapoly_decrypt, noise_decrypt, scrypt, PrivateKey, PublicKey};
 
 const TAG_SIZE: usize = 16;
 
@@ -56,7 +56,7 @@ pub fn pass_decrypt<T: Read, U: Write>(
     let mut salt = [0u8; 32];
     ciphertext.read_exact(&mut salt)?;
 
-    let key = kestrel_crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
+    let key = scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
     let aad = Some(&pass_magic_num[..]);
 
     decrypt_chunks(ciphertext, plaintext, key, aad)?;
@@ -148,7 +148,7 @@ mod test {
     use super::{PrivateKey, PublicKey};
     use crate::encrypt::{encrypt, pass_encrypt};
     use std::io::Read;
-    use kestrel_crypto::hash;
+    use crate::hash;
 
     #[allow(dead_code)]
     struct KeyData {
