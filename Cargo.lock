@@ -177,6 +177,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "kestrel"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "getopts",
+ "hex",
+ "kestrel-crypto",
+ "rpassword",
+]
+
+[[package]]
+name = "kestrel-crypto"
+version = "0.1.0"
+dependencies = [
+ "chacha20poly1305",
+ "getrandom 0.2.3",
+ "hex",
+ "hmac",
+ "scrypt",
+ "sha2",
+ "x25519-dalek",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.108"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -375,31 +400,6 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
-
-[[package]]
-name = "wren"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64",
- "getopts",
- "hex",
- "rpassword",
- "wren-crypto",
-]
-
-[[package]]
-name = "wren-crypto"
-version = "0.1.0"
-dependencies = [
- "chacha20poly1305",
- "getrandom 0.2.3",
- "hex",
- "hmac",
- "scrypt",
- "sha2",
- "x25519-dalek",
-]
 
 [[package]]
 name = "x25519-dalek"

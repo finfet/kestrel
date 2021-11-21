@@ -28,16 +28,16 @@ use getopts::Options;
 const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
 const USAGE: &str = "USAGE:
-    wren encrypt FILE -t NAME -f NAME [-o FILE] [-k KEYRING]
-    wren decrypt FILE -t NAME [-o FILE] [-k KEYRING]
-    wren key generate
-    wren key change-pass PRIVATE-KEY
-    wren key extract-pub PRIVATE-KEY
-    wren password encrypt|decrypt FILE [-o FILE]
+    kestrel encrypt FILE -t NAME -f NAME [-o FILE] [-k KEYRING]
+    kestrel decrypt FILE -t NAME [-o FILE] [-k KEYRING]
+    kestrel key generate
+    kestrel key change-pass PRIVATE-KEY
+    kestrel key extract-pub PRIVATE-KEY
+    kestrel password encrypt|decrypt FILE [-o FILE]
 
     Aliases enc, dec, pass, and gen can be used as encrypt, decrypt,
     password, and generate respectively.
-    Option -k is required unless WREN_KEYRING env var is set.
+    Option -k is required unless KESTREL_KEYRING env var is set.
 
 OPTIONS:
     -t, --to        Recipient key name. Decrypt requires a private key.

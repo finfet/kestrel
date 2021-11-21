@@ -316,10 +316,10 @@ mod test {
 
     #[test]
     fn test_hash() {
-        let data = b"wren";
+        let data = b"hello";
         let got = hash(data);
         let expected =
-            hex::decode("b1e3c2ec1a80a8ccdbcdb04b26a5896ea2c7ef8b3774dbb004bd3b1aaa195bec")
+            hex::decode("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
                 .unwrap();
         assert_eq!(&got, expected.as_slice());
     }

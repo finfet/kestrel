@@ -16,7 +16,7 @@ limitations under the License.
 
 use std::error::Error;
 
-use wren_crypto::errors::ChaPolyDecryptError;
+use kestrel_crypto::errors::ChaPolyDecryptError;
 
 #[derive(Debug)]
 pub enum KeyringError {

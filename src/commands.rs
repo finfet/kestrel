@@ -26,7 +26,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context};
-use wren_crypto::PrivateKey;
+use kestrel_crypto::PrivateKey;
 
 #[derive(Debug)]
 pub(crate) enum KeyCommand {
@@ -236,7 +236,7 @@ pub(crate) fn gen_key() -> Result<(), anyhow::Error> {
     let private_key = PrivateKey::generate();
     let public_key = private_key.to_public();
     let mut salt = [0u8; 16];
-    let tmp_salt = wren_crypto::gen_salt();
+    let tmp_salt = kestrel_crypto::gen_salt();
     salt.copy_from_slice(&tmp_salt[..16]);
 
     let encoded_private_key = Keyring::lock_private_key(&private_key, pass.as_bytes(), salt);
@@ -262,7 +262,7 @@ pub(crate) fn change_pass(private_key: String) -> Result<(), anyhow::Error> {
     let sk = Keyring::unlock_private_key(&old_sk, old_pass.as_bytes())?;
 
     let mut salt = [0u8; 16];
-    let tmp_salt = wren_crypto::gen_salt();
+    let tmp_salt = kestrel_crypto::gen_salt();
     salt.copy_from_slice(&tmp_salt[..16]);
     let new_sk = Keyring::lock_private_key(&sk, new_pass.as_bytes(), salt);
 
@@ -314,7 +314,7 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let mut ciphertext = File::create(&outfile_path).context("Could not create ciphertext file")?;
 
     eprint!("Encrypting...");
-    let salt = wren_crypto::gen_salt();
+    let salt = kestrel_crypto::gen_salt();
     if let Err(e) = encrypt::pass_encrypt(&mut plaintext, &mut ciphertext, pass.as_bytes(), salt) {
         eprintln!("failed");
         return Err(anyhow!(e));
@@ -377,7 +377,7 @@ enum ExtensionAction {
     RemoveExtension,
 }
 
-/// Try to remove or add the .wrn extension to the given path.
+/// Try to remove or add the file extension to the given path.
 /// If the output path already exists, the user will be asked to confirm if
 /// they want to overwrite.
 /// If the return was Ok but the PathBuf is None, then the user chose not
@@ -392,10 +392,10 @@ fn calculate_output_path<T: AsRef<Path>, U: Into<PathBuf>>(
     } else {
         let outpath = match action {
             ExtensionAction::AddExtension => {
-                Some(add_file_ext(&infile.as_ref().to_path_buf(), "wrn"))
+                Some(add_file_ext(&infile.as_ref().to_path_buf(), "ktl"))
             }
             ExtensionAction::RemoveExtension => {
-                remove_file_ext(&infile.as_ref().to_path_buf(), "wrn")
+                remove_file_ext(&infile.as_ref().to_path_buf(), "ktl")
             }
         };
 
@@ -473,16 +473,16 @@ fn open_keyring(keyring_loc: Option<String>) -> Result<Keyring, anyhow::Error> {
     let path = if let Some(loc) = keyring_loc {
         PathBuf::from(loc)
     } else {
-        match std::env::var("WREN_KEYRING") {
+        match std::env::var("KESTREL_KEYRING") {
             Ok(loc) => PathBuf::from(loc),
             Err(e) => match e {
                 std::env::VarError::NotPresent => {
                     return Err(anyhow!(
-                        "Specify a keyring with -k or set the WREN_KEYRING env var"
+                        "Specify a keyring with -k or set the KESTREL_KEYRING env var"
                     ))
                 }
                 std::env::VarError::NotUnicode(_) => {
-                    return Err(anyhow!("Could not read data from WREN_KEYRING env var"));
+                    return Err(anyhow!("Could not read data from KESTREL_KEYRING env var"));
                 }
             },
         }

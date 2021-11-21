@@ -1,4 +1,4 @@
-# Wren
+# Kestrel
 Easy to use file encryption.
 
 

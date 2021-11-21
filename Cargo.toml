@@ -1,10 +1,17 @@
 [package]
-name = "wren"
+name = "kestrel"
 version = "0.1.0"
 edition = "2021"
+authors = [
+    "Kyle Schreiber <kyle@80x24.net>",
+]
+readme = "README.md"
+license = "Apache-2.0"
+description = "Cryptography backend for Kestrel"
+repository = "https://github.com/finfet/kestrel"
 
 [dependencies]
-wren-crypto = { path = "./crypto", version = "0.1.0" }
+kestrel-crypto = { path = "./crypto", version = "0.1.0" }
 base64 = "0.13.0"
 getopts = "0.2.21"
 anyhow = "1.0.47"

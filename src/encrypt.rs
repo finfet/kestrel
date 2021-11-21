@@ -18,7 +18,7 @@ use crate::errors::EncryptError;
 
 use std::io::{Read, Write};
 
-use wren_crypto::{chapoly_encrypt, noise_encrypt, PrivateKey, PublicKey};
+use kestrel_crypto::{chapoly_encrypt, noise_encrypt, PrivateKey, PublicKey};
 
 pub const PROLOGUE: [u8; 4] = [0x65, 0x67, 0x6b, 0x10];
 
@@ -43,7 +43,7 @@ pub fn encrypt<T: Read, U: Write>(
 ) -> Result<(), EncryptError> {
     let payload_key = match payload_key {
         Some(pk) => pk,
-        None => wren_crypto::gen_key(),
+        None => kestrel_crypto::gen_key(),
     };
     let noise_message = noise_encrypt(sender, recipient, ephemeral, &PROLOGUE, &payload_key);
 
@@ -137,7 +137,7 @@ pub fn pass_encrypt<T: Read, U: Write>(
     password: &[u8],
     salt: [u8; 32],
 ) -> Result<(), EncryptError> {
-    let key = wren_crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
+    let key = kestrel_crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
     let aad = Some(&PASS_FILE_MAGIC[..]);
 
     ciphertext.write_all(&PASS_FILE_MAGIC)?;
@@ -153,7 +153,7 @@ pub(crate) mod test {
     use super::{PrivateKey, PublicKey};
     use std::convert::TryInto;
     use std::io::Read;
-    use wren_crypto::hash;
+    use kestrel_crypto::hash;
 
     #[allow(dead_code)]
     struct KeyData {

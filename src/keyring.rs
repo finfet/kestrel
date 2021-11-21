@@ -16,7 +16,7 @@ limitations under the License.
 
 use crate::errors::KeyringError;
 
-use wren_crypto::{PrivateKey, PublicKey};
+use kestrel_crypto::{PrivateKey, PublicKey};
 
 const PRIVATE_KEY_VERSION: [u8; 2] = [0x00, 0x01];
 const MAX_NAME_SIZE: usize = 128;
@@ -137,10 +137,10 @@ impl Keyring {
         encoded_bytes.extend_from_slice(&PRIVATE_KEY_VERSION);
         encoded_bytes.extend_from_slice(&salt);
 
-        let key = wren_crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
+        let key = kestrel_crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
 
         let ciphertext =
-            wren_crypto::chapoly_encrypt(&key, 0, &PRIVATE_KEY_VERSION, private_key.as_bytes());
+            kestrel_crypto::chapoly_encrypt(&key, 0, &PRIVATE_KEY_VERSION, private_key.as_bytes());
 
         encoded_bytes.extend_from_slice(ciphertext.as_slice());
 
@@ -158,9 +158,9 @@ impl Keyring {
         let version_aad = &key_bytes[..2];
         let salt = &key_bytes[2..18];
         let ciphertext = &key_bytes[18..66];
-        let key = wren_crypto::scrypt(password, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
+        let key = kestrel_crypto::scrypt(password, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
 
-        let plaintext = wren_crypto::chapoly_decrypt(&key, 0, version_aad, ciphertext)
+        let plaintext = kestrel_crypto::chapoly_decrypt(&key, 0, version_aad, ciphertext)
             .map_err(|_| KeyringError::PrivateKeyDecrypt)?;
 
         Ok(PrivateKey::from(plaintext.as_slice()))
@@ -171,7 +171,7 @@ impl Keyring {
     /// appended at the end. Represented as base64.
     pub fn encode_public_key(public_key: &PublicKey) -> EncodedPk {
         let pk = public_key.as_bytes();
-        let checksum = wren_crypto::hash(pk);
+        let checksum = kestrel_crypto::hash(pk);
         let mut encoded = [0u8; 36];
         encoded[..32].copy_from_slice(pk);
         encoded[32..].copy_from_slice(&checksum[..4]);
@@ -185,7 +185,7 @@ impl Keyring {
         let pk = &enc_pk_bytes[..32];
         let checksum = &enc_pk_bytes[32..];
 
-        let exp_checksum = wren_crypto::hash(pk);
+        let exp_checksum = kestrel_crypto::hash(pk);
         let exp_checksum: &[u8] = &exp_checksum[..4];
 
         if checksum != exp_checksum {
@@ -375,7 +375,7 @@ mod tests {
     use super::Keyring;
     use super::{EncodedPk, EncodedSk};
     use std::convert::TryInto;
-    use wren_crypto::{PrivateKey, PublicKey};
+    use kestrel_crypto::{PrivateKey, PublicKey};
     const KEYRING_INI: &str = "
 [Key]
 # comment lines are fine.
