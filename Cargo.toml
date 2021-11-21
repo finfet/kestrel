@@ -14,7 +14,7 @@ keywords = ["encryption", "file"]
 categories = ["command-line-utilities", "cryptography"]
 
 [dependencies]
-kestrel-crypto = { path = "./crypto", version = "0.1.0" }
+kestrel-crypto = "0.1.0"
 base64 = "0.13.0"
 getopts = "0.2.21"
 anyhow = "1.0.47"

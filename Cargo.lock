@@ -184,7 +184,7 @@ dependencies = [
  "base64",
  "getopts",
  "hex",
- "kestrel-crypto",
+ "kestrel-crypto 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rpassword",
 ]
 
@@ -195,6 +195,20 @@ dependencies = [
  "chacha20poly1305",
  "getrandom 0.2.3",
  "hex",
+ "hmac",
+ "scrypt",
+ "sha2",
+ "x25519-dalek",
+]
+
+[[package]]
+name = "kestrel-crypto"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79d0ca9fcd1e36299ed36027a4fb85dc10ed840d7a68390dadd32cbf27612b78"
+dependencies = [
+ "chacha20poly1305",
+ "getrandom 0.2.3",
  "hmac",
  "scrypt",
  "sha2",
