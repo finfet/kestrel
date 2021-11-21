@@ -7,7 +7,7 @@ edition = "2021"
 wren-crypto = { path = "./crypto", version = "0.1.0" }
 base64 = "0.13.0"
 getopts = "0.2.21"
-anyhow = "1.0.44"
+anyhow = "1.0.47"
 rpassword = "5.0.1"
 
 [dev-dependencies]

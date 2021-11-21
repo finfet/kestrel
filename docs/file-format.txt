@@ -15,7 +15,8 @@
 X  bytes : ciphertext
 16 bytes : ciphertext tag
 
-Chunks may repeat many times. Chunks are 64KiB by default.
+Chunks may repeat many times. Chunks are 64KiB by default. Chunk number
+increases sequentially and is used as the nonce.
 Last chunk indicator is set to 1 for the last chunk in the message.
 Ciphertext length and last chunk indicator are included in the additional
 authenticated data.
