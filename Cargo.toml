@@ -1,5 +1,5 @@
 [package]
-name = "kestrel"
+name = "kestrel-cli"
 version = "0.1.0"
 edition = "2021"
 authors = [
@@ -12,6 +12,10 @@ repository = "https://github.com/finfet/kestrel"
 homepage = "https://github.com/finfet/kestrel"
 keywords = ["encryption", "file"]
 categories = ["command-line-utilities", "cryptography"]
+
+[[bin]]
+name = "kestrel"
+path = "src/main.rs"
 
 [dependencies]
 kestrel-crypto = "0.1.0"
