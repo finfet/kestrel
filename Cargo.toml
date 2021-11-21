@@ -7,8 +7,11 @@ authors = [
 ]
 readme = "README.md"
 license = "Apache-2.0"
-description = "Cryptography backend for Kestrel"
+description = "Kestrel file encryption program"
 repository = "https://github.com/finfet/kestrel"
+homepage = "https://github.com/finfet/kestrel"
+keywords = ["encryption", "file"]
+categories = ["command-line-utilities", "cryptography"]
 
 [dependencies]
 kestrel-crypto = { path = "./crypto", version = "0.1.0" }

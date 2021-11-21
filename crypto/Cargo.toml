@@ -9,6 +9,7 @@ readme = "README.md"
 license = "Apache-2.0"
 description = "Cryptography backend for Kestrel"
 repository = "https://github.com/finfet/kestrel"
+homepage = "https://github.com/finfet/kestrel"
 categories = ["cryptography"]
 
 [dependencies]
