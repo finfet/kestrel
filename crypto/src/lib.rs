@@ -14,9 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-pub mod errors;
-pub mod encrypt;
 pub mod decrypt;
+pub mod encrypt;
+pub mod errors;
 mod noise;
 
 use getrandom::getrandom;
@@ -30,6 +30,11 @@ use sha2::{Digest, Sha256};
 
 use errors::ChaPolyDecryptError;
 use noise::HandshakeState;
+
+pub const CHUNK_SIZE: usize = 65536;
+pub const SCRYPT_N_V1: u32 = 32768;
+pub const SCRYPT_R_V1: u32 = 8;
+pub const SCRYPT_P_V1: u32 = 1;
 
 /// Noise handshake hash
 pub type HandshakeHash = [u8; 32];
@@ -83,8 +88,8 @@ impl From<&[u8]> for PublicKey {
 impl PrivateKey {
     /// Generate a new private key from 32 secure random bytes
     pub fn generate() -> PrivateKey {
-        let mut key = [0u8; 32];
-        getrandom(&mut key).expect("CSPRNG failed");
+        let key = gen_csprng_bytes(32);
+        let key: [u8; 32] = key.try_into().unwrap();
         PrivateKey { key }
     }
 
@@ -251,28 +256,35 @@ fn noise_hkdf(chaining_key: &[u8], ikm: &[u8]) -> ([u8; 32], [u8; 32]) {
 
 /// Derives a secret key from a password and a salt using scrypt
 /// Recommended parameters are n = 32768, r = 8, p = 1
-/// n must be a power of 2 and > 1. r and p must be < 2^32
-pub fn scrypt(password: &[u8], salt: &[u8], n: u32, r: u32, p: u32) -> [u8; 32] {
+/// n must be a power of 2.
+pub fn scrypt(password: &[u8], salt: &[u8], n: u32, r: u32, p: u32, dk_len: usize) -> Vec<u8> {
     let n = (n as f64).log2() as u8;
     let scrypt_params = scrypt::Params::new(n, r, p).unwrap();
-    let mut key = [0u8; 32];
+    let mut key = vec![0u8; dk_len];
 
     scrypt::scrypt(password, salt, &scrypt_params, &mut key).expect("scrypt kdf failed");
 
-    key.to_vec().try_into().unwrap()
+    key
+}
+
+/// Generate CSPRNG bytes
+pub fn gen_csprng_bytes(len: usize) -> Vec<u8> {
+    let mut data = vec![0u8; len];
+    getrandom(&mut data).expect("CSPRNG gen failed");
+    data
 }
 
 /// Generates 32 CSPRNG bytes to use as a salt for [`scrypt`]
 pub fn gen_salt() -> [u8; 32] {
-    let mut salt = [0u8; 32];
-    getrandom(&mut salt).expect("CSPRNG for salt gen failed");
+    let salt = gen_csprng_bytes(32);
+    let salt: [u8; 32] = salt.as_slice().try_into().unwrap();
     salt
 }
 
 /// Generate a fresh 32 byte symmetric key from a CSPRNG
 pub fn gen_key() -> [u8; 32] {
-    let mut key = [0u8; 32];
-    getrandom(&mut key).expect("CSPRNG for key gen failed.");
+    let key = gen_csprng_bytes(32);
+    let key: [u8; 32] = key.as_slice().try_into().unwrap();
     key
 }
 
@@ -330,7 +342,7 @@ mod test {
     fn test_scrypt() {
         let password = b"hackme";
         let salt = b"yellowsubmarine.";
-        let result = scrypt(password, salt, 32768, 8, 1);
+        let result = scrypt(password, salt, 32768, 8, 1, 32);
         let expected =
             hex::decode("3ebb9ac0d1da595f755407fe8fc246fe67fe6075730fc6e853351c2834bd6157")
                 .unwrap();

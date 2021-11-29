@@ -18,17 +18,12 @@ use crate::errors::EncryptError;
 
 use std::io::{Read, Write};
 
-use crate::{chapoly_encrypt, noise_encrypt, scrypt, gen_key, PrivateKey, PublicKey};
+use crate::{chapoly_encrypt, gen_key, noise_encrypt, scrypt, PrivateKey, PublicKey};
+use crate::{CHUNK_SIZE, SCRYPT_N_V1, SCRYPT_P_V1, SCRYPT_R_V1};
 
 pub const PROLOGUE: [u8; 4] = [0x65, 0x67, 0x6b, 0x10];
 
 pub const PASS_FILE_MAGIC: [u8; 4] = [0x65, 0x67, 0x6b, 0x20];
-
-const CHUNK_SIZE: usize = 65536;
-
-pub const SCRYPT_N: u32 = 32768;
-pub const SCRYPT_R: u32 = 8;
-pub const SCRYPT_P: u32 = 1;
 
 /// Encrypt a file from sender key to recipient key
 /// Passing None for ephemeral_key and payload_key will generate fresh keys.
@@ -137,7 +132,8 @@ pub fn pass_encrypt<T: Read, U: Write>(
     password: &[u8],
     salt: [u8; 32],
 ) -> Result<(), EncryptError> {
-    let key = scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
+    let key = scrypt(password, &salt, SCRYPT_N_V1, SCRYPT_R_V1, SCRYPT_P_V1, 32);
+    let key: [u8; 32] = key.as_slice().try_into().unwrap();
     let aad = Some(&PASS_FILE_MAGIC[..]);
 
     ciphertext.write_all(&PASS_FILE_MAGIC)?;
@@ -151,9 +147,9 @@ pub(crate) mod test {
     use super::CHUNK_SIZE;
     use super::{encrypt, pass_encrypt};
     use super::{PrivateKey, PublicKey};
+    use crate::hash;
     use std::convert::TryInto;
     use std::io::Read;
-    use crate::hash;
 
     #[allow(dead_code)]
     struct KeyData {
