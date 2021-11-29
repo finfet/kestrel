@@ -19,14 +19,9 @@ use crate::errors::DecryptError;
 use std::io::{Read, Write};
 
 use crate::{chapoly_decrypt, noise_decrypt, scrypt, PrivateKey, PublicKey};
+use crate::{CHUNK_SIZE, SCRYPT_N_V1, SCRYPT_P_V1, SCRYPT_R_V1};
 
 const TAG_SIZE: usize = 16;
-
-const CHUNK_SIZE: usize = 65536;
-
-const SCRYPT_N: u32 = 32768;
-const SCRYPT_R: u32 = 8;
-const SCRYPT_P: u32 = 1;
 
 pub fn decrypt<T: Read, U: Write>(
     ciphertext: &mut T,
@@ -56,7 +51,8 @@ pub fn pass_decrypt<T: Read, U: Write>(
     let mut salt = [0u8; 32];
     ciphertext.read_exact(&mut salt)?;
 
-    let key = scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
+    let key = scrypt(password, &salt, SCRYPT_N_V1, SCRYPT_R_V1, SCRYPT_P_V1, 32);
+    let key: [u8; 32] = key.as_slice().try_into().unwrap();
     let aad = Some(&pass_magic_num[..]);
 
     decrypt_chunks(ciphertext, plaintext, key, aad)?;
@@ -147,8 +143,8 @@ mod test {
     use super::{decrypt, pass_decrypt};
     use super::{PrivateKey, PublicKey};
     use crate::encrypt::{encrypt, pass_encrypt};
-    use std::io::Read;
     use crate::hash;
+    use std::io::Read;
 
     #[allow(dead_code)]
     struct KeyData {
