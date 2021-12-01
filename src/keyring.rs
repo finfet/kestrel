@@ -374,8 +374,8 @@ impl Keyring {
 mod tests {
     use super::Keyring;
     use super::{EncodedPk, EncodedSk};
-    use std::convert::TryInto;
     use kestrel_crypto::{PrivateKey, PublicKey};
+    use std::convert::TryInto;
     const KEYRING_INI: &str = "
 [Key]
 # comment lines are fine.

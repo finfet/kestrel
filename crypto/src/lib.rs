@@ -100,8 +100,7 @@ impl PrivateKey {
 
     /// Derive the public key from the private key
     pub fn to_public(&self) -> PublicKey {
-        let pk = x25519_dalek::x25519(self.key, X25519_BASEPOINT_BYTES);
-        PublicKey::from(pk.as_ref())
+        PublicKey::from(&derive_x25519_pub_key(&self.key)[..])
     }
 }
 
@@ -116,6 +115,11 @@ impl From<&[u8]> for PrivateKey {
 /// Performs X25519 diffie hellman, returning the shared secret.
 pub fn x25519(private_key: &PrivateKey, public_key: &PublicKey) -> [u8; 32] {
     x25519_dalek::x25519(private_key.key, public_key.key)
+}
+
+/// Derive an X25519 public key from a private key
+pub fn derive_x25519_pub_key(private_key: &[u8; 32]) -> [u8; 32] {
+    x25519_dalek::x25519(*private_key, X25519_BASEPOINT_BYTES)
 }
 
 /// Encrypt the payload key using the noise X protocol.

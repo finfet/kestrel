@@ -23,9 +23,9 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context};
-use kestrel_crypto::PrivateKey;
 use kestrel_crypto::encrypt::{PASS_FILE_MAGIC, PROLOGUE};
-use kestrel_crypto::{encrypt, decrypt};
+use kestrel_crypto::PrivateKey;
+use kestrel_crypto::{decrypt, encrypt};
 
 #[derive(Debug)]
 pub(crate) enum KeyCommand {
