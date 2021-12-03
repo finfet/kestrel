@@ -13,15 +13,19 @@ is their public key.
 
 - Encrypt files to anyone. Just grab their public key.
 - Quickly encrypt and decrypt files of any size.
-- Strong security and privacy guarantees. Uses X25519, ChaCha20-Poly1305 and the Noise Protocol. Guarantees sender authentication.
+- Strong security and privacy guarantees. Uses X25519, ChaCha20-Poly1305
+  and the Noise Protocol. Guarantees sender authentication.
 - Keys are simple strings that are easy to manage and copy-paste.
 - Private keys are always encrypted.
 - Single binary that is easy to run anywhere.
 
 ## Disadvantages
 
-- Does not handle with signatures. You can't sign files with this. However, sender authentication is guaranteed. You can trust that your files are from someone that you know.
-- Does not solve the key distribution problem. You have to acquire known-good public keys through some other means.
+- Does not handle with signatures. You can't sign files with this.
+  However, sender authentication is guaranteed. You can trust that your
+  files are from someone that you know.
+- Does not solve the key distribution problem. You have to acquire known-good
+  public keys through some other means.
 
 ## Installation
 
@@ -31,7 +35,8 @@ cargo install kestrel-cli
 
 ## Contributing
 
-Patches welcome. Please send feedback and bug reports for any issues that you may have.
+Patches welcome. Please send feedback and bug reports for any issues that
+you may have.
 
 ## License
 
@@ -61,13 +66,19 @@ OPTIONS:
     -v, --version   Print version information.
 ```
 
-## Algorithms
+## Security Design Overview
 
-The core of Kestrel is a Noise Protocol handshake that is used to encrypt a fresh 32 byte payload key. The algorithms used are X25519, ChaCha20-Poly1305, and SHA-256, and the X one way pattern.
+The application uses a standard combination of the Noise Protocol and a
+chunked file encryption scheme.
 
-A file is split into encrypted and authenticated chunks and encrypted with ChaCha20-Poly1305 using the payload key.
+The noise protocol (Noise_X_25519_ChaChaPoly_SHA256) is used to encrypt a
+payload key that is then used for ChaCha20-Poly1305 file encryption. Files are
+split into encrypted and authenticated chunks.
 
-Password based encryption can also be used by deriving a key from a password using scrypt instead of using public keys.
+Users can also use a password instead of public keys. This password is used
+with scrypt to derive a symmetric key for file encryption.
+
+See more in the [security-notes](docs/security-notes.md)
 
 ## Security Warning
 
