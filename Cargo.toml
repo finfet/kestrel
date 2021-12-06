@@ -1,6 +1,6 @@
 [package]
 name = "kestrel-cli"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = [
     "Kyle Schreiber <kyle@80x24.net>",
@@ -18,7 +18,7 @@ name = "kestrel"
 path = "src/main.rs"
 
 [dependencies]
-kestrel-crypto = { version = "0.1.0", path = "crypto" }
+kestrel-crypto = { version = "0.2.0", path = "crypto" }
 base64 = "0.13.0"
 getopts = "0.2.21"
 anyhow = "1.0"
