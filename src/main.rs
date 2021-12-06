@@ -38,6 +38,13 @@ fn main() -> Result<(), anyhow::Error> {
 
     if args.len() <= 1 {
         print_help();
+
+        // If we're on windows and the user double clicks the exe, bring up
+        // an input prompt so that command prompt doesn't
+        // dissappear immediately.
+        #[cfg(target_os="windows")]
+        ask_continue()?;
+
         return Ok(());
     }
 
@@ -79,6 +86,16 @@ fn main() -> Result<(), anyhow::Error> {
             return Err(anyhow!("{}", USAGE));
         }
     }
+
+    Ok(())
+}
+
+#[cfg(target_os="windows")]
+fn ask_continue() -> Result<(), anyhow::Error> {
+    use std::io::Write;
+    print!("\nPress enter to continue: ");
+    std::io::stdout().flush()?;
+    std::io::stdin().read_line(&mut String::new())?;
 
     Ok(())
 }
