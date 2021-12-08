@@ -12,7 +12,7 @@ use chacha20poly1305::aead::{Aead, NewAead, Payload};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 use x25519_dalek::X25519_BASEPOINT_BYTES;
 
-use hmac::{Hmac, Mac, NewMac};
+use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
 
 use errors::ChaPolyDecryptError;

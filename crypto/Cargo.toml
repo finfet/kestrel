@@ -14,11 +14,11 @@ categories = ["cryptography"]
 
 [dependencies]
 getrandom = "0.2.3"
-x25519-dalek = "1.2.0"
+x25519-dalek = { version = "1.2.0", default-features = false, features = ["u64_backend"] }
 chacha20poly1305 = "0.9.0"
-sha2 = "0.9.8"
-hmac = "0.11.0"
-scrypt = { version = "0.8.0", default-features = false }
+sha2 = "0.10.0"
+hmac = "0.12.0"
+scrypt = { version = "0.8.1", default-features = false }
 
 [dev-dependencies]
 hex = "0.4.3"
