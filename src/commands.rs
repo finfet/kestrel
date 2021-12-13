@@ -109,17 +109,21 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     let mut ciphertext = File::create(&outfile_path)?;
 
     eprint!("Encrypting...");
-    if let Err(e) = encrypt::encrypt(
+
+    encrypt::encrypt(
         &mut plaintext,
         &mut ciphertext,
         &sender_private,
         &recipient_public,
         None,
         None,
-    ) {
+    )
+    .map_err(|e| {
         eprintln!("failed");
-        return Err(anyhow!(e));
-    }
+        anyhow!(e)
+    })?;
+
+    ciphertext.sync_all()?;
     eprintln!("done");
 
     Ok(())
@@ -200,7 +204,9 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
             return Err(anyhow!(e));
         }
     };
+    plaintext.sync_all()?;
     eprintln!("done");
+
     let encoded_public = Keyring::encode_public_key(&sender_public);
     match keyring.get_name_from_key(&encoded_public) {
         Some(name) => println!("Success. File from: {}", name),
@@ -301,10 +307,12 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
 
     eprint!("Encrypting...");
     let salt = kestrel_crypto::gen_salt();
-    if let Err(e) = encrypt::pass_encrypt(&mut plaintext, &mut ciphertext, pass.as_bytes(), salt) {
+    encrypt::pass_encrypt(&mut plaintext, &mut ciphertext, pass.as_bytes(), salt).map_err(|e| {
         eprintln!("failed");
-        return Err(anyhow!(e));
-    }
+        anyhow!(e)
+    })?;
+
+    ciphertext.sync_all()?;
     eprintln!("done");
 
     Ok(())
@@ -349,10 +357,12 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let mut plaintext = File::create(&outfile_path).context("Could not create plaintext file")?;
 
     eprint!("Decrypting...");
-    if let Err(e) = decrypt::pass_decrypt(&mut ciphertext, &mut plaintext, pass.as_bytes()) {
+    decrypt::pass_decrypt(&mut ciphertext, &mut plaintext, pass.as_bytes()).map_err(|e| {
         eprintln!("failed");
-        return Err(anyhow!(e));
-    }
+        anyhow!(e)
+    })?;
+
+    plaintext.sync_all()?;
     eprintln!("done");
 
     Ok(())
@@ -438,7 +448,7 @@ fn confirm_overwrite<T: AsRef<Path>>(path: T) -> Result<bool, anyhow::Error> {
 fn ask_user_stderr(prompt: &str) -> Result<String, anyhow::Error> {
     let mut line = String::new();
     eprint!("{}", prompt);
-    std::io::stdout().flush()?;
+    std::io::stderr().flush()?;
     std::io::stdin().read_line(&mut line)?;
     line = line.trim().into();
     Ok(line)

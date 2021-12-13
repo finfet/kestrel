@@ -42,7 +42,7 @@ fn main() -> Result<(), anyhow::Error> {
         // If we're on windows and the user double clicks the exe, bring up
         // an input prompt so that command prompt doesn't
         // dissappear immediately.
-        #[cfg(target_os="windows")]
+        #[cfg(target_os = "windows")]
         ask_continue()?;
 
         return Ok(());
@@ -90,7 +90,7 @@ fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-#[cfg(target_os="windows")]
+#[cfg(target_os = "windows")]
 fn ask_continue() -> Result<(), anyhow::Error> {
     use std::io::Write;
     print!("\nPress enter to continue: ");
