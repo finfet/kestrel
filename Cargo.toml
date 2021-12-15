@@ -22,7 +22,7 @@ kestrel-crypto = { version = "0.2.0", path = "crypto" }
 base64 = "0.13.0"
 getopts = "0.2.21"
 anyhow = "1.0"
-rpassword = "5.0.1"
+passterm = "1.0.1"
 
 [dev-dependencies]
 hex = "0.4.3"

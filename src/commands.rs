@@ -244,8 +244,12 @@ pub(crate) fn gen_key() -> Result<(), anyhow::Error> {
 }
 
 pub(crate) fn change_pass(private_key: String) -> Result<(), anyhow::Error> {
-    let old_pass = rpassword::prompt_password_stderr("Old password: ")?;
-    let new_pass = confirm_password_stderr("New password: ")?;
+    eprint!("Old password: ");
+    let old_pass = passterm::read_password()?;
+    eprintln!();
+    eprint!("New password: ");
+    let new_pass = passterm::read_password()?;
+    eprintln!();
 
     let old_sk: EncodedSk = private_key
         .as_str()
@@ -264,7 +268,9 @@ pub(crate) fn change_pass(private_key: String) -> Result<(), anyhow::Error> {
 }
 
 pub(crate) fn extract_pub(private_key: String) -> Result<(), anyhow::Error> {
-    let pass = rpassword::prompt_password_stderr("Password: ")?;
+    eprint!("Password: ");
+    let pass = passterm::read_password()?;
+    eprintln!();
 
     let esk: EncodedSk = private_key
         .as_str()
@@ -417,8 +423,13 @@ fn calculate_output_path<T: AsRef<Path>, U: Into<PathBuf>>(
 
 fn confirm_password_stderr(prompt: &str) -> Result<String, anyhow::Error> {
     let password = loop {
-        let pass = rpassword::prompt_password_stderr(prompt)?;
-        let confirm_pass = rpassword::prompt_password_stderr("Confirm password: ")?;
+        eprint!("{}", prompt);
+        let pass = passterm::read_password()?;
+        eprintln!();
+        eprint!("Confirm password: ");
+        let confirm_pass = passterm::read_password()?;
+        eprintln!();
+
         if pass != confirm_pass {
             eprintln!("Passwords do not match");
         } else {
@@ -430,7 +441,10 @@ fn confirm_password_stderr(prompt: &str) -> Result<String, anyhow::Error> {
 }
 
 fn ask_pass_stderr(prompt: &str) -> Result<String, anyhow::Error> {
-    let pass = rpassword::prompt_password_stderr(prompt)?;
+    eprint!("{}", prompt);
+    let pass = passterm::read_password()?;
+    eprintln!();
+
     Ok(pass)
 }
 
