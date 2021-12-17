@@ -14,12 +14,13 @@ from shutil import copy2, copytree, make_archive
 from pathlib import Path
 
 def main():
-    if len(sys.argv) < 2:
-        print("Supply a version", file=sys.stderr)
-        sys.exit(1)
-    
-    tag_name = sys.argv[1]
-    archive_name = "kestrel-source-{}".format(tag_name)
+    source_version = read_version()
+    if source_version == "":
+        raise Exception("Could not get version from Cargo.toml")
+
+    archive_name = "kestrel-source-v{}".format(source_version)
+    print(archive_name)
+    return
 
     file_list = [
         ("Cargo.lock", "Cargo.lock"),
@@ -45,6 +46,18 @@ def main():
     create_tarball(archive_name)
     create_zipfile(archive_name)
 
+def read_version():
+    """ Read version info from Cargo.toml """
+    source_version = ""
+
+    with open("Cargo.toml", "r") as f:
+        for line in f.readlines():
+            check_line = line.strip()
+            if check_line.startswith("version"):
+                version = check_line.split("=")[1].strip().strip("\"")
+                source_version = version
+                break
+    return source_version
 
 def vendor_source():
     vendor_output = subprocess.run(["cargo", "vendor", "--locked"], capture_output=True)
