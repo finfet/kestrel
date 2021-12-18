@@ -498,9 +498,39 @@ fn open_keyring(keyring_loc: Option<String>) -> Result<Keyring, anyhow::Error> {
         }
     };
 
-    let keyring_data = std::fs::read_to_string(path)?;
+    let keyring_data = std::fs::read(path)?;
+    let keyring_data = decode_keyring_data(keyring_data.as_slice())?;
 
     Ok(Keyring::new(&keyring_data)?)
+}
+
+/// Decode keyring bytes as either UTF-8 or UTF-16LE BOM
+fn decode_keyring_data(data: &[u8]) -> Result<String, anyhow::Error> {
+    // Check to see if our string is UTF-16LE with BOM.
+    // This is the default for Powershell 5.
+    if data.len() > 2 && data[0] == 0xFF && data[1] == 0xFE {
+        return decode_utf16le(&data[2..]);
+    }
+
+    String::from_utf8(data.to_vec()).map_err(|e| anyhow!("Invalid keyring encoding: {}", e))
+}
+
+fn decode_utf16le(data: &[u8]) -> Result<String, anyhow::Error> {
+    if data.len() % 2 != 0 {
+        return Err(anyhow!("Invalid UTF-16 string in keyring"));
+    }
+
+    let mut utf16_data: Vec<u16> = Vec::new();
+    for i in (0..data.len()).step_by(2) {
+        let low_byte = data[i];
+        let high_byte = data[i + 1];
+        let utf16_byte: u16 = ((high_byte as u16) << 8) | (low_byte as u16);
+        utf16_data.push(utf16_byte);
+    }
+
+    let s = String::from_utf16(&utf16_data)?;
+
+    Ok(s)
 }
 
 pub fn add_file_ext(path: &Path, extension: impl AsRef<OsStr>) -> PathBuf {
