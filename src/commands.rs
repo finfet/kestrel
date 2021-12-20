@@ -241,7 +241,7 @@ pub(crate) fn gen_key(outfile: String) -> Result<(), anyhow::Error> {
 
     let mut keyring_file = OpenOptions::new().append(true).create(true).open(outfile)?;
 
-    keyring_file.write(key_output.as_bytes())?;
+    keyring_file.write_all(key_output.as_bytes())?;
     keyring_file.sync_all()?;
 
     Ok(())

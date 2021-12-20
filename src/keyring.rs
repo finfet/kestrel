@@ -335,6 +335,13 @@ impl Keyring {
                     &k.name
                 )));
             }
+
+            if k.public_key.as_str() == key_public.unwrap().as_str() {
+                return Err(KeyringError::ParseConfig(format!(
+                    "Found duplicate public key: {}",
+                    k.public_key.as_str()
+                )));
+            }
         }
 
         let key = Key {
