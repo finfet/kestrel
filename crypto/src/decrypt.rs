@@ -24,6 +24,8 @@ pub fn decrypt<T: Read, U: Write>(
 
     decrypt_chunks(ciphertext, plaintext, payload_key, None)?;
 
+    plaintext.flush()?;
+
     Ok(sender_public)
 }
 
@@ -44,10 +46,12 @@ pub fn pass_decrypt<T: Read, U: Write>(
 
     decrypt_chunks(ciphertext, plaintext, key, aad)?;
 
+    plaintext.flush()?;
+
     Ok(())
 }
 
-pub(crate) fn decrypt_chunks<T: Read, U: Write>(
+fn decrypt_chunks<T: Read, U: Write>(
     ciphertext: &mut T,
     plaintext: &mut U,
     key: [u8; 32],

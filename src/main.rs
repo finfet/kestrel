@@ -15,7 +15,7 @@ const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 const USAGE: &str = "USAGE:
     kestrel encrypt FILE -t NAME -f NAME [-o FILE] [-k KEYRING]
     kestrel decrypt FILE -t NAME [-o FILE] [-k KEYRING]
-    kestrel key generate
+    kestrel key generate -o FILE
     kestrel key change-pass PRIVATE-KEY
     kestrel key extract-pub PRIVATE-KEY
     kestrel password encrypt|decrypt FILE [-o FILE]
@@ -69,7 +69,7 @@ fn main() -> Result<(), anyhow::Error> {
         },
         "key" => match parse_key(args.as_slice()) {
             Ok(key_command) => match key_command {
-                KeyCommand::Generate => commands::gen_key()?,
+                KeyCommand::Generate(outfile) => commands::gen_key(outfile)?,
                 KeyCommand::ChangePass(priv_key) => commands::change_pass(priv_key)?,
                 KeyCommand::ExtractPub(priv_key) => commands::extract_pub(priv_key)?,
             },
@@ -186,11 +186,16 @@ fn parse_decrypt(args: &[&str]) -> Result<DecryptOptions, Option<String>> {
 fn parse_key(args: &[&str]) -> Result<KeyCommand, Option<String>> {
     match args[2] {
         "gen" | "generate" => {
-            if args.len() == 3 {
-                Ok(KeyCommand::Generate)
-            } else {
-                Err(None)
-            }
+            let mut gen_opts = Options::new();
+            gen_opts.reqopt("o", "output", "Output file", "FILE");
+            let matches = match gen_opts.parse(&args[3..]) {
+                Ok(m) => m,
+                Err(e) => return Err(Some(e.to_string())),
+            };
+
+            let outfile = matches.opt_str("o").unwrap();
+
+            Ok(KeyCommand::Generate(outfile))
         }
         "change-pass" => {
             if args.len() == 4 {

@@ -34,6 +34,30 @@ pub fn encrypt<T: Read, U: Write>(
 
     encrypt_chunks(plaintext, ciphertext, payload_key, None)?;
 
+    ciphertext.flush()?;
+
+    Ok(())
+}
+
+/// Encrypt a file with symmetric encryption using a key derived from a password.
+/// Salt must be a 32 byte nonce
+pub fn pass_encrypt<T: Read, U: Write>(
+    plaintext: &mut T,
+    ciphertext: &mut U,
+    password: &[u8],
+    salt: [u8; 32],
+) -> Result<(), EncryptError> {
+    let key = scrypt(password, &salt, SCRYPT_N_V1, SCRYPT_R_V1, SCRYPT_P_V1, 32);
+    let key: [u8; 32] = key.as_slice().try_into().unwrap();
+    let aad = Some(&PASS_FILE_MAGIC[..]);
+
+    ciphertext.write_all(&PASS_FILE_MAGIC)?;
+    ciphertext.write_all(&salt)?;
+
+    encrypt_chunks(plaintext, ciphertext, key, aad)?;
+
+    ciphertext.flush()?;
+
     Ok(())
 }
 
@@ -41,7 +65,7 @@ pub fn encrypt<T: Read, U: Write>(
 /// Passing aad will include the data as the first aad bytes along with
 /// the last chunk indicator and ciphertext length. This aad is used to
 /// authenticate the magic header bytes for password dervied encryption
-pub(crate) fn encrypt_chunks<T: Read, U: Write>(
+fn encrypt_chunks<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,
     key: [u8; 32],
@@ -109,24 +133,6 @@ pub(crate) fn encrypt_chunks<T: Read, U: Write>(
     }
 
     Ok(())
-}
-
-/// Encrypt a file with symmetric encryption using a key derived from a password.
-/// Salt must be a 32 byte nonce
-pub fn pass_encrypt<T: Read, U: Write>(
-    plaintext: &mut T,
-    ciphertext: &mut U,
-    password: &[u8],
-    salt: [u8; 32],
-) -> Result<(), EncryptError> {
-    let key = scrypt(password, &salt, SCRYPT_N_V1, SCRYPT_R_V1, SCRYPT_P_V1, 32);
-    let key: [u8; 32] = key.as_slice().try_into().unwrap();
-    let aad = Some(&PASS_FILE_MAGIC[..]);
-
-    ciphertext.write_all(&PASS_FILE_MAGIC)?;
-    ciphertext.write_all(&salt)?;
-
-    encrypt_chunks(plaintext, ciphertext, key, aad)
 }
 
 #[cfg(test)]

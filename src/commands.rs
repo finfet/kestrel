@@ -5,7 +5,7 @@ use crate::keyring::{EncodedSk, Keyring};
 
 use std::convert::TryInto;
 use std::ffi::OsStr;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
@@ -16,7 +16,7 @@ use kestrel_crypto::{decrypt, encrypt};
 
 #[derive(Debug)]
 pub(crate) enum KeyCommand {
-    Generate,
+    Generate(String),
     ChangePass(String),
     ExtractPub(String),
 }
@@ -219,10 +219,10 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-pub(crate) fn gen_key() -> Result<(), anyhow::Error> {
+pub(crate) fn gen_key(outfile: String) -> Result<(), anyhow::Error> {
     let name = ask_user_stderr("Key name: ")?;
     if !Keyring::valid_key_name(&name) {
-        return Err(anyhow!("Name must be at least 1 and < 128 UTF-8 bytes."));
+        return Err(anyhow!("Name must be at least 1 and 128 characters."));
     }
     let pass = confirm_password_stderr("New password: ")?;
     let private_key = PrivateKey::generate();
@@ -237,8 +237,12 @@ pub(crate) fn gen_key() -> Result<(), anyhow::Error> {
     let key_config =
         Keyring::serialize_key(name.as_str(), &encoded_public_key, &encoded_private_key);
 
-    println!();
-    print!("{}", key_config);
+    let key_output = format!("\n{}", key_config);
+
+    let mut keyring_file = OpenOptions::new().append(true).create(true).open(outfile)?;
+
+    keyring_file.write(key_output.as_bytes())?;
+    keyring_file.sync_all()?;
 
     Ok(())
 }
@@ -499,38 +503,9 @@ fn open_keyring(keyring_loc: Option<String>) -> Result<Keyring, anyhow::Error> {
     };
 
     let keyring_data = std::fs::read(path)?;
-    let keyring_data = decode_keyring_data(keyring_data.as_slice())?;
+    let keyring_data = String::from_utf8(keyring_data).context("Invalid Keyring encoding")?;
 
     Ok(Keyring::new(&keyring_data)?)
-}
-
-/// Decode keyring bytes as either UTF-8 or UTF-16LE BOM
-fn decode_keyring_data(data: &[u8]) -> Result<String, anyhow::Error> {
-    // Check to see if our string is UTF-16LE with BOM.
-    // This is the default for Powershell 5.
-    if data.len() > 2 && data[0] == 0xFF && data[1] == 0xFE {
-        return decode_utf16le(&data[2..]);
-    }
-
-    String::from_utf8(data.to_vec()).map_err(|e| anyhow!("Invalid keyring encoding: {}", e))
-}
-
-fn decode_utf16le(data: &[u8]) -> Result<String, anyhow::Error> {
-    if data.len() % 2 != 0 {
-        return Err(anyhow!("Invalid UTF-16 string in keyring"));
-    }
-
-    let mut utf16_data: Vec<u16> = Vec::new();
-    for i in (0..data.len()).step_by(2) {
-        let low_byte = data[i];
-        let high_byte = data[i + 1];
-        let utf16_byte: u16 = ((high_byte as u16) << 8) | (low_byte as u16);
-        utf16_data.push(utf16_byte);
-    }
-
-    let s = String::from_utf16(&utf16_data)?;
-
-    Ok(s)
 }
 
 pub fn add_file_ext(path: &Path, extension: impl AsRef<OsStr>) -> PathBuf {
