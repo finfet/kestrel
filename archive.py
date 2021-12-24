@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# Copyright 2021 Kyle Schreiber
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 """
 Create a tarball and zip of the source
 """

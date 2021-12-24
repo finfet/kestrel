@@ -6,24 +6,24 @@ Modern, secure, and easy to use file encryption.
 
 Kestrel is a data-at-rest file encryption program. Think PGP, but less unwieldy.
 
-Kestrel makes it easy to encrypt files for yourself or friends. All you need
-is their public key.
+Kestrel makes it easy to encrypt files for yourself or friends.
 
 ## Features and Advantages
 
-- Encrypt files to anyone. Just grab their public key.
+- Encrypt files to anyone. Grab their public key or use a password.
 - Quickly encrypt and decrypt files of any size.
 - Strong security and privacy guarantees. Uses X25519, ChaCha20-Poly1305
   and the Noise Protocol. Guarantees sender authentication.
 - Keys are simple strings that are easy to manage and copy-paste.
 - Private keys are always encrypted.
 - Single binary that is easy to run anywhere.
+- Supports Linux, macOS, Windows.
+- BSDs will also likely work but are untested.
 
 ## Disadvantages
 
-- Does not handle with signatures. You can't sign files with this.
-  However, sender authentication is guaranteed. You can trust that your
-  files are from someone that you know.
+- Does not handle signatures. You can't sign files with this. However,
+  sender authentication is guaranteed.
 - Does not solve the key distribution problem. You have to acquire known-good
   public keys through some other means.
 
@@ -40,7 +40,7 @@ you may have.
 
 ## License
 
-Apache 2.0
+BSD 3 Clause
 
 ## Usage
 
@@ -48,7 +48,7 @@ Apache 2.0
 USAGE:
     kestrel encrypt FILE -t NAME -f NAME [-o FILE] [-k KEYRING]
     kestrel decrypt FILE -t NAME [-o FILE] [-k KEYRING]
-    kestrel key generate
+    kestrel key generate -o FILE
     kestrel key change-pass PRIVATE-KEY
     kestrel key extract-pub PRIVATE-KEY
     kestrel password encrypt|decrypt FILE [-o FILE]
@@ -75,11 +75,12 @@ The noise protocol (Noise_X_25519_ChaChaPoly_SHA256) is used to encrypt a
 payload key that is then used for ChaCha20-Poly1305 file encryption. Files are
 split into encrypted and authenticated chunks.
 
-Users can also use a password instead of public keys. This password is used
-with scrypt to derive a symmetric key for file encryption.
+Users can also use a password instead of public keys. Scrypt is to derive a
+symmetric key for file encryption.
 
 See more in the [security-notes](docs/security-notes.md)
 
 ## Security Warning
 
-To the best of my knowledge, Kestrel is secure. However, this software has not yet undergone a formal security audit. Swim at your own risk.
+To the best of my knowledge, Kestrel is secure. However, this software has not
+yet undergone a formal security audit. Swim at your own risk.

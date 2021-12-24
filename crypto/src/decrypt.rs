@@ -1,5 +1,5 @@
 // Copyright 2021 Kyle Schreiber
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: BSD-3-Clause
 
 use crate::errors::DecryptError;
 
