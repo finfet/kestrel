@@ -1,3 +1,5 @@
 /target
 /vendor
 /archive
+/packaging/windows/install
+/packaging/windows/output
