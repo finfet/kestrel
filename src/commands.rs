@@ -428,9 +428,11 @@ fn calculate_output_path<T: AsRef<Path>, U: Into<PathBuf>>(
 fn confirm_password_stderr(prompt: &str) -> Result<String, anyhow::Error> {
     let password = loop {
         eprint!("{}", prompt);
+        std::io::stderr().flush()?;
         let pass = passterm::read_password()?;
         eprintln!();
         eprint!("Confirm password: ");
+        std::io::stderr().flush()?;
         let confirm_pass = passterm::read_password()?;
         eprintln!();
 
