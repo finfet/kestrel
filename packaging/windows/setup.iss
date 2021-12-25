@@ -25,7 +25,7 @@ LicenseFile=install\LICENSE.txt
 ; Remove the following line to run in administrative install mode (install for all users.)
 PrivilegesRequired=lowest
 OutputDir=output
-OutputBaseFilename=kestrel-setup-{#AppVersion}-x64
+OutputBaseFilename=kestrel-setup-v{#AppVersion}-x64
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 Compression=lzma
@@ -39,7 +39,6 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 Source: "install\bin\{#AppExeName}"; DestDir: "{app}\bin"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "install\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
-Source: "install\README.txt"; DestDir: "{app}"; Flags: ignoreversion isreadme
 Source: "install\THIRD-PARTY.txt"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
