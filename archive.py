@@ -23,15 +23,12 @@ def main():
         raise Exception("Could not get version from Cargo.toml")
 
     archive_name = "kestrel-source-v{}".format(source_version)
-    print(archive_name)
-    return
 
     file_list = [
         ("Cargo.lock", "Cargo.lock"),
         ("Cargo.toml", "Cargo.toml"),
         ("README.md", "README.txt"),
         ("LICENSE.txt", "LICENSE.txt"),
-        ("NOTICE.txt", "NOTICE.txt"),
         ("THIRD-PARTY.txt", "THIRD-PARTY.txt"),
         ("CHANGELOG.md", "CHANGELOG.txt"),
     ]
@@ -41,6 +38,7 @@ def main():
         ("crypto", "crypto"),
         ("docs", "docs"),
         ("vendor", "vendor"),
+        ("packaging", "packaging"),
     ]
 
     os.mkdir("archive")
