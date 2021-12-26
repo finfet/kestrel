@@ -471,6 +471,9 @@ fn ask_user_stderr(prompt: &str) -> Result<String, anyhow::Error> {
     std::io::stderr().flush()?;
     std::io::stdin().read_line(&mut line)?;
     line = line.trim().into();
+    if !passterm::isatty(passterm::Stream::Stdin) {
+        eprintln!();
+    }
     Ok(line)
 }
 
