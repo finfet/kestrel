@@ -1,5 +1,7 @@
 /target
 /vendor
 /archive
+/tests/data_tmp.txt.ktl
+/tests/tmp_keys.txt
 /packaging/windows/install
 /packaging/windows/output

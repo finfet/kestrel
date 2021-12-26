@@ -10,6 +10,8 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context};
+use passterm::Stream;
+
 use kestrel_crypto::encrypt::{PASS_FILE_MAGIC, PROLOGUE};
 use kestrel_crypto::PrivateKey;
 use kestrel_crypto::{decrypt, encrypt};
@@ -98,9 +100,15 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
         match Keyring::unlock_private_key(sender_key, pass.as_bytes()) {
             Ok(sk) => break sk,
             Err(_) => {
-                eprintln!("Key unlock failed.");
-                let p = ask_pass_stderr(&unlock_prompt)?;
-                pass = p;
+                // Don't continue looping if unlock fails and we're not in
+                // a terminal.
+                if !passterm::isatty(Stream::Stdin) {
+                    return Err(anyhow!("Key unlock failed."));
+                } else {
+                    eprintln!("Key unlock failed.");
+                    let p = ask_pass_stderr(&unlock_prompt)?;
+                    pass = p;
+                }
             }
         }
     };
@@ -185,9 +193,13 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
         match Keyring::unlock_private_key(recipient_key, pass.as_bytes()) {
             Ok(sk) => break sk,
             Err(_) => {
-                eprintln!("Key unlock failed.");
-                let p = ask_pass_stderr(&unlock_prompt)?;
-                pass = p;
+                if !passterm::isatty(Stream::Stdin) {
+                    return Err(anyhow!("Key unlock failed."));
+                } else {
+                    eprintln!("Key unlock failed.");
+                    let p = ask_pass_stderr(&unlock_prompt)?;
+                    pass = p;
+                }
             }
         }
     };
@@ -437,7 +449,12 @@ fn confirm_password_stderr(prompt: &str) -> Result<String, anyhow::Error> {
         eprintln!();
 
         if pass != confirm_pass {
-            eprintln!("Passwords do not match");
+            // Don't loop if we're not in an interactive prompt.
+            if !passterm::isatty(Stream::Stdin) {
+                return Err(anyhow!("Passwords do not match"));
+            } else {
+                eprintln!("Passwords do not match");
+            }
         } else {
             break pass;
         }
@@ -471,7 +488,7 @@ fn ask_user_stderr(prompt: &str) -> Result<String, anyhow::Error> {
     std::io::stderr().flush()?;
     std::io::stdin().read_line(&mut line)?;
     line = line.trim().into();
-    if !passterm::isatty(passterm::Stream::Stdin) {
+    if !passterm::isatty(Stream::Stdin) {
         eprintln!();
     }
     Ok(line)
