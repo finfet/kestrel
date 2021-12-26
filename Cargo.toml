@@ -6,7 +6,8 @@ authors = [
     "Kyle Schreiber <kyle@80x24.net>",
 ]
 readme = "README.md"
-license = "Apache-2.0"
+license = "BSD-3-Clause"
+license-file = "LICENSE.txt"
 description = "Kestrel file encryption program"
 repository = "https://github.com/finfet/kestrel"
 homepage = "https://github.com/finfet/kestrel"
