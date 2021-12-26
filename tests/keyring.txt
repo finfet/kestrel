@@ -1,0 +1,10 @@
+
+[Key]
+Name = alice
+PublicKey = bJMx+URyEwCKSYYPDyVwRrVhiAu2MJSSxG/NC8l570DojWkm
+PrivateKey = AAG0rhkawzo/HQgNkV0TVJcK+p4WMgXy/KPNDpASrmiRXoCqG6yJvzOAv0zyxcaQQe7nYG2GtRxcWuo15u1Q69k+
+
+[Key]
+Name = bob
+PublicKey = u19LSsmoNtCIZu9/s7fKYe8dWBg9MlD8oW62KlHJj2y7pW7A
+PrivateKey = AAE0PIIAmhv4NT7rMxyBwtuiHOl6/NQtlIR0oHoWSXnWbN/4jXphlwSqTldJoFhFF3IvA3893GF9OojbA5MlyPPv

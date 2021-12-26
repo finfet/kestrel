@@ -35,6 +35,7 @@ def main():
 
     dir_list = [
         ("src", "src"),
+        ("tests", "tests"),
         ("crypto", "crypto"),
         ("docs", "docs"),
         ("vendor", "vendor"),
