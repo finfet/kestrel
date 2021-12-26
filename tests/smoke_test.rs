@@ -136,17 +136,21 @@ fn test_key_extract_pub() {
 
 #[test]
 fn test_encrypt() {
+    let mut plaintext_loc = PathBuf::new();
+    plaintext_loc.push("tests");
+    plaintext_loc.push("data.txt");
+
     let mut keyring_loc = PathBuf::new();
     keyring_loc.push("tests");
     keyring_loc.push("keyring.txt");
 
     let mut ciphertext_loc = PathBuf::new();
     ciphertext_loc.push("tests");
-    ciphertext_loc.push("data_tmp.txt.ktl");
+    ciphertext_loc.push("tmp_data.txt.ktl");
 
     let mut app = Command::new(EXE_LOC)
         .arg("encrypt")
-        .arg(keyring_loc.as_os_str())
+        .arg(plaintext_loc.as_os_str())
         .arg("--to")
         .arg("bob")
         .arg("--from")
@@ -163,7 +167,7 @@ fn test_encrypt() {
 
     let mut stdin = app.stdin.take().unwrap();
     std::thread::spawn(move || {
-        stdin.write_all("alicepasss\n".as_bytes()).unwrap();
+        stdin.write_all("alicepass\n".as_bytes()).unwrap();
     });
 
     let output = app.wait_with_output().unwrap();
@@ -182,4 +186,155 @@ fn test_encrypt() {
 
     assert_eq!("Unlock 'alice' key: ", stderr_lines[0]);
     assert_eq!("Encrypting...done", stderr_lines[1]);
+}
+
+#[test]
+fn test_decrypt() {
+    let mut keyring_loc = PathBuf::new();
+    keyring_loc.push("tests");
+    keyring_loc.push("keyring.txt");
+
+    let mut ciphertext_loc = PathBuf::new();
+    ciphertext_loc.push("tests");
+    ciphertext_loc.push("data.txt.ktl");
+
+    let mut plaintext_loc = PathBuf::new();
+    plaintext_loc.push("tests");
+    plaintext_loc.push("tmp_data.out");
+
+    let mut app = Command::new(EXE_LOC)
+        .arg("decrypt")
+        .arg(ciphertext_loc.as_os_str())
+        .arg("-t")
+        .arg("bob")
+        .arg("-o")
+        .arg(plaintext_loc.as_os_str())
+        .arg("-k")
+        .arg(keyring_loc.as_os_str())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    let mut stdin = app.stdin.take().unwrap();
+    std::thread::spawn(move || {
+        stdin.write_all("bobpass\n".as_bytes()).unwrap();
+    });
+
+    let output = app.wait_with_output().unwrap();
+
+    std::fs::remove_file(plaintext_loc).unwrap();
+
+    assert!(output.status.success());
+
+    let stdout_output = String::from_utf8(output.stdout.clone()).unwrap();
+    let stderr_output = String::from_utf8(output.stderr.clone()).unwrap();
+    let stdout_lines = stdout_output
+        .lines()
+        .map(|l| l.to_string())
+        .collect::<Vec<String>>();
+    let stderr_lines = stderr_output
+        .lines()
+        .map(|l| l.to_string())
+        .collect::<Vec<String>>();
+
+    assert_eq!(stdout_lines.len(), 1);
+    assert_eq!(stderr_lines.len(), 2);
+
+    assert_eq!("Unlock 'bob' key: ", stderr_lines[0]);
+    assert_eq!("Decrypting...done", stderr_lines[1]);
+
+    assert_eq!("Success. File from: alice", stdout_lines[0]);
+}
+
+#[test]
+fn test_pass_encrypt() {
+    let mut plaintext_loc = PathBuf::new();
+    plaintext_loc.push("tests");
+    plaintext_loc.push("data.txt");
+
+    let mut ciphertext_loc = PathBuf::new();
+    ciphertext_loc.push("tests");
+    ciphertext_loc.push("tmp_pdata.txt.ktl");
+
+    let mut app = Command::new(EXE_LOC)
+        .arg("password")
+        .arg("encrypt")
+        .arg(plaintext_loc.as_os_str())
+        .arg("-o")
+        .arg(ciphertext_loc.as_os_str())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    let mut stdin = app.stdin.take().unwrap();
+    std::thread::spawn(move || {
+        stdin.write_all("pass123\npass123\n".as_bytes()).unwrap();
+    });
+
+    let output = app.wait_with_output().unwrap();
+
+    std::fs::remove_file(ciphertext_loc).unwrap();
+
+    assert!(output.status.success());
+
+    let stderr_output = String::from_utf8(output.stderr.clone()).unwrap();
+    let stderr_lines = stderr_output
+        .lines()
+        .map(|l| l.to_string())
+        .collect::<Vec<String>>();
+
+    assert_eq!(stderr_lines.len(), 3);
+
+    assert_eq!("Use password: ", stderr_lines[0]);
+    assert_eq!("Confirm password: ", stderr_lines[1]);
+    assert_eq!("Encrypting...done", stderr_lines[2]);
+}
+
+#[test]
+fn test_pass_decrypt() {
+    let mut ciphertext_loc = PathBuf::new();
+    ciphertext_loc.push("tests");
+    ciphertext_loc.push("pdata.txt.ktl");
+
+    let mut plaintext_loc = PathBuf::new();
+    plaintext_loc.push("tests");
+    plaintext_loc.push("tmp_pdata.out");
+
+    let mut app = Command::new(EXE_LOC)
+        .arg("pass")
+        .arg("dec")
+        .arg(ciphertext_loc.as_os_str())
+        .arg("-o")
+        .arg(plaintext_loc.as_os_str())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    let mut stdin = app.stdin.take().unwrap();
+    std::thread::spawn(move || {
+        stdin.write_all("pass123\n".as_bytes()).unwrap();
+    });
+
+    let output = app.wait_with_output().unwrap();
+
+    std::fs::remove_file(plaintext_loc).unwrap();
+
+    assert!(output.status.success());
+
+    let stderr_output = String::from_utf8(output.stderr.clone()).unwrap();
+    let stderr_lines = stderr_output
+        .lines()
+        .map(|l| l.to_string())
+        .collect::<Vec<String>>();
+
+    assert_eq!(stderr_lines.len(), 2);
+
+    assert_eq!("Password: ", stderr_lines[0]);
+    assert_eq!("Decrypting...done", stderr_lines[1]);
 }
