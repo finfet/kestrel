@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context};
 use passterm::Stream;
+use zeroize::Zeroize;
 
 use kestrel_crypto::encrypt::{PASS_FILE_MAGIC, PROLOGUE};
 use kestrel_crypto::PrivateKey;
@@ -113,6 +114,8 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
         }
     };
 
+    pass.zeroize();
+
     let mut plaintext = File::open(infile_path).context("Could not open input file.")?;
     let mut ciphertext = File::create(&outfile_path)?;
 
@@ -204,6 +207,8 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
         }
     };
 
+    pass.zeroize();
+
     let mut ciphertext = File::open(&infile_path).context("Could not open input file")?;
     let mut plaintext = File::create(&outfile_path)?;
 
@@ -236,7 +241,7 @@ pub(crate) fn gen_key(outfile: String) -> Result<(), anyhow::Error> {
     if !Keyring::valid_key_name(&name) {
         return Err(anyhow!("Name must be at least 1 and 128 characters."));
     }
-    let pass = confirm_password_stderr("New password: ")?;
+    let mut pass = confirm_password_stderr("New password: ")?;
     let private_key = PrivateKey::generate();
     let public_key = private_key.to_public();
     let mut salt = [0u8; 16];
@@ -244,6 +249,7 @@ pub(crate) fn gen_key(outfile: String) -> Result<(), anyhow::Error> {
     salt.copy_from_slice(&tmp_salt[..16]);
 
     let encoded_private_key = Keyring::lock_private_key(&private_key, pass.as_bytes(), salt);
+    pass.zeroize();
     let encoded_public_key = Keyring::encode_public_key(&public_key);
 
     let key_config =
@@ -261,10 +267,10 @@ pub(crate) fn gen_key(outfile: String) -> Result<(), anyhow::Error> {
 
 pub(crate) fn change_pass(private_key: String) -> Result<(), anyhow::Error> {
     eprint!("Old password: ");
-    let old_pass = passterm::read_password()?;
+    let mut old_pass = passterm::read_password()?;
     eprintln!();
     eprint!("New password: ");
-    let new_pass = passterm::read_password()?;
+    let mut new_pass = passterm::read_password()?;
     eprintln!();
 
     let old_sk: EncodedSk = private_key
@@ -278,6 +284,9 @@ pub(crate) fn change_pass(private_key: String) -> Result<(), anyhow::Error> {
     salt.copy_from_slice(&tmp_salt[..16]);
     let new_sk = Keyring::lock_private_key(&sk, new_pass.as_bytes(), salt);
 
+    old_pass.zeroize();
+    new_pass.zeroize();
+
     println!("PrivateKey = {}", new_sk.as_str());
 
     Ok(())
@@ -285,7 +294,7 @@ pub(crate) fn change_pass(private_key: String) -> Result<(), anyhow::Error> {
 
 pub(crate) fn extract_pub(private_key: String) -> Result<(), anyhow::Error> {
     eprint!("Password: ");
-    let pass = passterm::read_password()?;
+    let mut pass = passterm::read_password()?;
     eprintln!();
 
     let esk: EncodedSk = private_key
@@ -294,6 +303,8 @@ pub(crate) fn extract_pub(private_key: String) -> Result<(), anyhow::Error> {
         .map_err(|e| anyhow!("{}", e))?;
 
     let sk = Keyring::unlock_private_key(&esk, pass.as_bytes())?;
+
+    pass.zeroize();
 
     let pk = sk.to_public();
 
@@ -322,7 +333,7 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
         None => return Ok(()), // The user didn't want to overwrite the file.
     };
 
-    let pass = confirm_password_stderr("Use password: ")?;
+    let mut pass = confirm_password_stderr("Use password: ")?;
 
     let mut plaintext = File::open(infile_path).context("Could not open plaintext file")?;
     let mut ciphertext = File::create(&outfile_path).context("Could not create ciphertext file")?;
@@ -330,9 +341,12 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     eprint!("Encrypting...");
     let salt = kestrel_crypto::gen_salt();
     encrypt::pass_encrypt(&mut plaintext, &mut ciphertext, pass.as_bytes(), salt).map_err(|e| {
+        pass.zeroize();
         eprintln!("failed");
         anyhow!(e)
     })?;
+
+    pass.zeroize();
 
     ciphertext.sync_all()?;
     eprintln!("done");
@@ -373,16 +387,19 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
         None => return Ok(()), // The user didn't want to overwrite the file.
     };
 
-    let pass = ask_pass_stderr("Password: ")?;
+    let mut pass = ask_pass_stderr("Password: ")?;
 
     let mut ciphertext = File::open(&infile_path).context("Could not open ciphertext file")?;
     let mut plaintext = File::create(&outfile_path).context("Could not create plaintext file")?;
 
     eprint!("Decrypting...");
     decrypt::pass_decrypt(&mut ciphertext, &mut plaintext, pass.as_bytes()).map_err(|e| {
+        pass.zeroize();
         eprintln!("failed");
         anyhow!(e)
     })?;
+
+    pass.zeroize();
 
     plaintext.sync_all()?;
     eprintln!("done");

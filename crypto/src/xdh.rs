@@ -24,12 +24,10 @@ fn clamp_scalar(mut scalar: [u8; 32]) -> Scalar {
     Scalar::from_bits(scalar)
 }
 
-
 /// The bare, byte-oriented x25519 function, exactly as specified in RFC7748.
 pub fn x25519(k: [u8; 32], u: [u8; 32]) -> [u8; 32] {
     (clamp_scalar(k) * MontgomeryPoint(u)).to_bytes()
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -57,7 +55,7 @@ mod tests {
 
     fn do_rfc7748_ladder_test1(input_scalar: [u8; 32], input_point: [u8; 32], expected: [u8; 32]) {
         let result = x25519(input_scalar, input_point);
-    
+
         assert_eq!(result, expected);
     }
 

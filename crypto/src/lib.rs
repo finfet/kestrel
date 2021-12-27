@@ -15,6 +15,8 @@ use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
 
+use zeroize::Zeroize;
+
 use errors::ChaPolyDecryptError;
 use noise::HandshakeState;
 use xdh::X25519_BASEPOINT_BYTES;
@@ -31,18 +33,20 @@ pub type HandshakeHash = [u8; 32];
 pub type PayloadKey = [u8; 32];
 
 /// X25519 Public Key
-#[derive(Clone)]
+#[derive(Clone, Zeroize)]
 pub struct PublicKey {
     key: [u8; 32],
 }
 
 /// X25519 Private Key
-#[derive(Clone)]
+#[derive(Clone, Zeroize)]
+#[zeroize(drop)]
 pub struct PrivateKey {
     key: [u8; 32],
 }
 
-#[derive(Clone)]
+#[derive(Clone, Zeroize)]
+#[zeroize(drop)]
 pub struct KeyPair {
     pub private_key: PrivateKey,
     pub public_key: PublicKey,
