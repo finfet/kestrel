@@ -7,7 +7,6 @@ authors = [
 ]
 readme = "README.md"
 license = "BSD-3-Clause"
-license-file = "LICENSE.txt"
 description = "Kestrel file encryption program"
 repository = "https://github.com/finfet/kestrel"
 homepage = "https://github.com/finfet/kestrel"
@@ -24,6 +23,7 @@ base64 = "0.13.0"
 getopts = "0.2.21"
 anyhow = "1.0"
 passterm = "1.1.0"
+zeroize = "1.4.3"
 
 [dev-dependencies]
 hex = "0.4.3"

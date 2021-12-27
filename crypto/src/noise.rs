@@ -353,7 +353,7 @@ impl HandshakeState {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::HandshakeState;
     use super::{KeyPair, PrivateKey, PublicKey};
 

@@ -136,7 +136,7 @@ fn encrypt_chunks<T: Read, U: Write>(
 }
 
 #[cfg(test)]
-pub(crate) mod test {
+pub(crate) mod tests {
     use super::CHUNK_SIZE;
     use super::{encrypt, pass_encrypt};
     use super::{PrivateKey, PublicKey};

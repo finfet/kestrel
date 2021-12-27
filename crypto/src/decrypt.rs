@@ -129,7 +129,7 @@ fn decrypt_chunks<T: Read, U: Write>(
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::CHUNK_SIZE;
     use super::{decrypt, pass_decrypt};
     use super::{PrivateKey, PublicKey};

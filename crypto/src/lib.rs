@@ -5,18 +5,19 @@ pub mod decrypt;
 pub mod encrypt;
 pub mod errors;
 mod noise;
+mod xdh;
 
 use getrandom::getrandom;
 
 use chacha20poly1305::aead::{Aead, NewAead, Payload};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
-use x25519_dalek::X25519_BASEPOINT_BYTES;
 
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
 
 use errors::ChaPolyDecryptError;
 use noise::HandshakeState;
+use xdh::X25519_BASEPOINT_BYTES;
 
 pub const CHUNK_SIZE: usize = 65536;
 pub const SCRYPT_N_V1: u32 = 32768;
@@ -101,12 +102,12 @@ impl From<&[u8]> for PrivateKey {
 
 /// Performs X25519 diffie hellman, returning the shared secret.
 pub fn x25519(private_key: &PrivateKey, public_key: &PublicKey) -> [u8; 32] {
-    x25519_dalek::x25519(private_key.key, public_key.key)
+    xdh::x25519(private_key.key, public_key.key)
 }
 
 /// Derive an X25519 public key from a private key
 pub fn derive_x25519_pub_key(private_key: &[u8; 32]) -> [u8; 32] {
-    x25519_dalek::x25519(*private_key, X25519_BASEPOINT_BYTES)
+    xdh::x25519(*private_key, X25519_BASEPOINT_BYTES)
 }
 
 /// Encrypt the payload key using the noise X protocol.
@@ -280,7 +281,7 @@ pub fn gen_key() -> [u8; 32] {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::{chapoly_decrypt, chapoly_encrypt, hash, hmac_sha256, scrypt, x25519};
     use super::{PrivateKey, PublicKey};
 
