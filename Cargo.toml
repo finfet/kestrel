@@ -9,7 +9,7 @@ readme = "README.md"
 license = "BSD-3-Clause"
 description = "Kestrel file encryption program"
 repository = "https://github.com/finfet/kestrel"
-homepage = "https://github.com/finfet/kestrel"
+homepage = "http://getkestrel.com"
 keywords = ["encryption", "file"]
 categories = ["command-line-utilities", "cryptography"]
 
@@ -36,3 +36,14 @@ opt-level = 3
 
 [profile.test.package.scrypt]
 opt-level = 3
+
+[package.metadata.deb]
+copyright = "2021 Kestrel Developers"
+changelog = "packaging/debian/changelog"
+section = "utility"
+depends = ""
+extended-description = """
+Kestrel file encryption program.
+
+Kestrel makes it easy to encrypt files to anyone.
+"""

@@ -1,0 +1,5 @@
+kestrel-cli (0.2.0) unstable; urgency=medium
+
+  * Initial release.
+
+  -- Kyle Schreiber <kyle@80x24.net> Sun, 26 Dec 2021 23:06:01 -0800
