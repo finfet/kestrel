@@ -241,7 +241,10 @@ impl Keyring {
                     return Err(KeyringError::ParseConfig(
                         "Name found outside of [Key] section".into(),
                     ));
+                } else if key_name.is_some() {
+                    return Err(KeyringError::ParseConfig("Duplicate Name found".into()));
                 }
+
                 let name = match cleaned_line.split_once('=') {
                     Some((_, n)) => n.trim(),
                     None => {
@@ -260,7 +263,12 @@ impl Keyring {
                     return Err(KeyringError::ParseConfig(
                         "PublicKey found outside of [Key] section".into(),
                     ));
+                } else if key_public.is_some() {
+                    return Err(KeyringError::ParseConfig(
+                        "Duplicate PublicKey found".into(),
+                    ));
                 }
+
                 let pubkey = match cleaned_line.split_once('=') {
                     Some((_, pk)) => pk.trim(),
                     None => {
@@ -279,7 +287,12 @@ impl Keyring {
                     return Err(KeyringError::ParseConfig(
                         "PrivateKey found outside of [Key] section".into(),
                     ));
+                } else if key_private.is_some() {
+                    return Err(KeyringError::ParseConfig(
+                        "Duplicate PrivateKey found".into(),
+                    ));
                 }
+
                 let seckey = match cleaned_line.split_once('=') {
                     Some((_, sk)) => sk.trim(),
                     None => {

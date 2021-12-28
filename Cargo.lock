@@ -177,7 +177,7 @@ dependencies = [
 
 [[package]]
 name = "kestrel-cli"
-version = "0.2.0"
+version = "0.9.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -190,7 +190,7 @@ dependencies = [
 
 [[package]]
 name = "kestrel-crypto"
-version = "0.2.0"
+version = "0.9.0"
 dependencies = [
  "chacha20poly1305",
  "curve25519-dalek",
@@ -246,18 +246,18 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.35"
+version = "1.0.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "392a54546fda6b7cc663379d0e6ce8b324cf88aecc5a499838e1be9781bdce2e"
+checksum = "c7342d5883fbccae1cc37a2353b09c87c9b0f3afd73f5fb9bba687a1f733b029"
 dependencies = [
  "unicode-xid",
 ]
 
 [[package]]
 name = "quote"
-version = "1.0.10"
+version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38bc8cc6a5f2e3655e0899c1b848643b2562f853f114bfec7be120678e3ace05"
+checksum = "47aa80447ce4daf1717500037052af176af5d38cc3e571d9ec1c7353fc10c87d"
 dependencies = [
  "proc-macro2",
 ]

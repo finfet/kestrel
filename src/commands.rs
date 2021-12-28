@@ -121,18 +121,17 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
 
     eprint!("Encrypting...");
 
-    encrypt::encrypt(
+    if let Err(e) = encrypt::encrypt(
         &mut plaintext,
         &mut ciphertext,
         &sender_private,
         &recipient_public,
         None,
         None,
-    )
-    .map_err(|e| {
+    ) {
         eprintln!("failed");
-        anyhow!(e)
-    })?;
+        return Err(anyhow!(e));
+    }
 
     ciphertext.sync_all()?;
     eprintln!("done");
@@ -340,11 +339,11 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
 
     eprint!("Encrypting...");
     let salt = kestrel_crypto::gen_salt();
-    encrypt::pass_encrypt(&mut plaintext, &mut ciphertext, pass.as_bytes(), salt).map_err(|e| {
+    if let Err(e) = encrypt::pass_encrypt(&mut plaintext, &mut ciphertext, pass.as_bytes(), salt) {
         pass.zeroize();
         eprintln!("failed");
-        anyhow!(e)
-    })?;
+        return Err(anyhow!(e));
+    }
 
     pass.zeroize();
 
@@ -393,11 +392,11 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let mut plaintext = File::create(&outfile_path).context("Could not create plaintext file")?;
 
     eprint!("Decrypting...");
-    decrypt::pass_decrypt(&mut ciphertext, &mut plaintext, pass.as_bytes()).map_err(|e| {
+    if let Err(e) = decrypt::pass_decrypt(&mut ciphertext, &mut plaintext, pass.as_bytes()) {
         pass.zeroize();
         eprintln!("failed");
-        anyhow!(e)
-    })?;
+        return Err(anyhow!(e));
+    }
 
     pass.zeroize();
 
