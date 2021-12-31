@@ -36,14 +36,3 @@ opt-level = 3
 
 [profile.test.package.scrypt]
 opt-level = 3
-
-[package.metadata.deb]
-copyright = "2021 Kestrel Developers"
-changelog = "packaging/debian/changelog"
-section = "utility"
-depends = ""
-extended-description = """
-Kestrel file encryption program.
-
-Kestrel makes it easy to encrypt files to anyone.
-"""
