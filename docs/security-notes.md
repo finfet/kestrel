@@ -6,8 +6,8 @@ The application uses a standard combination of the Noise Protocol and a
 chunked file encryption scheme.
 
 The noise protocol (Noise_X_25519_ChaChaPoly_SHA256) is used to encrypt a
-payload key that is then used for ChaCha20-Poly1305 file encryption. Files are
-split into encrypted and authenticated chunks.
+payload key that is then used for ChaCha20-Poly1305 file encryption. Files
+are split into encrypted and authenticated chunks.
 
 Users can also use a password instead of public keys. This password is used
 with scrypt to derive a symmetric key for file encryption.
@@ -15,7 +15,7 @@ with scrypt to derive a symmetric key for file encryption.
 ## Public Key Based Encryption
 
 The X pattern of a noise protocol handshake is used to perform public key
-uthenticated encryption between sender and recipient.
+authenticated encryption between sender and recipient.
 
 Senders are required to obtain the public key of their recipient before they
 can send a message. Tweet out your public key, send a letter, or meet in
@@ -43,13 +43,13 @@ legitimate copy of your public key.
    with either the work key or the personal key. Obviously decryption could be
    attempted with both keys if the recipient is unsure.
 2. The recipient decrypts the noise handshake message. If successful, this
-   results in the payload key and the sender’s public key.
+   results in the payload key and the sender's public key.
 3. The ciphertext is decrypted using the payload key and the chunked
    encryption format.
 
 ### Chunked Encryption
 
-Files can be dozens of gigabytes in size and don’t fit into memory. So they are
+Files can be dozens of gigabytes in size and don't fit into memory. So they are
 split into encrypted and authenticated chunks. Each chunk has a chunk number
 starting from zero and incrementing sequentially. The chunk number is also
 used as the nonce for the encryption function. Chunks are 64k in size. The last
@@ -59,15 +59,15 @@ duplicated, or truncated. In order to achieve this the chunk number must
 increase sequentially (0, 1, 2, 3, …) and must contain only a single last
 chunk indicator.
 
-### Security Properies
+### Security Properties
 
 **Overview**
 
-- When you receive a file, you know that the file hasn’t been modified and that
-  it came from a specific known public key.
-- If your private key gets compromised later, the attacker can’t read the
-  messages that you’ve sent. The only way to decrypt the messages is to
-  compromise your recipient’s private key.
+- When you receive a file, you know that the file hasn't been modified
+  and that it came from a specific known public key.
+- If your private key gets compromised later, the attacker can't read the
+  messages that you've sent. The only way to decrypt the messages is to
+  compromise your recipient's private key.
 - If your private key gets compromised, the attacker can pretend to be you.
   You need to get a new key pair and be able to communicate the new public key
   to your contacts.
@@ -77,7 +77,7 @@ chunk indicator.
   your encrypted file to the accountant, but the accountant will end up with a
   benign, redundant copy.
 - The encryption is meant to work as you would expect it to. If you get a file,
-  you know who it came from, and that it hasn’t been read or tampered with.
+  you know who it came from, and that it hasn't been read or tampered with.
   When you send a file, only the person that you sent it to can read it.
 
 **Guarantees from the noise protocol**
@@ -97,7 +97,7 @@ Destination Properties
 
 Encryption to a known recipient, forward secrecy for sender compromise only,
 vulnerable to replay. This payload is encrypted based only on DHs involving the
-recipient’s static key pair. If the recipient’s static private key is
+recipient's static key pair. If the recipient's static private key is
 compromised, even at a later date, this payload can be decrypted. This message
 can also be replayed, since there's no ephemeral contribution from the
 recipient.
