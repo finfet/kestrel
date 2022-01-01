@@ -1,4 +1,4 @@
-// Copyright 2021 Kyle Schreiber
+// Copyright 2021-2022 Kyle Schreiber
 // SPDX-License-Identifier: BSD-3-Clause
 
 use std::error::Error;

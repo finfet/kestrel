@@ -1,6 +1,6 @@
-# Kestrel
+<p><img src="https://user-images.githubusercontent.com/13957897/147846912-5bca7cd7-c3f5-4822-afeb-70a3e1baa556.png" alt="Kestrel shield logo" width="600"></p>
 
-Modern, secure, and easy to use file encryption.
+**File encryption done right**
 
 ## About
 

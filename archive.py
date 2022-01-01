@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 
-# Copyright 2021 Kyle Schreiber
+# Copyright 2021-2022 Kyle Schreiber
 # SPDX-License-Identifier: BSD-3-Clause
 
 
 """
-Create a tarball and zip of the source
+Create a tarball of the source
 """
 
 import sys
 import os
 import subprocess
 import tarfile
-import zipfile
 
 from shutil import copy2, copytree, make_archive
 from pathlib import Path
@@ -47,7 +46,6 @@ def main():
 
     create_source_directory(archive_name, file_list, dir_list)
     create_tarball(archive_name)
-    create_zipfile(archive_name)
 
 def read_version():
     """ Read version info from Cargo.toml """
@@ -95,12 +93,6 @@ def create_tarball(archive_name):
     os.chdir(Path("archive"))
     # .tar.gz is appended
     make_archive(archive_name, "gztar", root_dir=None, base_dir=archive_name)
-    os.chdir("..")
-
-def create_zipfile(archive_name):
-    os.chdir(Path("archive"))
-    # .zip is appended
-    make_archive(archive_name, "zip", root_dir=None, base_dir=archive_name)
     os.chdir("..")
 
 if __name__ == "__main__":
