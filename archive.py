@@ -19,17 +19,21 @@ from pathlib import Path
 def main():
     source_version = read_version()
     if source_version == "":
-        raise Exception("Could not get version from Cargo.toml")
+        raise ValueError("Could not get version from Cargo.toml")
 
     archive_name = "kestrel-source-v{}".format(source_version)
 
     file_list = [
         ("Cargo.lock", "Cargo.lock"),
         ("Cargo.toml", "Cargo.toml"),
-        ("README.md", "README.txt"),
+        ("README.md", "README.md"),
         ("LICENSE.txt", "LICENSE.txt"),
         ("THIRD-PARTY.txt", "THIRD-PARTY.txt"),
-        ("CHANGELOG.md", "CHANGELOG.txt"),
+        ("CHANGELOG.md", "CHANGELOG.md"),
+        ("BUILDING.md", "BUILDING.md"),
+        ("archive.py", "archive.py"),
+        ("build.py", "build.py"),
+        (".gitignore", ".gitignore"),
     ]
 
     dir_list = [
@@ -61,7 +65,7 @@ def read_version():
     return source_version
 
 def vendor_source():
-    vendor_output = subprocess.run(["cargo", "vendor", "--locked"], capture_output=True)
+    vendor_output = subprocess.run(["cargo", "vendor", "--versioned-dirs", "--frozen"], capture_output=True)
     vendor_config = vendor_output.stdout.decode("utf-8")
 
     vendor_config_path = Path("archive", "config.toml")
@@ -90,10 +94,8 @@ def create_source_directory(archive_name, file_list, dir_list):
 
 
 def create_tarball(archive_name):
-    os.chdir(Path("archive"))
     # .tar.gz is appended
-    make_archive(archive_name, "gztar", root_dir=None, base_dir=archive_name)
-    os.chdir("..")
+    make_archive(Path("archive", archive_name), "gztar", root_dir="archive", base_dir=archive_name)
 
 if __name__ == "__main__":
     main()

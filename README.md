@@ -29,6 +29,14 @@ Kestrel makes it easy to encrypt files for yourself or friends.
 
 ## Installation
 
+Tested on Linux, macOS, Windows 10
+
+Downloads and installation instructions can be found on the
+[main site](https://getkestrel.com).
+
+Or grab the [GitHub release](https://github.com/finfet/kestrel/releases/latest)
+
+If you have rust build tooling you can also use
 ```
 cargo install kestrel-cli
 ```
