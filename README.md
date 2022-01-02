@@ -1,4 +1,4 @@
-<p><img src="https://user-images.githubusercontent.com/13957897/147846912-5bca7cd7-c3f5-4822-afeb-70a3e1baa556.png" alt="Kestrel shield logo" width="600"></p>
+![Kestrel Logo](https://user-images.githubusercontent.com/13957897/147846912-5bca7cd7-c3f5-4822-afeb-70a3e1baa556.png)
 
 **File encryption done right**
 
@@ -7,6 +7,7 @@
 Kestrel is a data-at-rest file encryption program. Think PGP, but less unwieldy.
 
 Kestrel makes it easy to encrypt files for yourself or friends.
+
 
 ## Features and Advantages
 
@@ -20,31 +21,29 @@ Kestrel makes it easy to encrypt files for yourself or friends.
 - Supports Linux, macOS, Windows.
 - BSDs will also likely work but are untested.
 
+
 ## Disadvantages
 
 - Does not handle signatures. You can't sign files with this. However,
   sender authentication is guaranteed.
-- Does not solve the key distribution problem. You have to acquire known-good
-  public keys through some other means.
+- Does not solve the key distribution problem. You have to acquire
+  known-good public keys through some other means.
+
 
 ## Installation
 
 Tested on Linux, macOS, Windows 10
 
-Downloads and installation instructions can be found on the
-[main site](https://getkestrel.com).
+Grab the [GitHub release](https://github.com/finfet/kestrel/releases/latest)
 
-Or grab the [GitHub release](https://github.com/finfet/kestrel/releases/latest)
+If you have rust build tooling you can also use `cargo install kestrel-cli`
 
-If you have rust build tooling you can also use
-```
-cargo install kestrel-cli
-```
 
 ## Contributing
 
 Patches welcome. Please send feedback and bug reports for any issues that
 you may have.
+
 
 ## License
 
@@ -80,8 +79,8 @@ The application uses a standard combination of the Noise Protocol and a
 chunked file encryption scheme.
 
 The noise protocol (Noise_X_25519_ChaChaPoly_SHA256) is used to encrypt a
-payload key that is then used for ChaCha20-Poly1305 file encryption. Files are
-split into encrypted and authenticated chunks.
+payload key that is then used for ChaCha20-Poly1305 file encryption. Files
+are split into encrypted and authenticated chunks.
 
 Users can also use a password instead of public keys. Scrypt is to derive a
 symmetric key for file encryption.
@@ -90,5 +89,5 @@ See more in the [security-notes](docs/security-notes.md)
 
 ## Security Warning
 
-To the best of my knowledge, Kestrel is secure. However, this software has not
-yet undergone a formal security audit. Swim at your own risk.
+To the best of my knowledge, Kestrel is secure. However, this software has
+not yet undergone a formal security audit. Swim at your own risk.
