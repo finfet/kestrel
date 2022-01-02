@@ -1,4 +1,4 @@
-![Kestrel Logo](https://user-images.githubusercontent.com/13957897/147846912-5bca7cd7-c3f5-4822-afeb-70a3e1baa556.png)
+<p><img src="https://user-images.githubusercontent.com/13957897/147846912-5bca7cd7-c3f5-4822-afeb-70a3e1baa556.png" alt="Kestrel Logo" width="600"></p>
 
 **File encryption done right**
 
