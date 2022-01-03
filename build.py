@@ -14,6 +14,7 @@ OS Builds must be run on their respective systems
 import os
 import argparse
 import subprocess
+import hashlib
 from pathlib import Path
 from shutil import copy2, make_archive
 
@@ -21,7 +22,7 @@ from shutil import copy2, make_archive
 def main():
     parser = argparse.ArgumentParser(description="Build application")
     parser.add_argument("-t", "--target", type=str, choices=["linux", "macos", "windows"], help="Build for operating system")
-    parser.add_argument("-c", "--checksum", type=str, metavar="RELEASE_DIR", nargs=1)
+    parser.add_argument("-c", "--checksum", type=str, metavar="RELEASE_DIR")
 
     args = parser.parse_args()
 
@@ -108,8 +109,49 @@ def build_macos():
 def build_windows():
     print("Building for windows")
 
-def calculate_checksums(release_loc):
-    print("Calculating SHA-256 hashes for loc", release_loc)
+def calculate_checksums(loc):
+    """
+    Write the SHA-256 hashes of all .tar.gz and .zip files in the specified
+    directory to a file called SHA256SUMS in that directory
+    """
+    hashes = []
+
+    loc = Path(loc)
+
+    for path in loc.iterdir():
+        path_exts = path.suffixes
+        if len(path_exts) == 1 and ".zip" in path_exts:
+            calculate_hash(path)
+            hashes.append(hash_data)
+        elif len(path_exts) >= 2:
+            ext2 = path_exts.pop()
+            if ext2 == ".zip":
+                hash_data = calculate_hash(path)
+                hashes.append(hash_data)
+            else:
+                ext1 = path_exts.pop()
+                if ext1 == ".tar" and ext2 == ".gz":
+                    hash_data = calculate_hash(path)
+                    hashes.append(hash_data)
+
+    hashes = sorted(hashes, key=lambda x: x[0])
+    shasums_file = Path(loc, "SHA256SUMS")
+    with open(shasums_file, "w") as f:
+        for hash_data in hashes:
+            filename, hash_value = hash_data
+            f.write("{} {}\n".format(filename, hash_value))
+
+def calculate_hash(loc):
+    filename = loc.name
+    hasher = hashlib.sha256()
+    with open(loc, "rb") as f:
+        while True:
+            file_data = f.read(16384)
+            if not file_data:
+                break
+            hasher.update(file_data)
+
+    return (filename, hasher.hexdigest())
 
 
 if __name__ == "__main__":
