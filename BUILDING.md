@@ -2,12 +2,13 @@
 
 ## Required Software
 
-rustc 1.56+, cargo, and python3 for the build script.
+rustc 1.56+, and cargo. Python3 is required for the build script.
 
 Running the build steps manually without the python script is also
-possible, but is more laborious)
+possible, but is more laborious.
 
 - Linux
+  - Default gcc linker required by cargo. on debian: build-essential
   - cargo targets: x86_64-unknown-linux-musl, aarch64-unknown-linux-musl
   - gcc aarch64 linker: on debian: gcc-aarch64-linux-gnu
 - macOS
@@ -16,14 +17,42 @@ possible, but is more laborious)
 - Windows
   - Visual studio with MSVC toolchain
   - cargo targets: x86_64-pc-windows-msvc
-  - Inno Setup 6.2+ for the windows installer
+  - Inno Setup 6.2+ for the windows installer. Make sure iscc.exe is on
+    the path.
 
 ## Building
 
 Build from a source release created with archive.py
 
-Linux builds are built from /opt/kestrel/. This is optional, but helps with
-future reproducible builds.
+Linux and macOS build sould be build from the archive extracted into
+`/opt/kestrel/`. Windows builds should be built from from `C:\kestrel\`. This
+is optional, but it helps with future reproducible builds.
 
-./build.py --target <linux|macos|windows>
-./build.py --checksum <release-dir>
+### Linux build
+```
+python3 build.py --system linux --test-arch amd64
+```
+
+### macOS build
+Specifying arm64 or amd64 will run tests on the binary for
+that architecture. If you're on an ARM mac use arm64 or amd64 if you're on
+an intel mac
+```
+python3 build.py -s macos -t arm64
+```
+
+### Windows build
+Specifying -w (--win-installer) will use Inno Setup to build the windows
+installer
+
+```
+python3 build.py -s windows -t amd64 -w
+```
+
+### SHA256SUMS file
+Create SHA-256 checksums of all of the .tar.gz, .zip, and .exe files in
+the specified directory
+
+```
+python3 build.py -c build
+```

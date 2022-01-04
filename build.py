@@ -8,7 +8,7 @@ Build Kestrel
 
 Builds should be created from the source archives created with archive.py
 
-OS Builds must be run on their respective systems
+OS builds must be run on their respective systems
 """
 
 import os
@@ -16,14 +16,14 @@ import argparse
 import subprocess
 import hashlib
 from pathlib import Path
-from shutil import copy2, make_archive
-
+from shutil import copy2, make_archive, rmtree
 
 def main():
     parser = argparse.ArgumentParser(description="Build application")
     parser.add_argument("-s", "--system", type=str, choices=["linux", "macos", "windows"], help="Build for operating system")
     parser.add_argument("-t", "--test-arch", choices=["amd64", "arm64"], help="Run tests on architecture")
     parser.add_argument("-c", "--checksum", type=str, metavar="RELEASE_DIR", help="Create SHA-256 checksum file")
+    parser.add_argument("-w", "--win-installer", action="store_true", help="Create the windows installer")
 
     args = parser.parse_args()
 
@@ -33,7 +33,10 @@ def main():
         elif args.system == "macos":
             build_macos(args.test_arch)
         elif args.system == "windows":
-            build_windows(args.test_arch)
+            if args.win_installer:
+                build_windows(args.test_arch, create_installer=True)
+            else:
+                build_windows(args.test_arch)
         else:
             raise ValueError("OS support not implemented")
     elif args.checksum:
@@ -46,27 +49,75 @@ def build_linux(test_arch):
     os_tag = "linux"
     bin_name = "kestrel"
 
+    source_version = read_version()
+    if source_version == "":
+        raise ValueError("Could not get version from Cargo.toml")
+
     amd64_test, arm64_test = check_test_arch(test_arch)
 
-    build_target("x86_64-unknown-linux-musl", os_tag, "amd64", "x86_64-linux-gnu-strip", bin_name, make_build_dir=True, run_tests=amd64_test)
-    build_target("aarch64-unknown-linux-musl", os_tag, "arm64", "aarch64-linux-gnu-strip", bin_name, run_tests=arm64_test)
+    build_target("x86_64-unknown-linux-musl", os_tag, source_version, "amd64", "x86_64-linux-gnu-strip", bin_name, make_build_dir=True, run_tests=amd64_test)
+    build_target("aarch64-unknown-linux-musl", os_tag, source_version, "arm64", "aarch64-linux-gnu-strip", bin_name, run_tests=arm64_test)
 
 def build_macos(test_arch):
     os_tag = "macos"
     bin_name = "kestrel"
 
+    source_version = read_version()
+    if source_version == "":
+        raise ValueError("Could not get version from Cargo.toml")
+
     amd64_test, arm64_test = check_test_arch(test_arch)
 
-    build_target("aarch64-apple-darwin", os_tag, "arm64", "strip", bin_name, make_build_dir=True, run_tests=arm64_test)
-    build_target("x86_64-apple-darwin", os_tag, "amd64", "strip", bin_name, run_tests=amd64_test)
+    build_target("aarch64-apple-darwin", os_tag, source_version, "arm64", "strip", bin_name, make_build_dir=True, run_tests=arm64_test)
+    build_target("x86_64-apple-darwin", os_tag, source_version, "amd64", "strip", bin_name, run_tests=amd64_test)
 
-def build_windows(test_arch):
-    print("Building for windows")
+def build_windows(test_arch, create_installer=False):
+    os_tag = "windows"
+    bin_name = "kestrel.exe"
+    arch_tag = "x64"
+
+    source_version = read_version()
+    if source_version == "":
+        raise ValueError("Could not get version from Cargo.toml")
+
+    amd64_test, arm64_test = check_test_arch(test_arch)
+
+    build_target("x86_64-pc-windows-msvc", os_tag, source_version, arch_tag, None, bin_name, make_build_dir=True, run_tests=amd64_test, make_tarball=False)
+
+    if create_installer:
+        archive_name = create_archive_name(os_tag, source_version, arch_tag)
+        archive_path = Path("build", archive_name)
+        create_windows_installer(archive_path, bin_name)
+
+def create_windows_installer(archive_path, bin_name):
+    license_name = "LICENSE.txt"
+    third_party_name = "THIRD-PARTY.txt"
+
+    install_dir = Path("packaging", "windows", "install")
+    install_dir.mkdir()
+    output_dir = Path("packaging", "windows", "output")
+    output_dir.mkdir()
+    install_bin_dir = Path(install_dir, "bin")
+    install_bin_dir.mkdir()
+
+    copy2(Path(archive_path, bin_name), install_bin_dir)
+    copy2(Path(archive_path, license_name), install_dir)
+    copy2(Path(archive_path, third_party_name), install_dir)
+
+    setup_script_path = Path("packaging", "windows", "setup.iss")
+    prv = subprocess.run(["iscc.exe", str(setup_script_path)])
+    prv.check_returncode()
+
+    installer_bin = sorted(output_dir.glob("*.exe"))[0]
+    copy2(installer_bin, Path("build"))
+
+    rmtree(install_dir)
+    rmtree(output_dir)
 
 def calculate_checksums(loc):
     """
-    Write the SHA-256 hashes of all .tar.gz and .zip files in the specified
-    directory to a file called SHA256SUMS in that directory
+    Write the SHA-256 hashes of all .tar.gz, .zip, and .exe files in the
+    specified directory to a file called SHA256SUMS in that directory
     """
     hashes = []
 
@@ -82,6 +133,9 @@ def calculate_checksums(loc):
             if ext2 == ".zip":
                 hash_data = calculate_hash(path)
                 hashes.append(hash_data)
+            elif ext2 == ".exe":
+                hash_data = calculate_hash(path)
+                hashes.append(hash_data)
             else:
                 ext1 = path_exts.pop()
                 if ext1 == ".tar" and ext2 == ".gz":
@@ -95,7 +149,7 @@ def calculate_checksums(loc):
             filename, hash_value = hash_data
             f.write("{} {}\n".format(filename, hash_value))
 
-def build_target(target_arch, os_tag, arch_tag, strip_prog_name, bin_name, make_build_dir=False, run_tests=False):
+def build_target(target_arch, os_tag, source_version, arch_tag, strip_prog_name, bin_name, make_build_dir=False, run_tests=False, make_tarball=True):
     license_name = "LICENSE.txt"
     third_party_name = "THIRD-PARTY.txt"
 
@@ -108,11 +162,7 @@ def build_target(target_arch, os_tag, arch_tag, strip_prog_name, bin_name, make_
     prv = subprocess.run(["cargo", "build", "--frozen", "--release", "--target", target_arch])
     prv.check_returncode()
 
-    source_version = read_version()
-    if source_version == "":
-        raise ValueError("Could not get version from Cargo.toml")
-
-    archive_name = "kestrel-{}-v{}-{}".format(os_tag, source_version, arch_tag)
+    archive_name = create_archive_name(os_tag, source_version, arch_tag)
 
     if make_build_dir:
         os.mkdir("build")
@@ -125,15 +175,23 @@ def build_target(target_arch, os_tag, arch_tag, strip_prog_name, bin_name, make_
 
     copy2(source_bin_path, target_bin_path)
 
-    print("stripping binary")
-    prv = subprocess.run([strip_prog_name, str(target_bin_path)])
-    prv.check_returncode()
+    if strip_prog_name:
+        print("stripping binary")
+        prv = subprocess.run([strip_prog_name, str(target_bin_path)])
+        prv.check_returncode()
 
     copy2(Path(license_name), Path(package_path, license_name))
     copy2(Path(third_party_name), Path(package_path, third_party_name))
 
-    print("creating tarball")
-    create_tarball(archive_name)
+    if make_tarball:
+        print("creating tarball")
+        create_tarball(archive_name)
+    else:
+        print("creating zip")
+        create_zip(archive_name)
+
+def create_archive_name(os_tag, source_version, arch_tag):
+    return "kestrel-{}-v{}-{}".format(os_tag, source_version, arch_tag)
 
 def calculate_hash(loc):
     filename = loc.name
@@ -161,6 +219,9 @@ def check_test_arch(test_arch):
 
 def create_tarball(archive_name):
     make_archive(Path("build", archive_name), "gztar", root_dir="build", base_dir=archive_name)
+
+def create_zip(archive_name):
+    make_archive(Path("build", archive_name), "zip", root_dir="build", base_dir=archive_name)
 
 def read_version():
     """ Read version info from Cargo.toml """
