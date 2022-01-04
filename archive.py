@@ -65,7 +65,8 @@ def read_version():
     return source_version
 
 def vendor_source():
-    vendor_output = subprocess.run(["cargo", "vendor", "--versioned-dirs", "--frozen"], capture_output=True)
+    vendor_output = subprocess.run(["cargo", "vendor", "--versioned-dirs", "--locked"], capture_output=True)
+    vendor_output.check_returncode()
     vendor_config = vendor_output.stdout.decode("utf-8")
 
     vendor_config_path = Path("archive", "config.toml")
