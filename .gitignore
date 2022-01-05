@@ -1,6 +1,5 @@
 /target
 /vendor
-/archive
 /build
 /tests/tmp*
 /packaging/windows/install

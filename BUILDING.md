@@ -2,10 +2,11 @@
 
 ## Required Software
 
-rustc 1.56+, and cargo. Python3 is required for the build script.
+This application is built with cargo. rustc 1.56+ is required.
 
-Running the build steps manually without the python script is also
-possible, but is more laborious.
+There is a Python3 build script that runs cargo build commands and creates
+tarballs automatically. Running the build steps manually without the
+build script can be done but is much more laborious and is not recommended.
 
 - Linux
   - Default gcc linker required by cargo. on debian: build-essential
@@ -22,9 +23,21 @@ possible, but is more laborious.
 
 ## Building
 
-Build from a source release created with archive.py
+### Source Release
 
-Linux and macOS build sould be build from the archive extracted into
+Create a source release. Make sure the git directory doesn't have any files
+that aren't tracked: `git clean -dxi`
+```
+python3 build.py --archive
+```
+
+This will put a source tarball in `build/`
+
+### Build Binaries
+
+Build from a source release created with `build.py -a`
+
+Linux and macOS build should be build from the archive extracted into
 `/opt/kestrel/`. Windows builds should be built from from `C:\kestrel\`. This
 is optional, but it helps with future reproducible builds.
 

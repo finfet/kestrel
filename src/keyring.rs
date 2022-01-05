@@ -14,10 +14,10 @@ const SCRYPT_R: u32 = 8;
 const SCRYPT_P: u32 = 1;
 
 #[derive(Debug, Clone)]
-pub struct EncodedPk(String);
+pub(crate) struct EncodedPk(String);
 
 #[derive(Debug, Clone)]
-pub struct EncodedSk(String);
+pub(crate) struct EncodedSk(String);
 
 impl EncodedPk {
     pub fn as_str(&self) -> &str {
@@ -77,10 +77,10 @@ impl TryFrom<&str> for EncodedSk {
 }
 
 #[derive(Debug)]
-pub struct Key {
-    pub name: String,
-    pub public_key: EncodedPk,
-    pub private_key: Option<EncodedSk>,
+pub(crate) struct Key {
+    pub(crate) name: String,
+    pub(crate) public_key: EncodedPk,
+    pub(crate) private_key: Option<EncodedSk>,
 }
 
 #[derive(Debug)]
@@ -89,12 +89,12 @@ pub struct Keyring {
 }
 
 impl Keyring {
-    pub fn new(config: &str) -> Result<Keyring, KeyringError> {
+    pub(crate) fn new(config: &str) -> Result<Keyring, KeyringError> {
         let keys = Keyring::parse_config(config)?;
         Ok(Keyring { keys })
     }
 
-    pub fn get_key(&self, name: &str) -> Option<&Key> {
+    pub(crate) fn get_key(&self, name: &str) -> Option<&Key> {
         for key in &self.keys {
             if key.name.as_str() == name {
                 return Some(key);
@@ -103,7 +103,7 @@ impl Keyring {
         None
     }
 
-    pub fn get_name_from_key(&self, pk: &EncodedPk) -> Option<String> {
+    pub(crate) fn get_name_from_key(&self, pk: &EncodedPk) -> Option<String> {
         for key in &self.keys {
             if key.public_key.as_str() == pk.as_str() {
                 return Some(key.name.clone());
@@ -116,7 +116,7 @@ impl Keyring {
     /// a password using scrypt. The salt MUST be used only once.
     /// Use the first 16 bytes of [gen_salt()](crate::crypto::gen_salt)
     /// to get fresh salt values.
-    pub fn lock_private_key(
+    pub(crate) fn lock_private_key(
         private_key: &PrivateKey,
         password: &[u8],
         salt: [u8; 16],
@@ -140,7 +140,7 @@ impl Keyring {
     }
 
     /// Decrypt a private key.
-    pub fn unlock_private_key(
+    pub(crate) fn unlock_private_key(
         locked_sk: &EncodedSk,
         password: &[u8],
     ) -> Result<PrivateKey, KeyringError> {
@@ -165,7 +165,7 @@ impl Keyring {
     /// Encode a [PublicKey](crate::crypto::PublicKey)
     /// Public keys are 32 bytes with a 4 byte SHA-256 checksum
     /// appended at the end. Represented as base64.
-    pub fn encode_public_key(public_key: &PublicKey) -> EncodedPk {
+    pub(crate) fn encode_public_key(public_key: &PublicKey) -> EncodedPk {
         let pk = public_key.as_bytes();
         let checksum = kestrel_crypto::hash(pk);
         let mut encoded = [0u8; 36];
@@ -175,7 +175,7 @@ impl Keyring {
         EncodedPk(base64::encode(&encoded))
     }
 
-    pub fn decode_public_key(encoded_pk: &EncodedPk) -> Result<PublicKey, KeyringError> {
+    pub(crate) fn decode_public_key(encoded_pk: &EncodedPk) -> Result<PublicKey, KeyringError> {
         let enc_pk = base64::decode(encoded_pk.as_str()).expect("Public key hex decode failed.");
         let enc_pk_bytes = enc_pk.as_slice();
         let pk = &enc_pk_bytes[..32];
@@ -192,7 +192,7 @@ impl Keyring {
     }
 
     /// Write a `[Key]` in the keyring config file format.
-    pub fn serialize_key(name: &str, public_key: &EncodedPk, private_key: &EncodedSk) -> String {
+    pub(crate) fn serialize_key(name: &str, public_key: &EncodedPk, private_key: &EncodedSk) -> String {
         let key_config = format!(
             "[Key]\nName = {}\nPublicKey = {}\nPrivateKey = {}\n",
             name,

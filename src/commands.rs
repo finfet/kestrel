@@ -546,7 +546,7 @@ fn open_keyring(keyring_loc: Option<String>) -> Result<Keyring, anyhow::Error> {
     Ok(Keyring::new(&keyring_data)?)
 }
 
-pub fn add_file_ext(path: &Path, extension: impl AsRef<OsStr>) -> PathBuf {
+fn add_file_ext(path: &Path, extension: impl AsRef<OsStr>) -> PathBuf {
     let mut new_path = path.to_path_buf();
     match path.extension() {
         Some(ext) => {

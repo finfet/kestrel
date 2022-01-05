@@ -16,7 +16,7 @@ import argparse
 import subprocess
 import hashlib
 from pathlib import Path
-from shutil import copy2, make_archive, rmtree
+from shutil import copy2, make_archive, copytree
 
 def main():
     parser = argparse.ArgumentParser(description="Build application")
@@ -24,6 +24,7 @@ def main():
     parser.add_argument("-t", "--test-arch", choices=["amd64", "arm64"], help="Run tests on architecture")
     parser.add_argument("-c", "--checksum", type=str, metavar="RELEASE_DIR", help="Create SHA-256 checksum file")
     parser.add_argument("-w", "--win-installer", action="store_true", help="Create the windows installer")
+    parser.add_argument("-a", "--archive", action="store_true", help="Create source archive")
 
     args = parser.parse_args()
 
@@ -42,8 +43,51 @@ def main():
     elif args.checksum:
         release_loc = args.checksum
         calculate_checksums(release_loc)
+    elif args.archive:
+        build_archive()
     else:
         parser.print_help()
+
+def build_archive():
+    source_version = read_version()
+    if source_version == "":
+        raise ValueError("Could not get source version")
+
+    vendor_config = vendor_source()
+
+    archive_name = "kestrel-source-v{}".format(source_version)
+
+    source_archive_path = Path("build", archive_name)
+
+    copytree(Path("."), source_archive_path, ignore=ignore_files)
+
+    # Write the vendor crates configuration to .cargo/config.toml so that
+    # builds will use the vendor folder
+    cargo_toml_path = Path(source_archive_path, ".cargo", "config.toml")
+    with open(cargo_toml_path, "a") as f:
+        f.write(vendor_config)
+
+    create_tarball(archive_name)
+
+def vendor_source():
+    vendor_output = subprocess.run(["cargo", "vendor", "--versioned-dirs", "--locked"], capture_output=True)
+    vendor_output.check_returncode()
+    vendor_config = vendor_output.stdout.decode("utf-8")
+
+    return vendor_config
+
+def ignore_files(path, names):
+    ignored_dirs = [
+        (Path("."), [".git", "target"]),
+        (Path("packaging", "windows"), ["install", "output"])
+    ]
+
+    for ignored_dir in ignored_dirs:
+        dir_path, subdir_list = ignored_dir
+        if str(Path(path)) == str(dir_path):
+            return subdir_list
+
+    return []
 
 def build_linux(test_arch):
     os_tag = "linux"
@@ -110,9 +154,6 @@ def create_windows_installer(archive_path, bin_name):
 
     installer_bin = sorted(output_dir.glob("*.exe"))[0]
     copy2(installer_bin, Path("build"))
-
-    rmtree(install_dir)
-    rmtree(output_dir)
 
 def calculate_checksums(loc):
     """

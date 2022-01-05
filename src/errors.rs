@@ -4,7 +4,7 @@
 use std::error::Error;
 
 #[derive(Debug)]
-pub enum KeyringError {
+pub(crate) enum KeyringError {
     ParseConfig(String),
     PublicKeyChecksum,
     PrivateKeyDecrypt,
