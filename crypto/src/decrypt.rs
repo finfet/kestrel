@@ -6,6 +6,7 @@ use crate::errors::DecryptError;
 use std::io::{Read, Write};
 
 use crate::{chapoly_decrypt, noise_decrypt, scrypt, PrivateKey, PublicKey};
+use crate::{AsymFileFormat, PassFileFormat};
 use crate::{CHUNK_SIZE, SCRYPT_N_V1, SCRYPT_P_V1, SCRYPT_R_V1};
 
 const TAG_SIZE: usize = 16;
@@ -14,7 +15,9 @@ pub fn decrypt<T: Read, U: Write>(
     ciphertext: &mut T,
     plaintext: &mut U,
     recipient: &PrivateKey,
+    file_format: AsymFileFormat,
 ) -> Result<PublicKey, DecryptError> {
+    let _file_format = file_format;
     let mut prologue = [0u8; 4];
     ciphertext.read_exact(&mut prologue)?;
 
@@ -33,7 +36,9 @@ pub fn pass_decrypt<T: Read, U: Write>(
     ciphertext: &mut T,
     plaintext: &mut U,
     password: &[u8],
+    file_format: PassFileFormat,
 ) -> Result<(), DecryptError> {
+    let _file_format = file_format;
     let mut pass_magic_num = [0u8; 4];
     ciphertext.read_exact(&mut pass_magic_num)?;
 
@@ -135,6 +140,7 @@ mod tests {
     use super::{PrivateKey, PublicKey};
     use crate::encrypt::{encrypt, pass_encrypt};
     use crate::hash;
+    use crate::{AsymFileFormat, PassFileFormat};
     use std::io::Read;
 
     #[allow(dead_code)]
@@ -153,8 +159,13 @@ mod tests {
         let recipient = key_data.bob_private;
         let ciphertext = encrypt_small();
         let mut plaintext = Vec::new();
-        let sender_public =
-            decrypt(&mut ciphertext.as_slice(), &mut plaintext, &recipient).unwrap();
+        let sender_public = decrypt(
+            &mut ciphertext.as_slice(),
+            &mut plaintext,
+            &recipient,
+            AsymFileFormat::V1,
+        )
+        .unwrap();
 
         assert_eq!(&expected_plaintext[..], plaintext.as_slice());
         assert_eq!(expected_sender.as_bytes(), sender_public.as_bytes());
@@ -186,6 +197,7 @@ mod tests {
             &recipient,
             Some(&ephemeral),
             Some(payload_key),
+            AsymFileFormat::V1,
         )
         .unwrap();
 
@@ -202,8 +214,13 @@ mod tests {
         let recipient = key_data.bob_private;
         let ciphertext = encrypt_one_chunk();
         let mut plaintext = Vec::new();
-        let sender_public =
-            decrypt(&mut ciphertext.as_slice(), &mut plaintext, &recipient).unwrap();
+        let sender_public = decrypt(
+            &mut ciphertext.as_slice(),
+            &mut plaintext,
+            &recipient,
+            AsymFileFormat::V1,
+        )
+        .unwrap();
         let got_hash = hash(plaintext.as_slice());
 
         assert_eq!(expected_hash.as_slice(), &got_hash[..]);
@@ -232,6 +249,7 @@ mod tests {
             &key_data.bob_public,
             Some(&ephemeral_private),
             Some(payload_key),
+            AsymFileFormat::V1,
         )
         .unwrap();
 
@@ -248,8 +266,13 @@ mod tests {
         let recipient = key_data.bob_private;
         let ciphertext = encrypt_two_chunks();
         let mut plaintext = Vec::new();
-        let sender_public =
-            decrypt(&mut ciphertext.as_slice(), &mut plaintext, &recipient).unwrap();
+        let sender_public = decrypt(
+            &mut ciphertext.as_slice(),
+            &mut plaintext,
+            &recipient,
+            AsymFileFormat::V1,
+        )
+        .unwrap();
         let got_hash = hash(plaintext.as_slice());
 
         assert_eq!(expected_hash.as_slice(), &got_hash[..]);
@@ -279,6 +302,7 @@ mod tests {
             &key_data.bob_public,
             Some(&ephemeral_private),
             Some(payload_key),
+            AsymFileFormat::V1,
         )
         .unwrap();
 
@@ -292,7 +316,13 @@ mod tests {
 
         let ciphertext = pass_encrypt_util();
         let mut plaintext = Vec::new();
-        pass_decrypt(&mut ciphertext.as_slice(), &mut plaintext, pass).unwrap();
+        pass_decrypt(
+            &mut ciphertext.as_slice(),
+            &mut plaintext,
+            pass,
+            PassFileFormat::V1,
+        )
+        .unwrap();
 
         assert_eq!(&expected_pt[..], plaintext.as_slice());
     }
@@ -307,7 +337,14 @@ mod tests {
         pt.extend_from_slice(plaintext);
         let mut ciphertext = Vec::new();
 
-        pass_encrypt(&mut pt.as_slice(), &mut ciphertext, pass, salt).unwrap();
+        pass_encrypt(
+            &mut pt.as_slice(),
+            &mut ciphertext,
+            pass,
+            salt,
+            PassFileFormat::V1,
+        )
+        .unwrap();
 
         ciphertext
     }

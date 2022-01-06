@@ -6,11 +6,12 @@ use crate::errors::EncryptError;
 use std::io::{Read, Write};
 
 use crate::{chapoly_encrypt, gen_key, noise_encrypt, scrypt, PrivateKey, PublicKey};
+use crate::{AsymFileFormat, PassFileFormat};
 use crate::{CHUNK_SIZE, SCRYPT_N_V1, SCRYPT_P_V1, SCRYPT_R_V1};
 
-pub const PROLOGUE: [u8; 4] = [0x65, 0x67, 0x6b, 0x10];
+pub const PROLOGUE_V1: [u8; 4] = [0x65, 0x67, 0x6b, 0x10];
 
-pub const PASS_FILE_MAGIC: [u8; 4] = [0x65, 0x67, 0x6b, 0x20];
+pub const PASS_FILE_MAGIC_V1: [u8; 4] = [0x65, 0x67, 0x6b, 0x20];
 
 /// Encrypt a file from sender key to recipient key
 /// Passing None for ephemeral_key and payload_key will generate fresh keys.
@@ -22,14 +23,16 @@ pub fn encrypt<T: Read, U: Write>(
     recipient: &PublicKey,
     ephemeral: Option<&PrivateKey>,
     payload_key: Option<[u8; 32]>,
+    file_format: AsymFileFormat,
 ) -> Result<(), EncryptError> {
+    let _file_format = file_format;
     let payload_key = match payload_key {
         Some(pk) => pk,
         None => gen_key(),
     };
-    let noise_message = noise_encrypt(sender, recipient, ephemeral, &PROLOGUE, &payload_key);
+    let noise_message = noise_encrypt(sender, recipient, ephemeral, &PROLOGUE_V1, &payload_key);
 
-    ciphertext.write_all(&PROLOGUE)?;
+    ciphertext.write_all(&PROLOGUE_V1)?;
     ciphertext.write_all(&noise_message)?;
 
     encrypt_chunks(plaintext, ciphertext, payload_key, None)?;
@@ -46,12 +49,14 @@ pub fn pass_encrypt<T: Read, U: Write>(
     ciphertext: &mut U,
     password: &[u8],
     salt: [u8; 32],
+    file_format: PassFileFormat,
 ) -> Result<(), EncryptError> {
+    let _file_format = file_format;
     let key = scrypt(password, &salt, SCRYPT_N_V1, SCRYPT_R_V1, SCRYPT_P_V1, 32);
     let key: [u8; 32] = key.as_slice().try_into().unwrap();
-    let aad = Some(&PASS_FILE_MAGIC[..]);
+    let aad = Some(&PASS_FILE_MAGIC_V1[..]);
 
-    ciphertext.write_all(&PASS_FILE_MAGIC)?;
+    ciphertext.write_all(&PASS_FILE_MAGIC_V1)?;
     ciphertext.write_all(&salt)?;
 
     encrypt_chunks(plaintext, ciphertext, key, aad)?;
@@ -141,6 +146,7 @@ pub(crate) mod tests {
     use super::{encrypt, pass_encrypt};
     use super::{PrivateKey, PublicKey};
     use crate::hash;
+    use crate::{AsymFileFormat, PassFileFormat};
     use std::convert::TryInto;
     use std::io::Read;
 
@@ -191,6 +197,7 @@ pub(crate) mod tests {
             &recipient,
             Some(&ephemeral),
             Some(payload_key),
+            AsymFileFormat::V1,
         )
         .unwrap();
 
@@ -232,6 +239,7 @@ pub(crate) mod tests {
             &key_data.bob_public,
             Some(&ephemeral_private),
             Some(payload_key),
+            AsymFileFormat::V1,
         )
         .unwrap();
 
@@ -274,6 +282,7 @@ pub(crate) mod tests {
             &key_data.bob_public,
             Some(&ephemeral_private),
             Some(payload_key),
+            AsymFileFormat::V1,
         )
         .unwrap();
 
@@ -303,7 +312,14 @@ pub(crate) mod tests {
         pt.extend_from_slice(plaintext);
         let mut ciphertext = Vec::new();
 
-        pass_encrypt(&mut pt.as_slice(), &mut ciphertext, pass, salt).unwrap();
+        pass_encrypt(
+            &mut pt.as_slice(),
+            &mut ciphertext,
+            pass,
+            salt,
+            PassFileFormat::V1,
+        )
+        .unwrap();
 
         ciphertext
     }

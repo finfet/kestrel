@@ -34,6 +34,8 @@ Kestrel makes it easy to encrypt files for yourself or friends.
 
 Tested on Linux, macOS, Windows 10
 
+Download files from the [Official Site](https://getkestrel.com)
+
 Grab the [GitHub release](https://github.com/finfet/kestrel/releases/latest)
 
 If you have rust build tooling you can also use `cargo install kestrel-cli`
@@ -48,6 +50,30 @@ you may have.
 ## License
 
 BSD 3 Clause
+
+## Usage Examples
+
+Generate a new private key
+```
+kestrel key gen -o keyring.txt
+```
+
+Encrypt a file
+```
+kestrel encrypt example.txt --to alice --from alice -k keyring.txt
+```
+
+Decrypt a file
+```
+kestrel decrypt example.txt.ktl -t alice
+```
+
+Encrypt a file using a password
+```
+kestrel pass enc example.txt
+```
+
+Set the environment variable `KESTREL_KEYRING` to use a default keyring file.
 
 ## Usage
 
@@ -73,6 +99,7 @@ OPTIONS:
     -v, --version   Print version information.
 ```
 
+
 ## Security Design Overview
 
 The application uses a standard combination of the Noise Protocol and a
@@ -85,7 +112,7 @@ are split into encrypted and authenticated chunks.
 Users can also use a password instead of public keys. Scrypt is to derive a
 symmetric key for file encryption.
 
-See more in the [security-notes](docs/security-notes.md)
+See more in the [security documentation](https://getkestrel.com/docs/security-information.html)
 
 ## Security Warning
 

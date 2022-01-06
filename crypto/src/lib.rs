@@ -26,6 +26,16 @@ pub const SCRYPT_N_V1: u32 = 32768;
 pub const SCRYPT_R_V1: u32 = 8;
 pub const SCRYPT_P_V1: u32 = 1;
 
+#[non_exhaustive]
+pub enum AsymFileFormat {
+    V1,
+}
+
+#[non_exhaustive]
+pub enum PassFileFormat {
+    V1,
+}
+
 /// Noise handshake hash
 pub type HandshakeHash = [u8; 32];
 

@@ -13,9 +13,10 @@ use anyhow::{anyhow, Context};
 use passterm::Stream;
 use zeroize::Zeroize;
 
-use kestrel_crypto::encrypt::{PASS_FILE_MAGIC, PROLOGUE};
+use kestrel_crypto::encrypt::{PASS_FILE_MAGIC_V1, PROLOGUE_V1};
 use kestrel_crypto::PrivateKey;
 use kestrel_crypto::{decrypt, encrypt};
+use kestrel_crypto::{AsymFileFormat, PassFileFormat};
 
 #[derive(Debug)]
 pub(crate) enum KeyCommand {
@@ -128,6 +129,7 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
         &recipient_public,
         None,
         None,
+        AsymFileFormat::V1,
     ) {
         eprintln!("failed");
         return Err(anyhow!(e));
@@ -157,12 +159,12 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
         let mut prologue = [0u8; 4];
         let mut ct_file = File::open(&infile_path).context("Could not open ciphertext file")?;
         ct_file.read_exact(&mut prologue)?;
-        if prologue == PASS_FILE_MAGIC {
+        if prologue == PASS_FILE_MAGIC_V1 {
             return Err(anyhow!(
                 "Wrong file type. Try this with the password decrypt command"
             ));
         }
-        if prologue != PROLOGUE {
+        if prologue != PROLOGUE_V1 {
             return Err(anyhow!("Unsupported file type."));
         }
     }
@@ -212,8 +214,12 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
     let mut plaintext = File::create(&outfile_path)?;
 
     eprint!("Decrypting...");
-    let sender_public = match decrypt::decrypt(&mut ciphertext, &mut plaintext, &recipient_private)
-    {
+    let sender_public = match decrypt::decrypt(
+        &mut ciphertext,
+        &mut plaintext,
+        &recipient_private,
+        AsymFileFormat::V1,
+    ) {
         Ok(pk) => pk,
         Err(e) => {
             eprintln!("failed");
@@ -339,7 +345,13 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
 
     eprint!("Encrypting...");
     let salt = kestrel_crypto::gen_salt();
-    if let Err(e) = encrypt::pass_encrypt(&mut plaintext, &mut ciphertext, pass.as_bytes(), salt) {
+    if let Err(e) = encrypt::pass_encrypt(
+        &mut plaintext,
+        &mut ciphertext,
+        pass.as_bytes(),
+        salt,
+        PassFileFormat::V1,
+    ) {
         pass.zeroize();
         eprintln!("failed");
         return Err(anyhow!(e));
@@ -366,12 +378,12 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
         let mut file_magic_num = [0u8; 4];
         let mut ct_file = File::open(&infile_path).context("Could not open ciphertext file")?;
         ct_file.read_exact(&mut file_magic_num)?;
-        if file_magic_num == PROLOGUE {
+        if file_magic_num == PROLOGUE_V1 {
             return Err(anyhow!(
                 "Wrong file type. Try this with the regular decrypt command"
             ));
         }
-        if file_magic_num != PASS_FILE_MAGIC {
+        if file_magic_num != PASS_FILE_MAGIC_V1 {
             return Err(anyhow!("Unsupported file type."));
         }
     }
@@ -392,7 +404,12 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let mut plaintext = File::create(&outfile_path).context("Could not create plaintext file")?;
 
     eprint!("Decrypting...");
-    if let Err(e) = decrypt::pass_decrypt(&mut ciphertext, &mut plaintext, pass.as_bytes()) {
+    if let Err(e) = decrypt::pass_decrypt(
+        &mut ciphertext,
+        &mut plaintext,
+        pass.as_bytes(),
+        PassFileFormat::V1,
+    ) {
         pass.zeroize();
         eprintln!("failed");
         return Err(anyhow!(e));
