@@ -188,7 +188,7 @@ def calculate_checksums(loc):
     with open(shasums_file, "w") as f:
         for hash_data in hashes:
             filename, hash_value = hash_data
-            f.write("{} {}\n".format(filename, hash_value))
+            f.write("{}  {}\n".format(hash_value, filename))
 
 def build_target(target_arch, os_tag, source_version, arch_tag, strip_prog_name, bin_name, make_build_dir=False, run_tests=False, make_tarball=True):
     license_name = "LICENSE.txt"
