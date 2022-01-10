@@ -158,7 +158,7 @@ def create_windows_installer(archive_path, bin_name):
 def calculate_checksums(loc):
     """
     Write the SHA-256 hashes of all .tar.gz, .zip, and .exe files in the
-    specified directory to a file called SHA256SUMS in that directory
+    specified directory to a file called SHA256SUMS.txt in that directory
     """
     hashes = []
 
@@ -184,7 +184,7 @@ def calculate_checksums(loc):
                     hashes.append(hash_data)
 
     hashes = sorted(hashes, key=lambda x: x[0])
-    shasums_file = Path(loc, "SHA256SUMS")
+    shasums_file = Path(loc, "SHA256SUMS.txt")
     with open(shasums_file, "w") as f:
         for hash_data in hashes:
             filename, hash_value = hash_data
