@@ -13,7 +13,8 @@ to anyone with a public key.
 - Encrypt files using a public key or password.
 - Strong security and privacy guarantees. Uses X25519, ChaCha20-Poly1305
   and the Noise Protocol. Guarantees sender authentication.
-- Handles files of any size.
+- Modern, secure algorithms and a small core codebase (~3k lines)
+- Supports files of any size.
 - Keys are simple strings that are easy to manage and copy-paste.
 - Private keys are always encrypted.
 - Single binary that is easy to run anywhere.
@@ -108,7 +109,7 @@ BSD 3 Clause
 
 ## Security Design Overview
 
-Kestrel uses a standard combination of the Noise Protocol and a
+Kestrel uses a simple combination of the Noise Protocol and a
 chunked file encryption scheme.
 
 The noise protocol (Noise_X_25519_ChaChaPoly_SHA256) is used to encrypt a
