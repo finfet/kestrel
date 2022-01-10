@@ -4,17 +4,18 @@
 
 ## About
 
-Kestrel is a data-at-rest file encryption program. Think PGP, but less unwieldy.
+Kestrel is a data-at-rest file encryption program that lets you encrypt files
+to anyone with a public key.
 
 Kestrel makes it easy to encrypt files for yourself or friends.
 
 
 ## Features and Advantages
 
-- Encrypt files to anyone. Grab their public key or use a password.
-- Quickly encrypt and decrypt files of any size.
+- Encrypt files using a public key or password.
 - Strong security and privacy guarantees. Uses X25519, ChaCha20-Poly1305
   and the Noise Protocol. Guarantees sender authentication.
+- Handles files of any size.
 - Keys are simple strings that are easy to manage and copy-paste.
 - Private keys are always encrypted.
 - Single binary that is easy to run anywhere.
@@ -34,22 +35,12 @@ Kestrel makes it easy to encrypt files for yourself or friends.
 
 Tested on Linux, macOS, Windows 10
 
-Download files from the [Official Site](https://getkestrel.com)
+Download from the [Official Site](https://getkestrel.com)
 
-Grab the [GitHub release](https://github.com/finfet/kestrel/releases/latest)
+Or grab the [GitHub release](https://github.com/finfet/kestrel/releases/latest)
 
-If you have rust build tooling you can also use `cargo install kestrel-cli`
+If you have cargo you can also use `cargo install kestrel-cli`
 
-
-## Contributing
-
-Patches welcome. Please send feedback and bug reports for any issues that
-you may have.
-
-
-## License
-
-BSD 3 Clause
 
 ## Usage Examples
 
@@ -65,7 +56,7 @@ kestrel encrypt example.txt --to alice --from alice -k keyring.txt
 
 Decrypt a file
 ```
-kestrel decrypt example.txt.ktl -t alice
+kestrel decrypt example.txt.ktl -t alice -k keyring.txt
 ```
 
 Encrypt a file using a password
@@ -99,15 +90,33 @@ OPTIONS:
     -v, --version   Print version information.
 ```
 
+## Documentation
+
+View the [documentation](https://getkestrel.com/docs/)
+
+Source code for the documentation can be found in the
+[kestrel-doc](https://github.com/finfet/kestrel-doc) repository.
+
+
+## Contributing
+
+Patches welcome. Please send feedback and bug reports for any issues that
+you may have.
+
+
+## License
+
+BSD 3 Clause
+
 
 ## Security Design Overview
 
-The application uses a standard combination of the Noise Protocol and a
+Kestrel uses a standard combination of the Noise Protocol and a
 chunked file encryption scheme.
 
 The noise protocol (Noise_X_25519_ChaChaPoly_SHA256) is used to encrypt a
-payload key that is then used for ChaCha20-Poly1305 file encryption. Files
-are split into encrypted and authenticated chunks.
+payload key. This payload key is then used for ChaCha20-Poly1305 file
+encryption. Files are split into encrypted and authenticated chunks.
 
 Users can also use a password instead of public keys. Scrypt is to derive a
 symmetric key for file encryption.

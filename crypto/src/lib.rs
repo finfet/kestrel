@@ -280,7 +280,7 @@ pub fn gen_csprng_bytes(len: usize) -> Vec<u8> {
     data
 }
 
-/// Generates 32 CSPRNG bytes to use as a salt for [`scrypt`]
+/// Generates 32 CSPRNG bytes to use as a salt for [`scrypt()`]
 pub fn gen_salt() -> [u8; 32] {
     let salt = gen_csprng_bytes(32);
     let salt: [u8; 32] = salt.as_slice().try_into().unwrap();

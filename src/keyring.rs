@@ -76,13 +76,13 @@ impl TryFrom<&str> for EncodedSk {
 
 #[derive(Debug)]
 pub(crate) struct Key {
-    pub(crate) name: String,
-    pub(crate) public_key: EncodedPk,
-    pub(crate) private_key: Option<EncodedSk>,
+    pub name: String,
+    pub public_key: EncodedPk,
+    pub private_key: Option<EncodedSk>,
 }
 
 #[derive(Debug)]
-pub struct Keyring {
+pub(crate) struct Keyring {
     keys: Vec<Key>,
 }
 
@@ -112,8 +112,6 @@ impl Keyring {
 
     /// Encrypt a private key using ChaCha20-Poly1305 with a key derived from
     /// a password using scrypt. The salt MUST be used only once.
-    /// Use the first 16 bytes of [gen_salt()](crate::crypto::gen_salt)
-    /// to get fresh salt values.
     pub(crate) fn lock_private_key(
         private_key: &PrivateKey,
         password: &[u8],
@@ -162,7 +160,7 @@ impl Keyring {
         Ok(PrivateKey::from(plaintext.as_slice()))
     }
 
-    /// Encode a [PublicKey](crate::crypto::PublicKey)
+    /// Encode a PublicKey
     /// Public keys are 32 bytes with a 4 byte SHA-256 checksum
     /// appended at the end. Represented as base64.
     pub(crate) fn encode_public_key(public_key: &PublicKey) -> EncodedPk {
