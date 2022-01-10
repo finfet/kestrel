@@ -7,8 +7,6 @@
 Kestrel is a data-at-rest file encryption program that lets you encrypt files
 to anyone with a public key.
 
-Kestrel makes it easy to encrypt files for yourself or friends.
-
 
 ## Features and Advantages
 
@@ -20,7 +18,6 @@ Kestrel makes it easy to encrypt files for yourself or friends.
 - Private keys are always encrypted.
 - Single binary that is easy to run anywhere.
 - Supports Linux, macOS, Windows.
-- BSDs will also likely work but are untested.
 
 
 ## Disadvantages
