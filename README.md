@@ -1,4 +1,4 @@
-<p><img src="https://user-images.githubusercontent.com/13957897/147846912-5bca7cd7-c3f5-4822-afeb-70a3e1baa556.png" alt="Kestrel Logo" width="600"></p>
+<p><img src="https://user-images.githubusercontent.com/13957897/149721971-bdd844e6-0a9d-43fa-9205-04a8daa9fab6.png" alt="Kestrel Logo" width="600"></p>
 
 **File encryption done right**
 
@@ -44,22 +44,25 @@ If you have cargo you can also use `cargo install kestrel-cli`
 
 Generate a new private key
 ```
-kestrel key gen -o keyring.txt
+$ kestrel key gen -o keyring.txt
+Key name: alice
+New password:
+Confirm password:
 ```
 
 Encrypt a file
 ```
-kestrel encrypt example.txt --to alice --from alice -k keyring.txt
+$ kestrel encrypt example.txt --to alice --from alice -k keyring.txt
 ```
 
 Decrypt a file
 ```
-kestrel decrypt example.txt.ktl -t alice -k keyring.txt
+$ kestrel decrypt example.txt.ktl -t alice -k keyring.txt
 ```
 
 Encrypt a file using a password
 ```
-kestrel pass enc example.txt
+$ kestrel pass enc example.txt
 ```
 
 Set the environment variable `KESTREL_KEYRING` to use a default keyring file.
