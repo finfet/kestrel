@@ -10,10 +10,10 @@ to anyone with a public key.
 
 ## Features and Advantages
 
-- Encrypt files using a public key or password.
+- Encrypt files using a public key or a password.
 - Strong security and privacy guarantees. Uses X25519, ChaCha20-Poly1305
   and the Noise Protocol. Guarantees sender authentication.
-- Modern, secure algorithms and a small core codebase (~3k lines)
+- Secure defaults with zero configuration needed.
 - Supports files of any size.
 - Keys are simple strings that are easy to manage and copy-paste.
 - Private keys are always encrypted.
@@ -28,6 +28,60 @@ to anyone with a public key.
 - Does not solve the key distribution problem. You have to acquire
   known-good public keys through some other means.
 
+
+## Security Properties
+
+- **Sender authentication**: When you successfully decrypt a file, you can be
+  certain that it came from someone that you know and hasn't been tampered
+  with in any way.
+- **Metadata protection**: Encrypted files contain absolutely zero information
+  about the sender or recipient.
+- **Deniability**: Unlike using a digital signature for authentication, Kestrel
+  provides sender authentication without non-repudiation. You are not
+  cryptographically bound to the messages that you send. If the recipient tries
+  to reveal a message, you are able to deny that you sent that message.
+
+Kestrel uses a combination of the Noise Protocol and a chunked file encryption
+scheme. Read the [security documentation](https://getkestrel.com/docs/security-information.html)
+for more details.
+
+
+## Advantages compared to other applications
+
+**GPG**
+
+GPG is a massively complex tool with many use cases, features, and shortcomings.
+The issues with PGP/GPG have been well documented. In general, Kestrel provides
+strong, sane defaults, with zero configuration and better default security
+guarantees. In particular:
+
+- By default, GPG does not provide sender authentication. You can change this
+  by signing the message, but in doing so you lose deniability. Kestrel
+  provides sender authentication while preserving deniability.
+- By default, GPG does not protect the recipient's key ID. This can be changed,
+  but Kestrel does this by default.
+
+Kestrel focuses on having strong defaults and good security guarantees for
+one thing (file encryption). GPG is a complex tool with more features, but
+must be used with care.
+
+**age**
+
+age is a newer tool with strong defaults and is a great choice in comparison
+to GPG. However, age does not provide sender authentication.
+
+A common scenario where this would be an issue is when using an untrusted
+cloud storage provider. For Example:
+
+1. You encrypt a file to your public key and place it in cloud storage.
+2. The storage provider replaces this file with a malicious file that has also
+   been encrypted to your public key.
+3. When you decrypt, decryption will be successful, but you'll now have a
+   malicious file instead of the real one.
+
+Kestrel fixes this issue by providing sender authentication. In the
+above scenario, you would be able to tell that file came from an unknown public
+key instead of from your trusted public key.
 
 ## Installation
 
@@ -109,20 +163,6 @@ you may have.
 
 BSD 3 Clause
 
-
-## Security Design Overview
-
-Kestrel uses a simple combination of the Noise Protocol and a
-chunked file encryption scheme.
-
-The noise protocol (Noise_X_25519_ChaChaPoly_SHA256) is used to encrypt a
-payload key. This payload key is then used for ChaCha20-Poly1305 file
-encryption. Files are split into encrypted and authenticated chunks.
-
-Users can also use a password instead of public keys. Scrypt is to derive a
-symmetric key for file encryption.
-
-See more in the [security documentation](https://getkestrel.com/docs/security-information.html)
 
 ## Security Warning
 
