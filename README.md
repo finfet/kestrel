@@ -32,14 +32,17 @@ to anyone with a public key.
 ## Security Properties
 
 - **Sender authentication**: When you successfully decrypt a file, you can be
-  certain that it came from someone that you know and hasn't been tampered
-  with in any way.
+  certain that it came from someone that you know and that it hasn't been
+  tampered with in any way.
 - **Metadata protection**: Encrypted files contain absolutely zero information
   about the sender or recipient.
 - **Deniability**: Unlike using a digital signature for authentication, Kestrel
   provides sender authentication without non-repudiation. You are not
   cryptographically bound to the messages that you send. If the recipient tries
   to reveal a message, you are able to deny that you sent that message.
+- **Partial forward secrecy**: An attacker must compromise the _recipient's_
+  private key in order to decrypt a file. Someone else getting their private
+  key compromised doesn't affect the files that they had previously sent to you.
 
 Kestrel uses a combination of the Noise Protocol and a chunked file encryption
 scheme. Read the [security documentation](https://getkestrel.com/docs/security-information.html)
