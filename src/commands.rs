@@ -493,6 +493,16 @@ fn confirm_password_stderr(prompt: &str) -> Result<String, anyhow::Error> {
         }
     };
 
+    if password.is_empty() {
+        let prompt = "Password is empty. Continue? (y/N): ";
+        let confirm = ask_user_stderr(&prompt)?;
+        if confirm == "y" || confirm == "Y" {
+            return Ok(password)
+        } else {
+            return Err(anyhow!("Password is empty. Stopping."));
+        }
+    }
+
     Ok(password)
 }
 
@@ -506,7 +516,7 @@ fn ask_pass_stderr(prompt: &str) -> Result<String, anyhow::Error> {
 
 fn confirm_overwrite<T: AsRef<Path>>(path: T) -> Result<bool, anyhow::Error> {
     let filename = extract_filename(path.as_ref().file_name());
-    let prompt = format!("File '{}' already exists. Overwrite? (y/n): ", &filename);
+    let prompt = format!("File '{}' already exists. Overwrite? (y/N): ", &filename);
     let confirm = ask_user_stderr(&prompt)?;
     if confirm == "y" || confirm == "Y" {
         Ok(true)
