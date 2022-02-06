@@ -37,9 +37,9 @@ This will put a source tarball in `build/`
 
 Build from a source release created with `build.py -a`
 
-Linux and macOS build should be build from the archive extracted into
+Linux and macOS builds should be built from the archive extracted into
 `/opt/kestrel/`. Windows builds should be built from from `C:\kestrel\`. This
-is optional, but it helps with future reproducible builds.
+is optional, but helps with future build reproducibility.
 
 ### Linux build
 ```

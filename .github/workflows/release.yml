@@ -3,12 +3,117 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Checkout tag"
+        description: "Checkout Ref"
+        required: true
 jobs:
-  build-archive:
+  create-archive:
     runs-on: ubuntu-20.04
     steps:
-      - run: |
-          echo "Chose tag: $TAG"
-        env:
-          TAG: ${{ github.events.inputs.tag }}
+      - name: Checkout Tag
+        uses: actions/checkout@v2
+        with:
+          ref: "${{ github.event.inputs.tag }}"
+      - name: Create Archive
+        run: python3 build.py -a
+      - name: Upload Source Archive
+        uses: actions/upload-artifact@v2
+        with:
+          name: kestrel-source
+          path: build/*.tar.gz
+      - name: Upload build.py
+        uses: actions/upload-artifact@v2
+        with:
+          name: build-py
+          path: build.py
+  release-linux:
+    runs-on: ubuntu-20.04
+    needs: create-archive
+    steps:
+      - name: Install Build Dependencies
+        run: |
+          rustup target add x86_64-unknown-linux-musl
+          rustup target add aarch64-unknown-linux-musl
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Download Source Archive
+        uses: actions/download-artifact@v2
+        with:
+          name: kestrel-source
+      - name: Build Binary
+        run: |
+          tar -xf kestrel-*.tar.gz
+          cd kestrel-*/
+          python3 build.py -s linux -t amd64
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v2
+        with:
+          name: kestrel-linux
+          path: kestrel-*/build/*.tar.gz
+  release-macos:
+    runs-on: macos-11
+    needs: create-archive
+    steps:
+      - name: Install Build Dependencies
+        run: |
+          rustup target add x86_64-apple-darwin
+          rustup target add aarch64-apple-darwin
+      - name: Download Source Archive
+        uses: actions/download-artifact@v2
+        with:
+          name: kestrel-source
+      - name: Build Binary
+        run: |
+          tar -xf kestrel-*.tar.gz
+          cd kestrel-*/
+          python3 build.py -s macos -t amd64
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v2
+        with:
+          name: kestrel-macos
+          path: kestrel-*/build/*.tar.gz
+  release-windows:
+    runs-on: windows-2019
+    needs: create-archive
+    steps:
+      - name: Install Build Dependencies
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+      - name: Download Source Archive
+        uses: actions/download-artifact@v2
+        with:
+          name: kestrel-source
+      - name: Build Binary
+        run: |
+          python3 -m tarfile -e (get-item ./kestrel-*.tar.gz).Name
+          cd kestrel-*/
+          python3 build.py -s windows -t amd64 -w
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v2
+        with:
+          name: kestrel-windows
+          path: |
+            kestrel-*/build/*.zip
+            kestrel-*/build/*.exe
+  bundle-artifacts:
+    runs-on: ubuntu-20.04
+    needs: [create-archive, release-linux, release-macos, release-windows]
+    steps:
+      - name: Create release dir
+        run: mkdir release
+      - name: Download Artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+      - name: Copy data
+        run: |
+          cp artifacts/kestrel-source/kestrel-*.tar.gz release/
+          cp artifacts/kestrel-linux/kestrel-*/build/kestrel-*.tar.gz release/
+          cp artifacts/kestrel-macos/kestrel-*/build/kestrel-*.tar.gz release/
+          cp artifacts/kestrel-windows/kestrel-*/build/* release/
+          cp artifacts/build-py/build.py .
+      - name: Generate Checksum
+        run: python3 build.py -c release/
+      - name: Upload Release Directory
+        uses: actions/upload-artifact@v2
+        with:
+          name: kestrel-release
+          path: release
