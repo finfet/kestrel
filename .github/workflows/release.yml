@@ -1,0 +1,14 @@
+name: Build Release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Checkout tag"
+jobs:
+  build-archive:
+    runs-on: ubuntu-20.04
+    steps:
+      - run: |
+          echo "Chose tag: $TAG"
+        env:
+          TAG: ${{ github.events.inputs.tag }}
