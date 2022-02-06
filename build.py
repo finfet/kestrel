@@ -78,7 +78,7 @@ def vendor_source():
 
 def ignore_files(path, names):
     ignored_dirs = [
-        (Path("."), [".git", "target"]),
+        (Path("."), [".git", "target", "build"]),
         (Path("packaging", "windows"), ["install", "output"])
     ]
 
