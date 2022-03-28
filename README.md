@@ -54,37 +54,20 @@ for more details.
 **GPG**
 
 GPG is a massively complex tool with many use cases, features, and shortcomings.
-The issues with PGP/GPG have been well documented. In general, Kestrel provides
-strong, sane defaults, with zero configuration and better default security
-guarantees. In particular:
-
-- By default, GPG does not provide sender authentication. You can change this
-  by signing the message, but in doing so you lose deniability. Kestrel
-  provides sender authentication while preserving deniability.
-- By default, GPG does not protect the recipient's key ID. This can be changed,
-  but Kestrel does this by default.
-
-Kestrel focuses on having strong defaults and good security guarantees for
-one thing (file encryption). GPG is a complex tool with more features, but
-must be used with care.
+In general, Kestrel provides better default security guarantees with no
+configuration required. In particular, by default, GPG does not provide sender
+authentication or metadata protection. Sender authentication can be
+added by including signatures, but this removes deniability. In contrast,
+Kestrel includes sender authentication while preserving deniability and
+protecting metadata.
 
 **age**
 
 age is a newer tool with strong defaults and is a great choice in comparison
-to GPG. However, age does not provide sender authentication.
-
-A common scenario where this would be an issue is when using an untrusted
-cloud storage provider. For Example:
-
-1. You encrypt a file to your public key and place it in cloud storage.
-2. The storage provider replaces this file with a malicious file that has also
-   been encrypted to your public key.
-3. When you decrypt, decryption will be successful, but you'll now have a
-   malicious file instead of the real one.
-
-Kestrel fixes this issue by providing sender authentication. In the
-above scenario, you would be able to tell that file came from an unknown public
-key instead of from your trusted public key.
+to GPG. However, age does not provide sender authentication. A successfully
+decrypted file could have come from anyone, including a malicious user.
+Mitigating this would require keeping track of file hashes out of band.
+Kestrel solves this issue by providing sender authentication.
 
 ## Installation
 
