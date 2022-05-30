@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+_kestrel_completions()
+{
+    local cur prev
+    cur=${COMP_WORDS[COMP_CWORD]}
+    prev=${COMP_WORDS[COMP_CWORD-1]}
+
+    case ${COMP_CWORD} in
+        1)
+            COMPREPLY=($(compgen -W "encrypt decrypt key password -h --help -v --version" -- ${cur}))
+            ;;
+        2)
+            case ${prev} in
+                password)
+                    COMPREPLY=($(compgen -W "encrypt decrypt" -- ${cur}))
+                    ;;
+                key)
+                    COMPREPLY=($(compgen -W "generate change-pass extract-pub" -- ${cur}))
+                    ;;
+                *)
+                    COMPREPLY=($(compgen -f -W "-t --to -f --from -o --output" -- ${cur}))
+                    ;;
+            esac
+            ;;
+        *)
+            COMPREPLY=($(compgen -f -W "-t --to -f --from -o --output" -- ${cur}))
+            ;;
+    esac
+}
+
+complete -F _kestrel_completions kestrel
