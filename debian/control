@@ -1,0 +1,15 @@
+Source: kestrel
+Section: utils
+Priority: optional
+Maintainer: Kyle Schreiber <kyle@80x24.net>
+Build-Depends: debhelper-compat (= 12), cargo, bash-completion
+Standards-Version: 4.5.0
+Homepage: https://getkestrel.com
+
+Package: kestrel
+Architecture: any
+Multi-Arch: foreign
+# libc6 appears to be automatically depended on here.
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: File encryption done right
+ An easy to use file encryption program.

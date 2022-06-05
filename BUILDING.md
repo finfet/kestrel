@@ -46,6 +46,31 @@ is optional, but helps with future build reproducibility.
 python3 build.py --system linux --test-arch amd64
 ```
 
+### Debian Package
+
+Requires a debian based distribution with access to cargo and rustc >=1.56
+
+Tested on Ubuntu 20.04 and 22.04
+
+It is a good idea to build in a clean VM or container.
+
+Packages required: build-essential devscripts debhelper lintian bash-completion cargo
+
+Tested using ubuntu 22.04
+
+Using a source release, create a new directory and move the `.tar.gz`
+file into it. Copy the `.tar.gz` as `kestrel-_x.x.x.orig.tar.gz`.
+Inside of the extracted source package, run `debuild` to build
+a debian package.
+
+### Manpage Generation
+
+Manpages are converted from markdown using pandoc
+
+```
+pandoc -s -t man -o kestrel.1 kestrel.1.md
+```
+
 ### macOS build
 Specifying arm64 or amd64 will run tests on the binary for
 that architecture. If you're on an ARM mac use arm64 or amd64 if you're on

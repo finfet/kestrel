@@ -2,5 +2,5 @@
 /vendor
 /build
 /tests/tmp*
-/packaging/windows/install
-/packaging/windows/output
+/windows/install
+/windows/output

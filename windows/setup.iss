@@ -39,7 +39,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 Source: "install\bin\{#AppExeName}"; DestDir: "{app}\bin"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "install\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
-Source: "install\THIRD-PARTY.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "install\THIRD-PARTY-LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Tasks]

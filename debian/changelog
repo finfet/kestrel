@@ -1,0 +1,7 @@
+kestrel (0.9.1-1) UNRELEASED; urgency=low
+
+  * Version 0.9.1
+
+    Warn on use of empty password
+
+ -- Kyle Schreiber <kyle@80x24.net>  Sat, 04 Jun 2022 23:58:03 -0700

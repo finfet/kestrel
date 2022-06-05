@@ -6,8 +6,6 @@
 """
 Build Kestrel
 
-Builds should be created from the source archives created with archive.py
-
 OS builds must be run on their respective systems
 """
 
@@ -55,7 +53,7 @@ def build_archive():
 
     vendor_config = vendor_source()
 
-    archive_name = "kestrel-source-v{}".format(source_version)
+    archive_name = "kestrel-{}".format(source_version)
 
     source_archive_path = Path("build", archive_name)
 
@@ -79,7 +77,7 @@ def vendor_source():
 def ignore_files(path, names):
     ignored_dirs = [
         (Path("."), [".git", "target", "build"]),
-        (Path("packaging", "windows"), ["install", "output"])
+        (Path("windows"), ["install", "output"])
     ]
 
     for ignored_dir in ignored_dirs:
@@ -135,11 +133,11 @@ def build_windows(test_arch, create_installer=False):
 
 def create_windows_installer(archive_path, bin_name):
     license_name = "LICENSE.txt"
-    third_party_name = "THIRD-PARTY.txt"
+    third_party_name = "THIRD-PARTY-LICENSE.txt"
 
-    install_dir = Path("packaging", "windows", "install")
+    install_dir = Path("windows", "install")
     install_dir.mkdir()
-    output_dir = Path("packaging", "windows", "output")
+    output_dir = Path("windows", "output")
     output_dir.mkdir()
     install_bin_dir = Path(install_dir, "bin")
     install_bin_dir.mkdir()
@@ -148,7 +146,7 @@ def create_windows_installer(archive_path, bin_name):
     copy2(Path(archive_path, license_name), install_dir)
     copy2(Path(archive_path, third_party_name), install_dir)
 
-    setup_script_path = Path("packaging", "windows", "setup.iss")
+    setup_script_path = Path("windows", "setup.iss")
     prv = subprocess.run(["iscc.exe", str(setup_script_path)])
     prv.check_returncode()
 
@@ -192,7 +190,7 @@ def calculate_checksums(loc):
 
 def build_target(target_arch, os_tag, source_version, arch_tag, strip_prog_name, bin_name, make_build_dir=False, run_tests=False, make_tarball=True):
     license_name = "LICENSE.txt"
-    third_party_name = "THIRD-PARTY.txt"
+    third_party_name = "THIRD-PARTY-LICENSE.txt"
 
     if run_tests:
         print("Running tests for {}".format(target_arch))
