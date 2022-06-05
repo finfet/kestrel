@@ -54,13 +54,13 @@ Tested on Ubuntu 20.04 and 22.04
 
 It is a good idea to build in a clean VM or container.
 
-Packages required: build-essential devscripts debhelper lintian bash-completion cargo
+Packages required: build-essential debhelper bash-completion cargo
 
 Tested using ubuntu 22.04
 
 Using a source release, create a new directory and move the `.tar.gz`
 file into it. Copy the `.tar.gz` as `kestrel-_x.x.x.orig.tar.gz`.
-Inside of the extracted source package, run `debuild` to build
+Inside of the extracted source package, run `dpkg-buildpackage -us -uc -b` to build
 a debian package.
 
 ### Manpage Generation
