@@ -21,9 +21,9 @@ header: Kestrel Manual
   kestrel password encrypt|decrypt FILE [-o FILE]
 
 # DESCRIPTION
-  Kestrel is a file encryption utility that lets you encrypt files using either public keys or passwords.
+  Kestrel is a file encryption utility that lets you encrypt files to anyone with a public key.
 
-  Start by generating a public/private keypair for yourself or encrypt files using a password.
+  Start by generating your key pair using: kestrel key generate
 
 # OPTIONS
   -t, --to

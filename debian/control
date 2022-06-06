@@ -8,8 +8,8 @@ Homepage: https://getkestrel.com
 
 Package: kestrel
 Architecture: any
-Multi-Arch: foreign
 # libc6 appears to be automatically depended on here.
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: File encryption done right
- An easy to use file encryption program.
+ Kestrel is a file encryption utility that lets you encrypt files to
+ anyone with a public key.
