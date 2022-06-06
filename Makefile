@@ -5,6 +5,9 @@ all: build
 build:
 	cargo build --release
 
+test:
+	cargo test --workspace
+
 install:
 	install -D target/release/kestrel $(DESTDIR)$(prefix)/bin/kestrel
 

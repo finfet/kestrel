@@ -48,19 +48,19 @@ python3 build.py --system linux --test-arch amd64
 
 ### Debian Package
 
-Requires a debian based distribution with access to cargo and rustc >=1.56
-
-Tested on Ubuntu 20.04 and 22.04
+Requires a debian based distribution with access to cargo and rustc >=1.56.
 
 It is a good idea to build in a clean VM or container.
 
-Packages required: build-essential devscripts debhelper bash-completion cargo
 
-Tested using ubuntu 22.04
+Tested on Ubuntu 20.04 and 22.04. Debian packages for arm64 can be built
+on a native arm64 machine or container. A container on Apple M1 works.
+
+Packages required: build-essential devscripts debhelper fakeroot bash-completion cargo
 
 Using a source release, create a new directory and move the `.tar.gz`
 file into it. Copy the `.tar.gz` as `kestrel-_x.x.x.orig.tar.gz`.
-Inside of the extracted source package, run `debuild -us -uc -b` to build
+Inside of the extracted source package, run `debuild -us -uc -b -rfakeroot` to build
 a debian package.
 
 ### Manpage Generation
