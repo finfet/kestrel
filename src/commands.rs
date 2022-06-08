@@ -497,7 +497,7 @@ fn confirm_password_stderr(prompt: &str) -> Result<String, anyhow::Error> {
         let prompt = "Password is empty. Continue? (y/N): ";
         let confirm = ask_user_stderr(&prompt)?;
         if confirm == "y" || confirm == "Y" {
-            return Ok(password)
+            return Ok(password);
         } else {
             return Err(anyhow!("Password is empty. Stopping."));
         }
