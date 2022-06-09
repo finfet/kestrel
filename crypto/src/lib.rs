@@ -5,7 +5,6 @@ pub mod decrypt;
 pub mod encrypt;
 pub mod errors;
 mod noise;
-mod xdh;
 
 use getrandom::getrandom;
 
@@ -19,7 +18,6 @@ use zeroize::Zeroize;
 
 use errors::ChaPolyDecryptError;
 use noise::HandshakeState;
-use xdh::X25519_BASEPOINT_BYTES;
 
 pub const CHUNK_SIZE: usize = 65536;
 pub const SCRYPT_N_V1: u32 = 32768;
@@ -102,7 +100,7 @@ impl PrivateKey {
 
     /// Derive the public key from the private key
     pub fn to_public(&self) -> PublicKey {
-        PublicKey::from(&derive_x25519_pub_key(&self.key)[..])
+        PublicKey::from(&x25519_derive_public(&self.key)[..])
     }
 }
 
@@ -116,12 +114,12 @@ impl From<&[u8]> for PrivateKey {
 
 /// Performs X25519 diffie hellman, returning the shared secret.
 pub fn x25519(private_key: &PrivateKey, public_key: &PublicKey) -> [u8; 32] {
-    xdh::x25519(private_key.key, public_key.key)
+    x25519_dalek::x25519(private_key.key, public_key.key)
 }
 
 /// Derive an X25519 public key from a private key
-pub fn derive_x25519_pub_key(private_key: &[u8; 32]) -> [u8; 32] {
-    xdh::x25519(*private_key, X25519_BASEPOINT_BYTES)
+pub fn x25519_derive_public(private_key: &[u8; 32]) -> [u8; 32] {
+    x25519_dalek::x25519(*private_key, x25519_dalek::X25519_BASEPOINT_BYTES)
 }
 
 /// Encrypt the payload key using the noise X protocol.
@@ -366,49 +364,6 @@ mod tests {
         let result = hmac_sha256(key, message);
 
         assert_eq!(&expected, &result);
-    }
-
-    #[test]
-    fn test_rfc7748_vector1() {
-        use super::xdh;
-
-        let input_scalar =
-            hex::decode("a546e36bf0527c9d3b16154b82465edd62144c0ac1fc5a18506a2244ba449ac4")
-                .unwrap();
-        let input_u_coord =
-            hex::decode("e6db6867583030db3594c1a424b15f7c726624ec26b3353b10a903a6d0ab1c4c")
-                .unwrap();
-        let expected_u_coord =
-            hex::decode("c3da55379de9c6908e94ea4df28d084f32eccf03491c71f754b4075577a28552")
-                .unwrap();
-
-        let input_scalar: [u8; 32] = input_scalar.try_into().unwrap();
-        let input_u_coord: [u8; 32] = input_u_coord.try_into().unwrap();
-        let result = xdh::x25519(input_scalar, input_u_coord);
-
-        let expected_u_coord: [u8; 32] = expected_u_coord.try_into().unwrap();
-        assert_eq!(expected_u_coord, result);
-    }
-
-    #[test]
-    fn test_rfc7748_vector2() {
-        use super::xdh;
-        let input_scalar =
-            hex::decode("4b66e9d4d1b4673c5ad22691957d6af5c11b6421e0ea01d42ca4169e7918ba0d")
-                .unwrap();
-        let input_u_coord =
-            hex::decode("e5210f12786811d3f4b7959d0538ae2c31dbe7106fc03c3efc4cd549c715a493")
-                .unwrap();
-        let expected_u_coord =
-            hex::decode("95cbde9476e8907d7aade45cb4b873f88b595a68799fa152e6f8f7647aac7957")
-                .unwrap();
-
-        let input_scalar: [u8; 32] = input_scalar.try_into().unwrap();
-        let input_u_coord: [u8; 32] = input_u_coord.try_into().unwrap();
-        let result = xdh::x25519(input_scalar, input_u_coord);
-
-        let expected_u_coord: [u8; 32] = expected_u_coord.try_into().unwrap();
-        assert_eq!(expected_u_coord, result);
     }
 
     #[test]

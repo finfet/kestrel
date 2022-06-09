@@ -229,12 +229,12 @@ name = "kestrel-crypto"
 version = "0.9.1"
 dependencies = [
  "chacha20poly1305",
- "curve25519-dalek",
  "getrandom",
  "hex",
  "hmac",
  "scrypt",
  "sha2",
+ "x25519-dalek",
  "zeroize",
 ]
 
@@ -522,6 +522,17 @@ name = "windows_x86_64_msvc"
 version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f4dd6dc7df2d84cf7b33822ed5b86318fb1781948e9663bacd047fc9dd52259d"
+
+[[package]]
+name = "x25519-dalek"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2392b6b94a576b4e2bf3c5b2757d63f10ada8020a2e4d08ac849ebcf6ea8e077"
+dependencies = [
+ "curve25519-dalek",
+ "rand_core",
+ "zeroize",
+]
 
 [[package]]
 name = "zeroize"
