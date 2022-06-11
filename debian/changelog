@@ -1,5 +1,5 @@
-kestrel (0.9.1-1) UNRELEASED; urgency=low
+kestrel (0.10.0-1) UNRELEASED; urgency=low
 
   * Add warn on use of empty password
 
- -- Kyle Schreiber <kyle@80x24.net>  Sat, 04 Jun 2022 23:58:03 -0700
+ -- Kyle Schreiber <kyle@80x24.net>  Fri, 10 Jun 2022 22:33:55 -0700

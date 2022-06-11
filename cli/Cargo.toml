@@ -1,0 +1,31 @@
+[package]
+name = "kestrel-cli"
+version = "0.10.0"
+edition = "2021"
+rust-version = "1.56"
+authors = [
+    "Kyle Schreiber <kyle@80x24.net>",
+]
+readme = "README.md"
+license = "BSD-3-Clause"
+description = "Kestrel file encryption program"
+repository = "https://github.com/finfet/kestrel"
+homepage = "https://getkestrel.com"
+keywords = ["encryption", "file"]
+categories = ["command-line-utilities", "cryptography"]
+
+[[bin]]
+name = "kestrel"
+path = "src/main.rs"
+
+[dependencies]
+kestrel-crypto = { version = "0.10.0", path = "../crypto" }
+base64 = "0.13.0"
+getopts = "0.2.21"
+anyhow = "1.0"
+passterm = "1.1.3"
+zeroize = "1"
+
+[dev-dependencies]
+hex = "0.4.3"
+

@@ -14,7 +14,7 @@ import argparse
 import subprocess
 import hashlib
 from pathlib import Path
-from shutil import copy2, make_archive, copytree
+from shutil import copy2, make_archive, copytree, rmtree
 
 def main():
     parser = argparse.ArgumentParser(description="Build application")
@@ -23,10 +23,14 @@ def main():
     parser.add_argument("-c", "--checksum", type=str, metavar="RELEASE_DIR", help="Create SHA-256 checksum file")
     parser.add_argument("-w", "--win-installer", action="store_true", help="Create the windows installer")
     parser.add_argument("-a", "--archive", action="store_true", help="Create source archive")
+    parser.add_argument("--clean", action="store_true", help="Clean build directories")
 
     args = parser.parse_args()
 
-    if args.system:
+    if args.clean:
+        rmtree("build")
+        rmtree("vendor")
+    elif args.system:
         if args.system == "linux":
             build_linux(args.test_arch)
         elif args.system == "macos":

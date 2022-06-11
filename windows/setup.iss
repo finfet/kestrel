@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define AppName "Kestrel CLI"
-#define AppVersion "0.9.1"
+#define AppVersion "0.10.0"
 #define AppPublisher "Kestrel Developers"
 #define AppURL "https://getkestrel.com"
 #define AppExeName "kestrel.exe"

@@ -213,7 +213,7 @@ dependencies = [
 
 [[package]]
 name = "kestrel-cli"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -226,7 +226,7 @@ dependencies = [
 
 [[package]]
 name = "kestrel-crypto"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "chacha20poly1305",
  "getrandom",
