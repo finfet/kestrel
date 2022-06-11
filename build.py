@@ -270,7 +270,7 @@ def read_version():
     """ Read version info from Cargo.toml """
     source_version = ""
 
-    with open("Cargo.toml", "r") as f:
+    with open("cli/Cargo.toml", "r") as f:
         for line in f.readlines():
             check_line = line.strip()
             if check_line.startswith("version"):
