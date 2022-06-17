@@ -260,7 +260,13 @@ pub(crate) fn gen_key(outfile: String) -> Result<(), anyhow::Error> {
     let key_config =
         Keyring::serialize_key(name.as_str(), &encoded_public_key, &encoded_private_key);
 
-    let key_output = format!("\n{}", key_config);
+    // If the file already exits, write the keys beginning with a newline
+    // If not, start at the beginning on the file
+    let key_output = if Path::new(&outfile).exists() {
+        format!("\n{}", key_config)
+    } else {
+        key_config
+    };
 
     let mut keyring_file = OpenOptions::new().append(true).create(true).open(outfile)?;
 

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crypto", "cli"]
+members = ["src/crypto", "src/cli"]
 
 [profile.dev.package.scrypt]
 opt-level = 3

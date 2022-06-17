@@ -24,6 +24,27 @@ Kestrel is a file encryption utility that lets you encrypt files to
 anyone with a public key.
 .PP
 Start by generating your key pair using: kestrel key generate
+.PP
+\f[B]KEYRING FORMAT\f[R]
+.PP
+The keyring is a simple text file listing public and private keys.
+Keys can appear is any order, and each name and key must be unique.
+.PP
+Example:
+.IP
+.nf
+\f[C]
+[Key]
+Name = alice
+# Example comment
+PublicKey = BASE64_PUBLIC_KEY
+PrivateKey = BASE64_PRIVATE_KEY
+
+[Key]
+Name = bob
+PublicKey = BASE64_PUBLIC_KEY
+\f[R]
+.fi
 .SH OPTIONS
 .PP
 -t, \[en]to Recipient key name.

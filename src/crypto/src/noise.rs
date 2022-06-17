@@ -4,9 +4,7 @@
 use std::collections::VecDeque;
 
 use crate::errors::ChaPolyDecryptError;
-use crate::{
-    chapoly_decrypt, chapoly_encrypt, hash, noise_hkdf, x25519, KeyPair, PrivateKey, PublicKey,
-};
+use crate::{chapoly_decrypt, chapoly_encrypt, hash, noise_hkdf, KeyPair, PrivateKey, PublicKey};
 
 const HASH_LEN: usize = 32;
 const DH_LEN: usize = 32;
@@ -268,7 +266,8 @@ impl HandshakeState {
                     debug_assert!(self.initiator);
                     let e = self.e.as_ref().unwrap();
                     let rs = self.rs.as_ref().unwrap();
-                    self.symmetric_state.mix_key(&x25519(&e.private_key, rs));
+                    let shared_secret = e.private_key.diffie_hellman(rs);
+                    self.symmetric_state.mix_key(&shared_secret);
                 }
                 Token::SE => {
                     unimplemented!("SE not used in the X pattern");
@@ -276,7 +275,8 @@ impl HandshakeState {
                 Token::SS => {
                     let s = self.s.as_ref().unwrap();
                     let rs = self.rs.as_ref().unwrap();
-                    self.symmetric_state.mix_key(&x25519(&s.private_key, rs));
+                    let shared_secret = s.private_key.diffie_hellman(rs);
+                    self.symmetric_state.mix_key(&shared_secret)
                 }
             }
         }
@@ -330,7 +330,8 @@ impl HandshakeState {
                     debug_assert!(!self.initiator);
                     let s = self.s.as_ref().unwrap();
                     let re = self.re.as_ref().unwrap();
-                    self.symmetric_state.mix_key(&x25519(&s.private_key, re));
+                    let shared_secret = s.private_key.diffie_hellman(re);
+                    self.symmetric_state.mix_key(&shared_secret);
                 }
                 Token::SE => {
                     unimplemented!("SE not used in the X pattern")
@@ -338,7 +339,8 @@ impl HandshakeState {
                 Token::SS => {
                     let s = self.s.as_ref().unwrap();
                     let rs = self.rs.as_ref().unwrap();
-                    self.symmetric_state.mix_key(&x25519(&s.private_key, rs));
+                    let shared_secret = s.private_key.diffie_hellman(rs);
+                    self.symmetric_state.mix_key(&shared_secret);
                 }
             }
         }

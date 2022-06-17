@@ -77,7 +77,7 @@ Download from the [Official Site](https://getkestrel.com)
 
 Or grab the [GitHub release](https://github.com/finfet/kestrel/releases/latest)
 
-If you have cargo you can also use `cargo install kestrel-cli`
+If you have cargo you can also use `cargo install --locked kestrel-cli`
 
 
 ## Usage Examples
@@ -88,6 +88,11 @@ $ kestrel key gen -o keyring.txt
 Key name: alice
 New password:
 Confirm password:
+$ cat keyring.txt
+[Key]
+Name = alice
+PublicKey = mI4mKm85lXzbYdHhDW7hX8yWDIuSwRuzjATP/w4mZxwm+Dck
+PrivateKey = AAHr9qFFlOx1ujtQg8bQ8I5GTzwWmBjRU8Cf0VAK2CuRKNNlsW4XWCu2GEzFQuqNb1UrkLev7+Qn9OgS5xwVOR3j
 ```
 
 Encrypt a file

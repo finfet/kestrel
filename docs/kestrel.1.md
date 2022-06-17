@@ -25,6 +25,25 @@ header: Kestrel Manual
 
   Start by generating your key pair using: kestrel key generate
 
+  **KEYRING FORMAT**
+
+  The keyring is a simple text file listing public and private keys. Keys can
+  appear is any order, and each name and key must be unique.
+
+  Example:
+
+  ```
+  [Key]
+  Name = alice
+  # Example comment
+  PublicKey = BASE64_PUBLIC_KEY
+  PrivateKey = BASE64_PRIVATE_KEY
+
+  [Key]
+  Name = bob
+  PublicKey = BASE64_PUBLIC_KEY
+  ```
+
 # OPTIONS
   -t, --to
   Recipient key name. Decrypt requires a private key.

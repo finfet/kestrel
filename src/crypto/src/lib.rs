@@ -102,24 +102,38 @@ impl PrivateKey {
     pub fn to_public(&self) -> PublicKey {
         PublicKey::from(&x25519_derive_public(&self.key)[..])
     }
+
+    /// X25519 Key Exchange between private and a public key,
+    /// returning the raw shared secret
+    pub fn diffie_hellman(&self, public_key: &PublicKey) -> [u8; 32] {
+        x25519(self.as_bytes(), public_key.as_bytes())
+    }
 }
 
 /// Convert a raw 32 byte private key into a PrivateKey
 impl From<&[u8]> for PrivateKey {
     fn from(raw_key: &[u8]) -> PrivateKey {
-        let sk: [u8; 32] = raw_key.try_into().unwrap();
+        let sk: [u8; 32] = raw_key.try_into().expect("Key must be 32 bytes");
         PrivateKey { key: sk }
     }
 }
 
-/// Performs X25519 diffie hellman, returning the shared secret.
-pub fn x25519(private_key: &PrivateKey, public_key: &PublicKey) -> [u8; 32] {
-    x25519_dalek::x25519(private_key.key, public_key.key)
+/// RFC 7748 compliant X25519
+/// k is the private key and u is the public key
+/// Keys must be 32 bytes
+pub fn x25519(k: &[u8], u: &[u8]) -> [u8; 32] {
+    let sk: [u8; 32] = k.try_into().expect("Private key must be 32 bytes");
+    let pk: [u8; 32] = u.try_into().expect("Public key must be 32 bytes");
+    x25519_dalek::x25519(sk, pk)
 }
 
 /// Derive an X25519 public key from a private key
-pub fn x25519_derive_public(private_key: &[u8; 32]) -> [u8; 32] {
-    x25519_dalek::x25519(*private_key, x25519_dalek::X25519_BASEPOINT_BYTES)
+/// The private key must be 32 bytes
+pub fn x25519_derive_public(private_key: &[u8]) -> [u8; 32] {
+    let sk: [u8; 32] = private_key
+        .try_into()
+        .expect("Private key must be 32 bytes");
+    x25519_dalek::x25519(sk, x25519_dalek::X25519_BASEPOINT_BYTES)
 }
 
 /// Encrypt the payload key using the noise X protocol.
@@ -394,10 +408,12 @@ mod tests {
         let bob_private = PrivateKey::from(bob_private_expected.as_slice());
         let bob_public = PublicKey::from(bob_public_expected.as_slice());
 
-        let alice_to_bob = x25519(&alice_private, &bob_public);
-        let bob_to_alice = x25519(&bob_private, &alice_public);
+        let alice_to_bob = x25519(alice_private.as_bytes(), bob_public.as_bytes());
+        let bob_to_alice = x25519(bob_private.as_bytes(), alice_public.as_bytes());
+        let alice_to_bob2 = alice_private.diffie_hellman(&bob_public);
 
         assert_eq!(&alice_to_bob, &bob_to_alice);
+        assert_eq!(&alice_to_bob, &alice_to_bob2);
         assert_eq!(&alice_to_bob, expected_shared_secret.as_slice());
     }
 
