@@ -445,10 +445,10 @@ fn calculate_output_path<T: AsRef<Path>, U: Into<PathBuf>>(
     } else {
         let outpath = match action {
             ExtensionAction::AddExtension => {
-                Some(add_file_ext(&infile.as_ref().to_path_buf(), "ktl"))
+                Some(add_file_ext(&infile.as_ref(), "ktl"))
             }
             ExtensionAction::RemoveExtension => {
-                remove_file_ext(&infile.as_ref().to_path_buf(), "ktl")
+                remove_file_ext(&infile.as_ref(), "ktl")
             }
         };
 
@@ -497,7 +497,7 @@ fn confirm_password_stderr(prompt: &str) -> Result<String, anyhow::Error> {
 
     if password.is_empty() {
         let prompt = "Password is empty. Continue? (y/N): ";
-        let confirm = ask_user_stderr(&prompt)?;
+        let confirm = ask_user_stderr(prompt)?;
         if confirm == "y" || confirm == "Y" {
             return Ok(password);
         } else {
