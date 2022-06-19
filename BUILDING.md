@@ -2,7 +2,7 @@
 
 ## Required Software
 
-This application is built with cargo. rustc 1.56+ is required.
+This application is built with cargo. rustc 1.57+ is required.
 
 There is a Python3 build script that runs cargo build commands and creates
 tarballs automatically. Running the build steps manually without the

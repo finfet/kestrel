@@ -1,16 +1,19 @@
 // Copyright 2021-2022 Kyle Schreiber
 // SPDX-License-Identifier: BSD-3-Clause
 
+//! Decryption functions
+
 use crate::errors::DecryptError;
 
 use std::io::{Read, Write};
 
-use crate::{chapoly_decrypt, noise_decrypt, scrypt, PrivateKey, PublicKey};
+use crate::{chapoly_decrypt_noise, noise_decrypt, scrypt, PrivateKey, PublicKey};
 use crate::{AsymFileFormat, PassFileFormat};
 use crate::{CHUNK_SIZE, SCRYPT_N_V1, SCRYPT_P_V1, SCRYPT_R_V1};
 
 const TAG_SIZE: usize = 16;
 
+/// Decrypt asymmetric encrypted data from [`crate::encrypt::encrypt`]
 pub fn decrypt<T: Read, U: Write>(
     ciphertext: &mut T,
     plaintext: &mut U,
@@ -32,6 +35,7 @@ pub fn decrypt<T: Read, U: Write>(
     Ok(sender_public)
 }
 
+/// Decrypt encrypted data from [`crate::encrypt::pass_encrypt`]
 pub fn pass_decrypt<T: Read, U: Write>(
     ciphertext: &mut T,
     plaintext: &mut U,
@@ -56,7 +60,8 @@ pub fn pass_decrypt<T: Read, U: Write>(
     Ok(())
 }
 
-fn decrypt_chunks<T: Read, U: Write>(
+/// Chunked file decryption of data from [`crate::encrypt::encrypt_chunks`]
+pub fn decrypt_chunks<T: Read, U: Write>(
     ciphertext: &mut T,
     plaintext: &mut U,
     key: [u8; 32],
@@ -97,7 +102,7 @@ fn decrypt_chunks<T: Read, U: Write>(
         }
 
         let ct = &buffer[..(ciphertext_length as usize) + TAG_SIZE];
-        let pt_chunk = chapoly_decrypt(&key, chunk_number, auth_data.as_slice(), ct)?;
+        let pt_chunk = chapoly_decrypt_noise(&key, chunk_number, auth_data.as_slice(), ct)?;
 
         // Here we know that our chunk is valid because we have successfully
         // decrypted. We also know that the chunk has not been duplicated or
@@ -139,7 +144,7 @@ mod tests {
     use super::{decrypt, pass_decrypt};
     use super::{PrivateKey, PublicKey};
     use crate::encrypt::{encrypt, pass_encrypt};
-    use crate::hash;
+    use crate::sha256;
     use crate::{AsymFileFormat, PassFileFormat};
     use std::io::Read;
 
@@ -221,7 +226,7 @@ mod tests {
             AsymFileFormat::V1,
         )
         .unwrap();
-        let got_hash = hash(plaintext.as_slice());
+        let got_hash = sha256(plaintext.as_slice());
 
         assert_eq!(expected_hash.as_slice(), &got_hash[..]);
         assert_eq!(expected_sender.as_bytes(), sender_public.as_bytes());
@@ -273,7 +278,7 @@ mod tests {
             AsymFileFormat::V1,
         )
         .unwrap();
-        let got_hash = hash(plaintext.as_slice());
+        let got_hash = sha256(plaintext.as_slice());
 
         assert_eq!(expected_hash.as_slice(), &got_hash[..]);
         assert_eq!(expected_sender.as_bytes(), sender_public.as_bytes());

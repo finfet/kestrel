@@ -1,11 +1,13 @@
 // Copyright 2021-2022 Kyle Schreiber
 // SPDX-License-Identifier: BSD-3-Clause
 
+//! Encryption functions
+
 use crate::errors::EncryptError;
 
 use std::io::{Read, Write};
 
-use crate::{chapoly_encrypt, gen_key, noise_encrypt, scrypt, PrivateKey, PublicKey};
+use crate::{chapoly_encrypt_noise, noise_encrypt, scrypt, secure_random, PrivateKey, PublicKey};
 use crate::{AsymFileFormat, PassFileFormat};
 use crate::{CHUNK_SIZE, SCRYPT_N_V1, SCRYPT_P_V1, SCRYPT_R_V1};
 
@@ -26,9 +28,10 @@ pub fn encrypt<T: Read, U: Write>(
     file_format: AsymFileFormat,
 ) -> Result<(), EncryptError> {
     let _file_format = file_format;
+    let key: [u8; 32] = secure_random(32).try_into().unwrap();
     let payload_key = match payload_key {
         Some(pk) => pk,
-        None => gen_key(),
+        None => key,
     };
     let noise_message = noise_encrypt(sender, recipient, ephemeral, &PROLOGUE_V1, &payload_key);
 
@@ -66,11 +69,13 @@ pub fn pass_encrypt<T: Read, U: Write>(
     Ok(())
 }
 
-/// Chunked file encryption
+/// Chunked file encryption. Encrypt an (effectively) arbitrary amount of data
+/// formatted in 64KiB chunks.
+///
 /// Passing aad will include the data as the first aad bytes along with
 /// the last chunk indicator and ciphertext length. This aad is used to
-/// authenticate the magic header bytes for password dervied encryption
-fn encrypt_chunks<T: Read, U: Write>(
+/// authenticate the magic header bytes for password dervied encryption.
+pub fn encrypt_chunks<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,
     key: [u8; 32],
@@ -114,7 +119,7 @@ fn encrypt_chunks<T: Read, U: Write>(
             }
         }
 
-        let ct = chapoly_encrypt(&key, chunk_number, &auth_data, &prev[..prev_read]);
+        let ct = chapoly_encrypt_noise(&key, chunk_number, &auth_data, &prev[..prev_read]);
 
         let mut chunk_header = [0u8; 16];
         chunk_header[..8].copy_from_slice(&chunk_number.to_be_bytes());
@@ -145,7 +150,7 @@ pub(crate) mod tests {
     use super::CHUNK_SIZE;
     use super::{encrypt, pass_encrypt};
     use super::{PrivateKey, PublicKey};
-    use crate::hash;
+    use crate::sha256;
     use crate::{AsymFileFormat, PassFileFormat};
     use std::convert::TryInto;
     use std::io::Read;
@@ -165,7 +170,7 @@ pub(crate) mod tests {
         let expected_hash =
             hex::decode("54fa99e9850f4c3ecb7243b95ba107bbf1d2162e0dc8ead43b09d8416207296f")
                 .unwrap();
-        let got_hash = hash(ciphertext.as_slice());
+        let got_hash = sha256(ciphertext.as_slice());
 
         assert_eq!(ciphertext.len(), 177);
         assert_eq!(expected_hash.as_slice(), &got_hash);
@@ -211,7 +216,7 @@ pub(crate) mod tests {
         let expected_hash =
             hex::decode("3486aaf3d15c03a7a1edac2804b7806b857602ac635608cfdb21606c2481657d")
                 .unwrap();
-        let got_hash = hash(ciphertext.as_slice());
+        let got_hash = sha256(ciphertext.as_slice());
 
         assert_eq!(ciphertext.len(), 65700);
         assert_eq!(expected_hash.as_slice(), &got_hash);
@@ -253,7 +258,7 @@ pub(crate) mod tests {
         let expected_hash =
             hex::decode("45c8d872c26c6cea338994c1f09a31812df7413277854637a67f14bb5dfd5abb")
                 .unwrap();
-        let got_hash = hash(ciphertext.as_slice());
+        let got_hash = sha256(ciphertext.as_slice());
 
         assert_eq!(ciphertext.len(), 65733);
         assert_eq!(expected_hash.as_slice(), &got_hash);
@@ -296,7 +301,7 @@ pub(crate) mod tests {
         let expected_hash =
             hex::decode("bef8d086931a2be31875839474b455fb6a9bfa0fbb6669dbeb8a86e51be0c9bd")
                 .unwrap();
-        let got_hash = hash(ciphertext.as_slice());
+        let got_hash = sha256(ciphertext.as_slice());
 
         assert_eq!(ciphertext.len(), 98);
         assert_eq!(expected_hash.as_slice(), &got_hash);

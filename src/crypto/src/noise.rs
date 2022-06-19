@@ -1,10 +1,15 @@
 // Copyright 2021-2022 Kyle Schreiber
 // SPDX-License-Identifier: BSD-3-Clause
 
+//! Noise Protocol X pattern implementation
+
 use std::collections::VecDeque;
 
 use crate::errors::ChaPolyDecryptError;
-use crate::{chapoly_decrypt, chapoly_encrypt, hash, noise_hkdf, KeyPair, PrivateKey, PublicKey};
+use crate::{
+    chapoly_decrypt_noise, chapoly_encrypt_noise, hkdf_noise, sha256, KeyPair, PrivateKey,
+    PublicKey,
+};
 
 const HASH_LEN: usize = 32;
 const DH_LEN: usize = 32;
@@ -69,7 +74,7 @@ impl CipherState {
             .as_ref()
             .expect("X pattern must have a key initialized");
         let nonce = self.nonce;
-        let ciphertext = chapoly_encrypt(key, nonce, ad, plaintext);
+        let ciphertext = chapoly_encrypt_noise(key, nonce, ad, plaintext);
         self.set_nonce(nonce + 1);
         ciphertext
     }
@@ -84,7 +89,7 @@ impl CipherState {
             .as_ref()
             .expect("X pattern must have a key initialized");
         let nonce = self.nonce;
-        let plaintext = chapoly_decrypt(key, nonce, ad, ciphertext)?;
+        let plaintext = chapoly_decrypt_noise(key, nonce, ad, ciphertext)?;
         self.set_nonce(nonce + 1);
         Ok(plaintext)
     }
@@ -93,7 +98,7 @@ impl CipherState {
     pub fn rekey(&mut self) {
         let pt = [0u8; 32];
         let key = self.key.unwrap();
-        let gen_key = chapoly_encrypt(&key, u64::MAX, &[], &pt);
+        let gen_key = chapoly_encrypt_noise(&key, u64::MAX, &[], &pt);
         let mut key = [0u8; 32];
         key.copy_from_slice(&gen_key[..32]);
         self.key = Some(key);
@@ -108,7 +113,7 @@ impl SymmetricState {
         if protocol_name.len() <= HASH_LEN {
             hash_output[..protocol_name.len()].copy_from_slice(protocol_name);
         } else {
-            hash_output = hash(protocol_name);
+            hash_output = sha256(protocol_name);
         }
 
         cipher_state.initialize_key(None);
@@ -123,7 +128,7 @@ impl SymmetricState {
     }
 
     fn mix_key(&mut self, ikm: &[u8]) {
-        let (chaining_key, temp_key) = noise_hkdf(&self.chaining_key, ikm);
+        let (chaining_key, temp_key) = hkdf_noise(&self.chaining_key, ikm);
         self.chaining_key = chaining_key;
         self.cipher_state.initialize_key(Some(temp_key));
     }
@@ -132,7 +137,7 @@ impl SymmetricState {
         let mut h = Vec::new();
         h.extend_from_slice(&self.hash_output);
         h.extend_from_slice(data);
-        self.hash_output = hash(h.as_slice());
+        self.hash_output = sha256(h.as_slice());
     }
 
     // MixKeyAndHash() function not needed by this application
@@ -159,7 +164,7 @@ impl SymmetricState {
     }
 
     fn split(&self) -> (CipherState, CipherState) {
-        let (temp_k1, temp_k2) = noise_hkdf(&self.chaining_key, &[]);
+        let (temp_k1, temp_k2) = hkdf_noise(&self.chaining_key, &[]);
         let mut c1 = CipherState::new();
         let mut c2 = CipherState::new();
         c1.initialize_key(Some(temp_k1));
@@ -170,6 +175,7 @@ impl SymmetricState {
 }
 
 impl HandshakeState {
+    /// Implementation of the noise X pattern Noise_X_25519_ChaChaPoly_SHA256
     /// Initialize a handshake state.
     /// When sending a message (initiator == true): s and rs are required, and
     /// e is optional.

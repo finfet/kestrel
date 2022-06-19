@@ -1,6 +1,13 @@
 // Copyright 2021-2022 Kyle Schreiber
 // SPDX-License-Identifier: BSD-3-Clause
 
+//! The Kestrel cryptography library.
+//! This library provides implementations of ChaCha20-Poly1305, X25519,
+//! SHA-256, HMAC-SHA-256 and the Noise X protocol.
+//!
+//! The goal of this library is not to provide a general cryptographic
+//! library, but the functions provided here could certainly be used as such.
+
 pub mod decrypt;
 pub mod encrypt;
 pub mod errors;
@@ -34,9 +41,6 @@ pub enum PassFileFormat {
     V1,
 }
 
-/// Noise handshake hash
-pub type HandshakeHash = [u8; 32];
-
 /// Noise Payload Key
 pub type PayloadKey = [u8; 32];
 
@@ -53,6 +57,7 @@ pub struct PrivateKey {
     key: [u8; 32],
 }
 
+/// KeyPair holding a [`PrivateKey`] and [`PublicKey`]
 #[derive(Clone, Zeroize)]
 #[zeroize(drop)]
 pub struct KeyPair {
@@ -88,7 +93,7 @@ impl From<&[u8]> for PublicKey {
 impl PrivateKey {
     /// Generate a new private key from 32 secure random bytes
     pub fn generate() -> PrivateKey {
-        let key = gen_csprng_bytes(32);
+        let key = secure_random(32);
         let key: [u8; 32] = key.try_into().unwrap();
         PrivateKey { key }
     }
@@ -118,17 +123,17 @@ impl From<&[u8]> for PrivateKey {
     }
 }
 
-/// RFC 7748 compliant X25519
-/// k is the private key and u is the public key
-/// Keys must be 32 bytes
+/// RFC 7748 compliant X25519.
+/// k is the private key and u is the public key.
+/// Keys must be 32 bytes.
 pub fn x25519(k: &[u8], u: &[u8]) -> [u8; 32] {
     let sk: [u8; 32] = k.try_into().expect("Private key must be 32 bytes");
     let pk: [u8; 32] = u.try_into().expect("Public key must be 32 bytes");
     x25519_dalek::x25519(sk, pk)
 }
 
-/// Derive an X25519 public key from a private key
-/// The private key must be 32 bytes
+/// Derive an X25519 public key from a private key.
+/// The private key must be 32 bytes.
 pub fn x25519_derive_public(private_key: &[u8]) -> [u8; 32] {
     let sk: [u8; 32] = private_key
         .try_into()
@@ -138,7 +143,8 @@ pub fn x25519_derive_public(private_key: &[u8]) -> [u8; 32] {
 
 /// Encrypt the payload key using the noise X protocol.
 /// Passing None to ephemeral generates a new key pair. This is almost
-/// certainly what you want. Returns the handshake messsage ciphertext.
+/// certainly what you want.
+/// Returns the handshake messsage ciphertext.
 pub fn noise_encrypt(
     sender: &PrivateKey,
     recipient: &PublicKey,
@@ -192,34 +198,52 @@ pub fn noise_decrypt(
     Ok((payload_key, sender_pubkey))
 }
 
-/// Performs ChaCha20-Poly1305 encryption
-/// Returns the ciphertxt and 16 byte Poly1305 tag appended
+/// ChaCha20-Poly1305 encrypt function as specified by the noise protcol.
+/// The nonce is stored as a little endian integer in the lowest eight
+/// bytes of the nonce. The top four bytes of the nonce are zeros.
+/// Returns the ciphertxt and 16 byte Poly1305 tag appended.
 #[allow(clippy::let_and_return)]
-pub fn chapoly_encrypt(key: &[u8], nonce: u64, ad: &[u8], plaintext: &[u8]) -> Vec<u8> {
+pub(crate) fn chapoly_encrypt_noise(
+    key: &[u8],
+    nonce: u64,
+    ad: &[u8],
+    plaintext: &[u8],
+) -> Vec<u8> {
     // For ChaCha20-Poly1305 the noise spec says that the nonce should use
     // little endian.
     let nonce_bytes = nonce.to_le_bytes();
     let mut final_nonce_bytes = [0u8; 12];
     final_nonce_bytes[4..].copy_from_slice(&nonce_bytes);
 
+    chapoly_encrypt_ietf(key, &final_nonce_bytes, plaintext, ad)
+}
+
+/// RFC 8439 ChaCha20-Poly1305 encrypt function.
+/// The key must be 32 bytes and the nonce must be 12 bytes.
+/// Returns the ciphertext
+#[allow(clippy::let_and_return, clippy::redundant_field_names)]
+pub fn chapoly_encrypt_ietf(key: &[u8], nonce: &[u8], plaintext: &[u8], aad: &[u8]) -> Vec<u8> {
     let secret_key = Key::from_slice(key);
-    let the_nonce = Nonce::from_slice(&final_nonce_bytes);
+    let the_nonce = Nonce::from_slice(nonce);
     let cipher = ChaCha20Poly1305::new(secret_key);
-    let pt_and_ad = Payload {
+    let pt_and_aad = Payload {
         msg: plaintext,
-        aad: ad,
+        aad: aad,
     };
 
     let ct_and_tag = cipher
-        .encrypt(the_nonce, pt_and_ad)
+        .encrypt(the_nonce, pt_and_aad)
         .expect("ChaCha20-Poly1305 encryption failed.");
 
     ct_and_tag
 }
 
-// Performs ChaCha20-Poly1305 decryption
-// The Poly1305 tag must be included as the last 16 bytes of the ciphertext
-pub fn chapoly_decrypt(
+/// ChaCha20-Poly1305 decrypt function as specified by the noise protocol.
+/// The nonce is stored as a little endian integer in the lowest eight
+/// bytes of the nonce. The top four bytes of the nonce are zeros.
+/// The poly1305 tag must be included as the last 16 bytes of the ciphertext.
+/// Returns the plaintext.
+pub(crate) fn chapoly_decrypt_noise(
     key: &[u8],
     nonce: u64,
     ad: &[u8],
@@ -233,22 +257,36 @@ pub fn chapoly_decrypt(
     let mut final_nonce_bytes = [0u8; 12];
     final_nonce_bytes[4..].copy_from_slice(&nonce_bytes);
 
+    chapoly_decrypt_ietf(key, &final_nonce_bytes, ciphertext, ad)
+}
+
+/// RFC 8439 ChaCha20-Poly1305 decrypt function.
+/// The key must be 32 bytes and the nonce must be 12 bytes
+/// The 16 byte poly1305 tag must be appended to the ciphertext
+/// Returns the plaintext
+#[allow(clippy::redundant_field_names)]
+pub fn chapoly_decrypt_ietf(
+    key: &[u8],
+    nonce: &[u8],
+    ciphertext: &[u8],
+    aad: &[u8],
+) -> Result<Vec<u8>, ChaPolyDecryptError> {
     let secret_key = Key::from_slice(key);
-    let the_nonce = Nonce::from_slice(&final_nonce_bytes);
+    let the_nonce = Nonce::from_slice(nonce);
     let cipher = ChaCha20Poly1305::new(secret_key);
-    let ct_and_ad = Payload {
+    let ct_and_aad = Payload {
         msg: ciphertext,
-        aad: ad,
+        aad: aad,
     };
 
-    match cipher.decrypt(the_nonce, ct_and_ad) {
-        Ok(result) => Ok(result),
+    match cipher.decrypt(the_nonce, ct_and_aad) {
+        Ok(pt) => Ok(pt),
         Err(_) => Err(ChaPolyDecryptError),
     }
 }
 
 /// SHA-256
-pub fn hash(data: &[u8]) -> [u8; 32] {
+pub fn sha256(data: &[u8]) -> [u8; 32] {
     let res: [u8; 32] = Sha256::digest(data).as_slice().try_into().unwrap();
     res
 }
@@ -261,7 +299,7 @@ pub fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
     res.into_bytes().try_into().unwrap()
 }
 
-fn noise_hkdf(chaining_key: &[u8], ikm: &[u8]) -> ([u8; 32], [u8; 32]) {
+fn hkdf_noise(chaining_key: &[u8], ikm: &[u8]) -> ([u8; 32], [u8; 32]) {
     let counter1: [u8; 1] = [0x01];
     let mut counter2: [u8; 33] = [0u8; 33];
     let temp_key = hmac_sha256(chaining_key, ikm);
@@ -272,11 +310,13 @@ fn noise_hkdf(chaining_key: &[u8], ikm: &[u8]) -> ([u8; 32], [u8; 32]) {
     (output1, output2)
 }
 
-/// Derives a secret key from a password and a salt using scrypt
+/// Derives a secret key from a password and a salt using scrypt.
 /// Recommended parameters are n = 32768, r = 8, p = 1
-/// n must be a power of 2.
+/// Parameter n must be larger than 1 and a power of 2
 pub fn scrypt(password: &[u8], salt: &[u8], n: u32, r: u32, p: u32, dk_len: usize) -> Vec<u8> {
-    let n = (n as f64).log2() as u8;
+    assert!(n > 1, "n must be >1");
+    assert!(n % 2 == 0, "n must be a power of 2");
+    let n = log2(n);
     let scrypt_params = scrypt::Params::new(n, r, p).unwrap();
     let mut key = vec![0u8; dk_len];
 
@@ -285,31 +325,40 @@ pub fn scrypt(password: &[u8], salt: &[u8], n: u32, r: u32, p: u32, dk_len: usiz
     key
 }
 
-/// Generate CSPRNG bytes
-pub fn gen_csprng_bytes(len: usize) -> Vec<u8> {
+// Get the log2 of a u32
+fn log2(x: u32) -> u8 {
+    assert!(x != 0);
+    let mut x = x;
+    let mut res = 0;
+    while x > 1 {
+        x = x >> 1;
+        res += 1;
+    }
+
+    res
+}
+
+/// Generates the specified amount of bytes from a CSPRNG
+pub fn secure_random(len: usize) -> Vec<u8> {
     let mut data = vec![0u8; len];
     getrandom(&mut data).expect("CSPRNG gen failed");
     data
 }
 
-/// Generates 32 CSPRNG bytes to use as a salt for [`scrypt()`]
-pub fn gen_salt() -> [u8; 32] {
-    let salt = gen_csprng_bytes(32);
-    let salt: [u8; 32] = salt.as_slice().try_into().unwrap();
-    salt
-}
-
-/// Generate a fresh 32 byte symmetric key from a CSPRNG
-pub fn gen_key() -> [u8; 32] {
-    let key = gen_csprng_bytes(32);
-    let key: [u8; 32] = key.as_slice().try_into().unwrap();
-    key
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{chapoly_decrypt, chapoly_encrypt, hash, hmac_sha256, scrypt, x25519};
+    use super::{
+        chapoly_decrypt_ietf, chapoly_decrypt_noise, chapoly_encrypt_ietf, chapoly_encrypt_noise,
+        hmac_sha256, log2, scrypt, sha256, x25519,
+    };
     use super::{PrivateKey, PublicKey};
+
+    #[test]
+    fn test_log2() {
+        assert_eq!(log2(32768), 15);
+        assert_eq!(log2(1), 0);
+        assert_eq!(log2(8), 3);
+    }
 
     #[test]
     fn test_chapoly_encrypt() {
@@ -324,11 +373,22 @@ mod tests {
         let nonce: u64 = 0;
         let ad = [0x00, 0x00, 0x00, 0x0C];
 
-        let ct_and_tag = chapoly_encrypt(&key, nonce, &ad, pt);
-
-        println!("{}", hex::encode(&ct_and_tag));
+        let ct_and_tag = chapoly_encrypt_noise(&key, nonce, &ad, pt);
 
         assert_eq!(&expected[..], &ct_and_tag[..]);
+    }
+
+    #[test]
+    fn test_chapoly_enc_empty_pt() {
+        let expected_ct = hex::decode("c7a7077a5e9d774b510100904c7dc805").unwrap();
+        let key = hex::decode("68301045a4494999d59ffa818ee5fafc2878bf96c32acf5fa40dbe93e8ac98ce")
+            .unwrap();
+        let nonce = [0u8; 12];
+        let aad: [u8; 1] = [0x01];
+
+        let ct = chapoly_encrypt_ietf(key.as_slice(), &nonce, &[], &aad);
+
+        assert_eq!(expected_ct.as_slice(), ct.as_slice());
     }
 
     #[test]
@@ -341,15 +401,29 @@ mod tests {
         let ct_and_tag =
             hex::decode("cc459a8b9d29617bb70791e7b158dfaf36585f656aec0ada3899fdcd").unwrap();
 
-        let pt = chapoly_decrypt(&key, nonce, &ad, &ct_and_tag).unwrap();
+        let pt = chapoly_decrypt_noise(&key, nonce, &ad, &ct_and_tag).unwrap();
 
         assert_eq!(expected, pt.as_slice());
     }
 
     #[test]
-    fn test_hash() {
+    fn test_chapoly_dec_empty_pt() {
+        let ct = hex::decode("c7a7077a5e9d774b510100904c7dc805").unwrap();
+        let key = hex::decode("68301045a4494999d59ffa818ee5fafc2878bf96c32acf5fa40dbe93e8ac98ce")
+            .unwrap();
+        let nonce = [0u8; 12];
+        let aad: [u8; 1] = [0x01];
+
+        let pt = chapoly_decrypt_ietf(key.as_slice(), &nonce, ct.as_slice(), &aad).unwrap();
+
+        let expected_pt: [u8; 0] = [];
+        assert_eq!(&expected_pt, pt.as_slice());
+    }
+
+    #[test]
+    fn test_sha256() {
         let data = b"hello";
-        let got = hash(data);
+        let got = sha256(data);
         let expected =
             hex::decode("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
                 .unwrap();

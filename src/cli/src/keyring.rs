@@ -125,8 +125,13 @@ impl Keyring {
         let mut key =
             kestrel_crypto::scrypt(password, &salt, SCRYPT_N_V1, SCRYPT_R_V1, SCRYPT_P_V1, 32);
 
-        let ciphertext =
-            kestrel_crypto::chapoly_encrypt(&key, 0, &PRIVATE_KEY_VERSION, private_key.as_bytes());
+        let nonce = [0u8; 12];
+        let ciphertext = kestrel_crypto::chapoly_encrypt_ietf(
+            &key,
+            &nonce,
+            private_key.as_bytes(),
+            &PRIVATE_KEY_VERSION,
+        );
 
         key.zeroize();
 
@@ -149,8 +154,9 @@ impl Keyring {
         let mut key =
             kestrel_crypto::scrypt(password, salt, SCRYPT_N_V1, SCRYPT_R_V1, SCRYPT_P_V1, 32);
 
-        let plaintext =
-            kestrel_crypto::chapoly_decrypt(&key, 0, version_aad, ciphertext).map_err(|_| {
+        let nonce = [0u8; 12];
+        let plaintext = kestrel_crypto::chapoly_decrypt_ietf(&key, &nonce, ciphertext, version_aad)
+            .map_err(|_| {
                 key.zeroize();
                 KeyringError::PrivateKeyDecrypt
             })?;
@@ -165,7 +171,7 @@ impl Keyring {
     /// appended at the end. Represented as base64.
     pub(crate) fn encode_public_key(public_key: &PublicKey) -> EncodedPk {
         let pk = public_key.as_bytes();
-        let checksum = kestrel_crypto::hash(pk);
+        let checksum = kestrel_crypto::sha256(pk);
         let mut encoded = [0u8; 36];
         encoded[..32].copy_from_slice(pk);
         encoded[32..].copy_from_slice(&checksum[..4]);
@@ -179,7 +185,7 @@ impl Keyring {
         let pk = &enc_pk_bytes[..32];
         let checksum = &enc_pk_bytes[32..];
 
-        let exp_checksum = kestrel_crypto::hash(pk);
+        let exp_checksum = kestrel_crypto::sha256(pk);
         let exp_checksum: &[u8] = &exp_checksum[..4];
 
         if checksum != exp_checksum {

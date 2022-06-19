@@ -249,9 +249,7 @@ pub(crate) fn gen_key(outfile: String) -> Result<(), anyhow::Error> {
     let mut pass = confirm_password_stderr("New password: ")?;
     let private_key = PrivateKey::generate();
     let public_key = private_key.to_public();
-    let mut salt = [0u8; 16];
-    let tmp_salt = kestrel_crypto::gen_salt();
-    salt.copy_from_slice(&tmp_salt[..16]);
+    let salt: [u8; 16] = kestrel_crypto::secure_random(16).try_into().unwrap();
 
     let encoded_private_key = Keyring::lock_private_key(&private_key, pass.as_bytes(), salt);
     pass.zeroize();
@@ -290,9 +288,7 @@ pub(crate) fn change_pass(private_key: String) -> Result<(), anyhow::Error> {
         .map_err(|e| anyhow!("{}", e))?;
     let sk = Keyring::unlock_private_key(&old_sk, old_pass.as_bytes())?;
 
-    let mut salt = [0u8; 16];
-    let tmp_salt = kestrel_crypto::gen_salt();
-    salt.copy_from_slice(&tmp_salt[..16]);
+    let salt: [u8; 16] = kestrel_crypto::secure_random(16).try_into().unwrap();
     let new_sk = Keyring::lock_private_key(&sk, new_pass.as_bytes(), salt);
 
     old_pass.zeroize();
@@ -350,7 +346,7 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let mut ciphertext = File::create(&outfile_path).context("Could not create ciphertext file")?;
 
     eprint!("Encrypting...");
-    let salt = kestrel_crypto::gen_salt();
+    let salt: [u8; 32] = kestrel_crypto::secure_random(32).try_into().unwrap();
     if let Err(e) = encrypt::pass_encrypt(
         &mut plaintext,
         &mut ciphertext,

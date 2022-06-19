@@ -1,6 +1,6 @@
 # File Formats
 
-## Encrypted File Format
+## Key based encryption
 
 [Noise Handshake Message] - 132 bytes (4 prologue + 128 noise handshake)
 4  bytes : prologue is 101, 103, 107 + Version 0x10 (65 67 6B 10)
@@ -16,10 +16,10 @@ X  bytes : ciphertext
 16 bytes : ciphertext tag
 
 Chunks may repeat many times. Chunks are 64KiB by default. Chunk number
-increases sequentially and is used as the nonce.
-Last chunk indicator is set to 1 for the last chunk in the message.
-Ciphertext length and last chunk indicator are included in the additional
-authenticated data.
+increases sequentially. Chunk number is used to form the nonce and is
+authenticated because it is part of the nonce. The last chunk indicator
+is set to 1 for the last chunk in the message. Ciphertext length and
+last chunk indicator are included in the additional authenticated data.
 
 
 ## Password Derived Symmetric Encryption
@@ -35,10 +35,9 @@ authenticated data.
 X  bytes : ciphertext
 16 bytes : ciphertext tag
 
-Chunks may repeat many times. Chunks are 64KiB by default.
-Last chunk indicator is set to 1 for the last chunk in the message.
-Header magic number, chunk number, and last chunk indicator are included in
-the additional authenticated data for each chunk.
+The chunked data format is the identical to the chunked format above.
+The header magic number is included along with the ciphertext length
+and last chunk indicator in the additional authenticated data.
 
 
 ## Encrypted Private Key Format

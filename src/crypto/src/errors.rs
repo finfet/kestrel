@@ -1,6 +1,8 @@
 // Copyright 2021-2022 Kyle Schreiber
 // SPDX-License-Identifier: BSD-3-Clause
 
+//! Library Errors
+
 use std::error::Error;
 
 #[derive(Debug)]

@@ -14,7 +14,7 @@ documentation = "https://docs.rs/kestrel-crypto/"
 categories = ["cryptography"]
 
 [dependencies]
-getrandom = { version = "0.2.6", features = ["js"] }
+getrandom = { version = "0.2.7", features = ["js"] }
 x25519-dalek = { version = "1.2.0", default-features = false, features = ["u64_backend"] }
 chacha20poly1305 = "0.9.0"
 sha2 = "0.10.2"
