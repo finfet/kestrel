@@ -44,10 +44,9 @@ python3 build.py --system linux --test-arch amd64
 
 ### Debian Package
 
-Requires a debian based distribution with access to cargo and rustc >=1.56.
+Requires a debian based distribution with access to cargo and rustc >=1.57.
 
 It is a good idea to build in a clean VM or container.
-
 
 Tested on Ubuntu 20.04 and 22.04. Debian packages for arm64 can be built
 on a native arm64 machine or container. A container on Apple M1 works.

@@ -267,9 +267,9 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "passterm"
-version = "1.1.4"
+version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "446e1f9be556182b15ad672ec533cf18472673acfa97ac6c3f0b9b03630ef985"
+checksum = "3c74bd5d91f0de0007d6dc289c1aabbed9043524472547ff166886561e52602f"
 dependencies = [
  "libc",
  "windows",
