@@ -7,15 +7,9 @@ RUN apt-get update && \
  DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential devscripts \
  debhelper fakeroot bash-completion cargo
 
-RUN adduser buildbot
+RUN mkdir /build
 
-USER buildbot
-
-WORKDIR /home/buildbot
-
-RUN mkdir build
-
-WORKDIR build
+WORKDIR /build
 
 COPY --chmod=644 build/kestrel-$APP_VERSION.tar.gz .
 

@@ -13,6 +13,7 @@ import os
 import argparse
 import subprocess
 import hashlib
+import tarfile
 from pathlib import Path
 from shutil import copy2, make_archive, copytree, rmtree
 
@@ -261,7 +262,21 @@ def check_test_arch(test_arch):
         return False, False
 
 def create_tarball(archive_name):
-    make_archive(Path("build", archive_name), "gztar", root_dir="build", base_dir=archive_name)
+    orig_dir = os.getcwd()
+    os.chdir("build")
+    with tarfile.open("{}.tar.gz".format(archive_name), "w:gz") as archive:
+        archive.add(archive_name, filter=change_perms)
+    os.chdir(orig_dir)
+
+def change_perms(tarinfo):
+    tarinfo.uid = 0
+    tarinfo.gid = 0
+    if tarinfo.isfile():
+        tarinfo.mode = 0o644
+    elif tarinfo.isdir():
+        tarinfo.mode = 0o755
+
+    return tarinfo
 
 def create_zip(archive_name):
     make_archive(Path("build", archive_name), "zip", root_dir="build", base_dir=archive_name)

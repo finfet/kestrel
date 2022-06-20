@@ -3,13 +3,13 @@ APP_VERSION=0.10.0
 amd64:
 	docker build --platform=linux/amd64 --build-arg APP_VERSION=$(APP_VERSION) -t kestrel-deb-amd64:latest .
 	docker container create --name kdeb-amd64 kestrel-deb-amd64:latest
-	docker cp kdeb-amd64:/home/buildbot/build/kestrel_$(APP_VERSION)-1_amd64.deb build/
+	docker cp kdeb-amd64:/build/kestrel_$(APP_VERSION)-1_amd64.deb build/
 	docker container rm kdeb-amd64
 
 arm64:
 	docker build --platform=linux/arm64 --build-arg APP_VERSION=$(APP_VERSION) -t kestrel-deb-arm64:latest .
 	docker container create --name kdeb-arm64 kestrel-deb-arm64:latest
-	docker cp kdeb-arm64:/home/buildbot/build/kestrel_$(APP_VERSION)-1_arm64.deb build/
+	docker cp kdeb-arm64:/build/kestrel_$(APP_VERSION)-1_arm64.deb build/
 	docker container rm kdeb-arm64
 
 .PHONY: amd64 arm64
