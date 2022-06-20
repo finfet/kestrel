@@ -17,8 +17,8 @@ RUN mkdir build
 
 WORKDIR build
 
-COPY build/kestrel-$APP_VERSION.tar.gz .
+COPY --chmod=644 build/kestrel-$APP_VERSION.tar.gz .
 
-RUN cp kestrel-$APP_VERSION.tar.gz kestrel-$APP_VERSION.orig.tar.gz
+RUN cp kestrel-$APP_VERSION.tar.gz kestrel_$APP_VERSION.orig.tar.gz
 
-RUN tar -xf kestrel-$APP_VERSION.tar.gz && cd kestrel-$APP_VERSION && debuild --no-lintian -us -uc -b -rfakeroot
+RUN tar -xf kestrel-$APP_VERSION.tar.gz && cd kestrel-$APP_VERSION && debuild --no-lintian -us -uc -rfakeroot -b
