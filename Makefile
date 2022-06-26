@@ -9,7 +9,8 @@ test:
 	cargo test --workspace
 
 install:
-	install -D target/release/kestrel $(DESTDIR)$(prefix)/bin/kestrel
+	mkdir -p $(DESTDIR)$(prefix)/bin/
+	install target/release/kestrel $(DESTDIR)$(prefix)/bin/kestrel
 
 clean:
 	-cargo clean
@@ -19,4 +20,4 @@ distclean: clean
 uninstall:
 	-rm -f $(DESTDIR)$(prefix)/bin/kestrel
 
-.PHONY: all install clean distclean uninstall
+.PHONY: all build test install clean distclean uninstall

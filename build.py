@@ -29,8 +29,9 @@ def main():
     args = parser.parse_args()
 
     if args.clean:
-        rmtree("build")
-        rmtree("vendor")
+        rmtree("build", ignore_errors=True)
+        rmtree("vendor", ignore_errors=True)
+        rmtree("target", ignore_errors=True)
     elif args.system:
         if args.system == "linux":
             build_linux(args.test_arch)
