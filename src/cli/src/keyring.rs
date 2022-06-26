@@ -4,12 +4,14 @@
 use crate::errors::KeyringError;
 
 use kestrel_crypto::{PrivateKey, PublicKey};
-use kestrel_crypto::{SCRYPT_N_V1, SCRYPT_P_V1, SCRYPT_R_V1};
 
 use zeroize::Zeroize;
 
 const PRIVATE_KEY_VERSION: [u8; 2] = [0x00, 0x01];
 const MAX_NAME_SIZE: usize = 128;
+const SCRYPT_N: u32 = 32768;
+const SCRYPT_R: u32 = 8;
+const SCRYPT_P: u32 = 1;
 
 #[derive(Debug, Clone)]
 pub(crate) struct EncodedPk(String);
@@ -122,8 +124,7 @@ impl Keyring {
         encoded_bytes.extend_from_slice(&PRIVATE_KEY_VERSION);
         encoded_bytes.extend_from_slice(&salt);
 
-        let mut key =
-            kestrel_crypto::scrypt(password, &salt, SCRYPT_N_V1, SCRYPT_R_V1, SCRYPT_P_V1, 32);
+        let mut key = kestrel_crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
 
         let nonce = [0u8; 12];
         let ciphertext = kestrel_crypto::chapoly_encrypt_ietf(
@@ -151,8 +152,7 @@ impl Keyring {
         let version_aad = &key_bytes[..2];
         let salt = &key_bytes[2..18];
         let ciphertext = &key_bytes[18..66];
-        let mut key =
-            kestrel_crypto::scrypt(password, salt, SCRYPT_N_V1, SCRYPT_R_V1, SCRYPT_P_V1, 32);
+        let mut key = kestrel_crypto::scrypt(password, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
 
         let nonce = [0u8; 12];
         let plaintext = kestrel_crypto::chapoly_decrypt_ietf(&key, &nonce, ciphertext, version_aad)

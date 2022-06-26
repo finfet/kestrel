@@ -13,7 +13,9 @@ use anyhow::{anyhow, Context};
 use passterm::Stream;
 use zeroize::Zeroize;
 
-use kestrel_crypto::encrypt::{PASS_FILE_MAGIC_V1, PROLOGUE_V1};
+const PROLOGUE: [u8; 4] = [0x65, 0x67, 0x6b, 0x10];
+const PASS_FILE_MAGIC: [u8; 4] = [0x65, 0x67, 0x6b, 0x20];
+
 use kestrel_crypto::PrivateKey;
 use kestrel_crypto::{decrypt, encrypt};
 use kestrel_crypto::{AsymFileFormat, PassFileFormat};
@@ -122,7 +124,7 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
 
     eprint!("Encrypting...");
 
-    if let Err(e) = encrypt::encrypt(
+    if let Err(e) = encrypt::key_encrypt(
         &mut plaintext,
         &mut ciphertext,
         &sender_private,
@@ -159,12 +161,12 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
         let mut prologue = [0u8; 4];
         let mut ct_file = File::open(&infile_path).context("Could not open ciphertext file")?;
         ct_file.read_exact(&mut prologue)?;
-        if prologue == PASS_FILE_MAGIC_V1 {
+        if prologue == PASS_FILE_MAGIC {
             return Err(anyhow!(
                 "Wrong file type. Try this with the password decrypt command"
             ));
         }
-        if prologue != PROLOGUE_V1 {
+        if prologue != PROLOGUE {
             return Err(anyhow!("Unsupported file type."));
         }
     }
@@ -214,7 +216,7 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
     let mut plaintext = File::create(&outfile_path)?;
 
     eprint!("Decrypting...");
-    let sender_public = match decrypt::decrypt(
+    let sender_public = match decrypt::key_decrypt(
         &mut ciphertext,
         &mut plaintext,
         &recipient_private,
@@ -380,12 +382,12 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
         let mut file_magic_num = [0u8; 4];
         let mut ct_file = File::open(&infile_path).context("Could not open ciphertext file")?;
         ct_file.read_exact(&mut file_magic_num)?;
-        if file_magic_num == PROLOGUE_V1 {
+        if file_magic_num == PROLOGUE {
             return Err(anyhow!(
                 "Wrong file type. Try this with the regular decrypt command"
             ));
         }
-        if file_magic_num != PASS_FILE_MAGIC_V1 {
+        if file_magic_num != PASS_FILE_MAGIC {
             return Err(anyhow!("Unsupported file type."));
         }
     }
@@ -444,12 +446,8 @@ fn calculate_output_path<T: AsRef<Path>, U: Into<PathBuf>>(
         Some(o.into())
     } else {
         let outpath = match action {
-            ExtensionAction::AddExtension => {
-                Some(add_file_ext(&infile.as_ref(), "ktl"))
-            }
-            ExtensionAction::RemoveExtension => {
-                remove_file_ext(&infile.as_ref(), "ktl")
-            }
+            ExtensionAction::AddExtension => Some(add_file_ext(&infile.as_ref(), "ktl")),
+            ExtensionAction::RemoveExtension => remove_file_ext(&infile.as_ref(), "ktl"),
         };
 
         match outpath {

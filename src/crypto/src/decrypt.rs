@@ -9,12 +9,12 @@ use std::io::{Read, Write};
 
 use crate::{chapoly_decrypt_noise, noise_decrypt, scrypt, PrivateKey, PublicKey};
 use crate::{AsymFileFormat, PassFileFormat};
-use crate::{CHUNK_SIZE, SCRYPT_N_V1, SCRYPT_P_V1, SCRYPT_R_V1};
+use crate::{CHUNK_SIZE, SCRYPT_N, SCRYPT_P, SCRYPT_R};
 
 const TAG_SIZE: usize = 16;
 
 /// Decrypt asymmetric encrypted data from [`crate::encrypt::encrypt`]
-pub fn decrypt<T: Read, U: Write>(
+pub fn key_decrypt<T: Read, U: Write>(
     ciphertext: &mut T,
     plaintext: &mut U,
     recipient: &PrivateKey,
@@ -28,7 +28,7 @@ pub fn decrypt<T: Read, U: Write>(
     ciphertext.read_exact(&mut handshake_message)?;
     let (payload_key, sender_public) = noise_decrypt(recipient, &prologue, &handshake_message)?;
 
-    decrypt_chunks(ciphertext, plaintext, payload_key, None)?;
+    decrypt_chunks(ciphertext, plaintext, payload_key, None, CHUNK_SIZE)?;
 
     plaintext.flush()?;
 
@@ -49,11 +49,11 @@ pub fn pass_decrypt<T: Read, U: Write>(
     let mut salt = [0u8; 32];
     ciphertext.read_exact(&mut salt)?;
 
-    let key = scrypt(password, &salt, SCRYPT_N_V1, SCRYPT_R_V1, SCRYPT_P_V1, 32);
+    let key = scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
     let key: [u8; 32] = key.as_slice().try_into().unwrap();
     let aad = Some(&pass_magic_num[..]);
 
-    decrypt_chunks(ciphertext, plaintext, key, aad)?;
+    decrypt_chunks(ciphertext, plaintext, key, aad, CHUNK_SIZE)?;
 
     plaintext.flush()?;
 
@@ -66,10 +66,12 @@ pub fn decrypt_chunks<T: Read, U: Write>(
     plaintext: &mut U,
     key: [u8; 32],
     aad: Option<&[u8]>,
+    chunk_size: u32,
 ) -> Result<(), DecryptError> {
     let mut chunk_number: u64 = 0;
     let mut done = false;
-    let mut buffer = vec![0; CHUNK_SIZE + TAG_SIZE];
+    let chunk_size: usize = chunk_size.try_into().unwrap();
+    let mut buffer = vec![0; chunk_size + TAG_SIZE];
     let mut auth_data = match aad {
         Some(aad) => vec![0; aad.len() + 8],
         None => vec![0; 8],
@@ -141,9 +143,9 @@ pub fn decrypt_chunks<T: Read, U: Write>(
 #[cfg(test)]
 mod tests {
     use super::CHUNK_SIZE;
-    use super::{decrypt, pass_decrypt};
+    use super::{key_decrypt, pass_decrypt};
     use super::{PrivateKey, PublicKey};
-    use crate::encrypt::{encrypt, pass_encrypt};
+    use crate::encrypt::{key_encrypt, pass_encrypt};
     use crate::sha256;
     use crate::{AsymFileFormat, PassFileFormat};
     use std::io::Read;
@@ -164,7 +166,7 @@ mod tests {
         let recipient = key_data.bob_private;
         let ciphertext = encrypt_small();
         let mut plaintext = Vec::new();
-        let sender_public = decrypt(
+        let sender_public = key_decrypt(
             &mut ciphertext.as_slice(),
             &mut plaintext,
             &recipient,
@@ -195,7 +197,7 @@ mod tests {
         plaintext.extend_from_slice(plaintext_data);
         let mut ciphertext = Vec::new();
 
-        encrypt(
+        key_encrypt(
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &sender,
@@ -219,7 +221,7 @@ mod tests {
         let recipient = key_data.bob_private;
         let ciphertext = encrypt_one_chunk();
         let mut plaintext = Vec::new();
-        let sender_public = decrypt(
+        let sender_public = key_decrypt(
             &mut ciphertext.as_slice(),
             &mut plaintext,
             &recipient,
@@ -243,11 +245,12 @@ mod tests {
         let payload_key: [u8; 32] = payload_key.as_slice().try_into().unwrap();
         let key_data = get_key_data();
 
-        let mut plaintext = vec![0; CHUNK_SIZE];
+        let chunk_size: usize = CHUNK_SIZE.try_into().unwrap();
+        let mut plaintext = vec![0; chunk_size];
         std::io::repeat(0x01).read_exact(&mut plaintext).unwrap();
         let mut ciphertext = Vec::new();
 
-        encrypt(
+        key_encrypt(
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &key_data.alice_private,
@@ -271,7 +274,7 @@ mod tests {
         let recipient = key_data.bob_private;
         let ciphertext = encrypt_two_chunks();
         let mut plaintext = Vec::new();
-        let sender_public = decrypt(
+        let sender_public = key_decrypt(
             &mut ciphertext.as_slice(),
             &mut plaintext,
             &recipient,
@@ -296,11 +299,12 @@ mod tests {
         let payload_key: [u8; 32] = payload_key.as_slice().try_into().unwrap();
         let key_data = get_key_data();
 
-        let mut plaintext = vec![0; CHUNK_SIZE + 1];
+        let chunk_size: usize = CHUNK_SIZE.try_into().unwrap();
+        let mut plaintext = vec![0; chunk_size + 1];
         std::io::repeat(0x02).read_exact(&mut plaintext).unwrap();
         let mut ciphertext = Vec::new();
 
-        encrypt(
+        key_encrypt(
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &key_data.alice_private,

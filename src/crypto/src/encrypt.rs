@@ -9,16 +9,15 @@ use std::io::{Read, Write};
 
 use crate::{chapoly_encrypt_noise, noise_encrypt, scrypt, secure_random, PrivateKey, PublicKey};
 use crate::{AsymFileFormat, PassFileFormat};
-use crate::{CHUNK_SIZE, SCRYPT_N_V1, SCRYPT_P_V1, SCRYPT_R_V1};
+use crate::{CHUNK_SIZE, SCRYPT_N, SCRYPT_P, SCRYPT_R};
 
-pub const PROLOGUE_V1: [u8; 4] = [0x65, 0x67, 0x6b, 0x10];
-
-pub const PASS_FILE_MAGIC_V1: [u8; 4] = [0x65, 0x67, 0x6b, 0x20];
+const PROLOGUE: [u8; 4] = [0x65, 0x67, 0x6b, 0x10];
+const PASS_FILE_MAGIC: [u8; 4] = [0x65, 0x67, 0x6b, 0x20];
 
 /// Encrypt a file from sender key to recipient key
 /// Passing None for ephemeral_key and payload_key will generate fresh keys.
 /// This is almost certainly what you want.
-pub fn encrypt<T: Read, U: Write>(
+pub fn key_encrypt<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,
     sender: &PrivateKey,
@@ -33,12 +32,12 @@ pub fn encrypt<T: Read, U: Write>(
         Some(pk) => pk,
         None => key,
     };
-    let noise_message = noise_encrypt(sender, recipient, ephemeral, &PROLOGUE_V1, &payload_key);
+    let noise_message = noise_encrypt(sender, recipient, ephemeral, &PROLOGUE, &payload_key);
 
-    ciphertext.write_all(&PROLOGUE_V1)?;
+    ciphertext.write_all(&PROLOGUE)?;
     ciphertext.write_all(&noise_message)?;
 
-    encrypt_chunks(plaintext, ciphertext, payload_key, None)?;
+    encrypt_chunks(plaintext, ciphertext, payload_key, None, CHUNK_SIZE)?;
 
     ciphertext.flush()?;
 
@@ -55,22 +54,23 @@ pub fn pass_encrypt<T: Read, U: Write>(
     file_format: PassFileFormat,
 ) -> Result<(), EncryptError> {
     let _file_format = file_format;
-    let key = scrypt(password, &salt, SCRYPT_N_V1, SCRYPT_R_V1, SCRYPT_P_V1, 32);
+    let key = scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
     let key: [u8; 32] = key.as_slice().try_into().unwrap();
-    let aad = Some(&PASS_FILE_MAGIC_V1[..]);
+    let aad = Some(&PASS_FILE_MAGIC[..]);
 
-    ciphertext.write_all(&PASS_FILE_MAGIC_V1)?;
+    ciphertext.write_all(&PASS_FILE_MAGIC)?;
     ciphertext.write_all(&salt)?;
 
-    encrypt_chunks(plaintext, ciphertext, key, aad)?;
+    encrypt_chunks(plaintext, ciphertext, key, aad, CHUNK_SIZE)?;
 
     ciphertext.flush()?;
 
     Ok(())
 }
 
-/// Chunked file encryption. Encrypt an (effectively) arbitrary amount of data
-/// formatted in 64KiB chunks.
+/// Chunked file encryption. Encrypt an (effectively) arbitrary amount of
+/// data formatted in chunks of the specified size. Chunk size must be
+/// less than (2^32 - 16) bytes on 32bit systems. 64KiB is a good default.
 ///
 /// Passing aad will include the data as the first aad bytes along with
 /// the last chunk indicator and ciphertext length. This aad is used to
@@ -80,8 +80,10 @@ pub fn encrypt_chunks<T: Read, U: Write>(
     ciphertext: &mut U,
     key: [u8; 32],
     aad: Option<&[u8]>,
+    chunk_size: u32,
 ) -> Result<(), EncryptError> {
-    let mut buff = vec![0; CHUNK_SIZE];
+    let chunk_size: usize = chunk_size.try_into().unwrap();
+    let mut buff = vec![0; chunk_size];
     let mut auth_data = match aad {
         Some(aad) => vec![0; aad.len() + 8],
         None => vec![0; 8],
@@ -148,7 +150,7 @@ pub fn encrypt_chunks<T: Read, U: Write>(
 #[cfg(test)]
 pub(crate) mod tests {
     use super::CHUNK_SIZE;
-    use super::{encrypt, pass_encrypt};
+    use super::{key_encrypt, pass_encrypt};
     use super::{PrivateKey, PublicKey};
     use crate::sha256;
     use crate::{AsymFileFormat, PassFileFormat};
@@ -195,7 +197,7 @@ pub(crate) mod tests {
         plaintext.extend_from_slice(plaintext_data);
         let mut ciphertext = Vec::new();
 
-        encrypt(
+        key_encrypt(
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &sender,
@@ -233,11 +235,12 @@ pub(crate) mod tests {
         let payload_key: [u8; 32] = payload_key.as_slice().try_into().unwrap();
         let key_data = get_key_data();
 
-        let mut plaintext = vec![0; CHUNK_SIZE];
+        let chunk_size: usize = CHUNK_SIZE.try_into().unwrap();
+        let mut plaintext = vec![0; chunk_size];
         std::io::repeat(0x01).read_exact(&mut plaintext).unwrap();
         let mut ciphertext = Vec::new();
 
-        encrypt(
+        key_encrypt(
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &key_data.alice_private,
@@ -276,11 +279,12 @@ pub(crate) mod tests {
         let payload_key: [u8; 32] = payload_key.as_slice().try_into().unwrap();
         let key_data = get_key_data();
 
-        let mut plaintext = vec![0; CHUNK_SIZE + 1];
+        let chunk_size: usize = CHUNK_SIZE.try_into().unwrap();
+        let mut plaintext = vec![0; chunk_size + 1];
         std::io::repeat(0x02).read_exact(&mut plaintext).unwrap();
         let mut ciphertext = Vec::new();
 
-        encrypt(
+        key_encrypt(
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &key_data.alice_private,

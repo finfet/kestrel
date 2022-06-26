@@ -26,10 +26,10 @@ use zeroize::Zeroize;
 use errors::ChaPolyDecryptError;
 use noise::HandshakeState;
 
-pub const CHUNK_SIZE: usize = 65536;
-pub const SCRYPT_N_V1: u32 = 32768;
-pub const SCRYPT_R_V1: u32 = 8;
-pub const SCRYPT_P_V1: u32 = 1;
+const CHUNK_SIZE: u32 = 65536;
+const SCRYPT_N: u32 = 32768;
+const SCRYPT_R: u32 = 8;
+const SCRYPT_P: u32 = 1;
 
 #[non_exhaustive]
 pub enum AsymFileFormat {
@@ -315,27 +315,15 @@ fn hkdf_noise(chaining_key: &[u8], ikm: &[u8]) -> ([u8; 32], [u8; 32]) {
 /// Parameter n must be larger than 1 and a power of 2
 pub fn scrypt(password: &[u8], salt: &[u8], n: u32, r: u32, p: u32, dk_len: usize) -> Vec<u8> {
     assert!(n > 1, "n must be >1");
-    assert!(n % 2 == 0, "n must be a power of 2");
-    let n = log2(n);
+    // The conversion here is safe because all u32 can be represented in a f64
+    // and the log2 of any u32 is guaranteed to fit into a u8
+    let n: u8 = (n as f64).log2().round() as u8;
     let scrypt_params = scrypt::Params::new(n, r, p).unwrap();
     let mut key = vec![0u8; dk_len];
 
     scrypt::scrypt(password, salt, &scrypt_params, &mut key).expect("scrypt kdf failed");
 
     key
-}
-
-// Get the log2 of a u32
-fn log2(x: u32) -> u8 {
-    assert!(x != 0);
-    let mut x = x;
-    let mut res = 0;
-    while x > 1 {
-        x >>= 1;
-        res += 1;
-    }
-
-    res
 }
 
 /// Generates the specified amount of bytes from a CSPRNG
@@ -349,16 +337,9 @@ pub fn secure_random(len: usize) -> Vec<u8> {
 mod tests {
     use super::{
         chapoly_decrypt_ietf, chapoly_decrypt_noise, chapoly_encrypt_ietf, chapoly_encrypt_noise,
-        hmac_sha256, log2, scrypt, sha256, x25519,
+        hmac_sha256, scrypt, sha256, x25519,
     };
     use super::{PrivateKey, PublicKey};
-
-    #[test]
-    fn test_log2() {
-        assert_eq!(log2(32768), 15);
-        assert_eq!(log2(1), 0);
-        assert_eq!(log2(8), 3);
-    }
 
     #[test]
     fn test_chapoly_encrypt() {
