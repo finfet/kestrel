@@ -42,14 +42,15 @@ fn main() -> Result<(), anyhow::Error> {
         return Ok(());
     }
 
-    if args[1] == "-v" || args[1] == "--version" {
-        print_version();
-        return Ok(());
-    }
-
-    if args[1] == "-h" || args[1] == "--help" {
-        print_help();
-        return Ok(());
+    for arg in &args {
+        let arg = *arg;
+        if arg == "-h" || arg == "--help" {
+            print_help();
+            return Ok(());
+        } else if arg == "-v" || arg == "--version" {
+            print_version();
+            return Ok(());
+        }
     }
 
     match args[1] {

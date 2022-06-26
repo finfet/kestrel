@@ -6,7 +6,7 @@ build:
 	cargo build --release
 
 test:
-	cargo test --workspace
+	cargo test --workspace --release
 
 install:
 	mkdir -p $(DESTDIR)$(prefix)/bin/
