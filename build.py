@@ -25,13 +25,12 @@ def main():
     parser.add_argument("-w", "--win-installer", action="store_true", help="Create the windows installer")
     parser.add_argument("-a", "--archive", action="store_true", help="Create source archive")
     parser.add_argument("--clean", action="store_true", help="Clean build directories")
+    parser.add_argument("--deb", action="store_true", help="Build .deb package in container")
 
     args = parser.parse_args()
 
     if args.clean:
-        rmtree("build", ignore_errors=True)
-        rmtree("vendor", ignore_errors=True)
-        rmtree("target", ignore_errors=True)
+        clean_build()
     elif args.system:
         if args.system == "linux":
             build_linux(args.test_arch)
@@ -49,8 +48,15 @@ def main():
         calculate_checksums(release_loc)
     elif args.archive:
         build_archive()
+    elif args.deb:
+        build_deb()
     else:
         parser.print_help()
+
+def clean_build():
+    rmtree("build", ignore_errors=True)
+    rmtree("vendor", ignore_errors=True)
+    rmtree("target", ignore_errors=True)
 
 def build_archive():
     source_version = read_version()
@@ -65,13 +71,23 @@ def build_archive():
 
     copytree(Path("."), source_archive_path, ignore=ignore_files)
 
-    # Write the vendor crates configuration to .cargo/config.toml so that
-    # builds will use the vendor folder
+    # Check if the cargo config.toml is set up to use archived sources,
+    # if not, write the archived sources config
     cargo_toml_path = Path(source_archive_path, ".cargo", "config.toml")
-    with open(cargo_toml_path, "a") as f:
-        f.write(vendor_config)
+    write_config = True
+    with open(cargo_toml_path, "r") as f:
+        for line in f.readlines():
+            if "[source.vendored-sources]" in line:
+                write_config = False
+                break
+
+    if write_config:
+        with open(cargo_toml_path, "a") as f:
+            f.write(vendor_config)
 
     create_tarball(archive_name)
+
+    rmtree(source_archive_path)
 
 def vendor_source():
     vendor_output = subprocess.run(["cargo", "vendor", "--versioned-dirs", "--locked"], capture_output=True)
@@ -158,6 +174,32 @@ def create_windows_installer(archive_path, bin_name):
 
     installer_bin = sorted(output_dir.glob("*.exe"))[0]
     copy2(installer_bin, Path("build"))
+
+def build_deb():
+    version = read_version()
+    deb_rev = "1"
+    if not Path("build", "kestrel-{}.tar.gz".format(version)).exists():
+        build_archive()
+    build_deb_arch(version, "amd64", deb_rev)
+    build_deb_arch(version, "arm64", deb_rev)
+
+def build_deb_arch(version, arch, deb_rev):
+    docker_build = "docker build --platform=linux/{} --build-arg APP_VERSION={} -t kestrel-deb-{}:latest .".format(arch, version, arch).split(" ")
+    docker_container = "docker container create --name kdeb-{} kestrel-deb-{}:latest".format(arch, arch).split(" ")
+    docker_cp = "docker cp kdeb-{}:/build/kestrel_{}-{}_{}.deb build/".format(arch, version, deb_rev, arch).split(" ")
+    docker_container_rm = "docker container rm kdeb-{}".format(arch).split(" ")
+
+    prv = subprocess.run(docker_build)
+    prv.check_returncode()
+
+    prv = subprocess.run(docker_container)
+    prv.check_returncode()
+
+    prv = subprocess.run(docker_cp)
+    prv.check_returncode()
+
+    prv = subprocess.run(docker_container_rm)
+    prv.check_returncode()
 
 def calculate_checksums(loc):
     """
