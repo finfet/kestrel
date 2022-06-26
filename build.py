@@ -203,31 +203,22 @@ def build_deb_arch(version, arch, deb_rev):
 
 def calculate_checksums(loc):
     """
-    Write the SHA-256 hashes of all .tar.gz, .zip, and .exe files in the
-    specified directory to a file called SHA256SUMS.txt in that directory
+    Write the SHA-256 hashes of files in the specified directory
+    to a file called SHA256SUMS.txt in that directory
     """
     hashes = []
 
     loc = Path(loc)
 
     for path in loc.iterdir():
-        path_exts = path.suffixes
-        if len(path_exts) == 1 and ".zip" in path_exts:
-            calculate_hash(path)
+        path_name = path.name
+        if (path_name.endswith(".tar.gz") or
+            path_name.endswith(".zip") or
+            path_name.endswith(".exe") or
+            path_name.endswith(".deb")
+        ):
+            hash_data = calculate_hash(path)
             hashes.append(hash_data)
-        elif len(path_exts) >= 2:
-            ext2 = path_exts.pop()
-            if ext2 == ".zip":
-                hash_data = calculate_hash(path)
-                hashes.append(hash_data)
-            elif ext2 == ".exe":
-                hash_data = calculate_hash(path)
-                hashes.append(hash_data)
-            else:
-                ext1 = path_exts.pop()
-                if ext1 == ".tar" and ext2 == ".gz":
-                    hash_data = calculate_hash(path)
-                    hashes.append(hash_data)
 
     hashes = sorted(hashes, key=lambda x: x[0])
     shasums_file = Path(loc, "SHA256SUMS.txt")
