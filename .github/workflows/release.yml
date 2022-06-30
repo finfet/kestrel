@@ -103,7 +103,7 @@ jobs:
           name: kestrel-source
       - name: Build Deb
         run: |
-          python3 -m tarfile -e (get-item ./kestrel-*.tar.gz).Name
+          tar -xf kestrel-*.tar.gz
           cd kestrel-*/
           python3 build.py --deb
       - name: Upload Deb Artifact
