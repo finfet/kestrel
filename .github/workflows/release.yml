@@ -101,6 +101,10 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: kestrel-source
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
       - name: Build Deb
         run: |
           tar -xf kestrel-*.tar.gz
