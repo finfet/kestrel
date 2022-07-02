@@ -70,7 +70,7 @@ pub fn pass_encrypt<T: Read, U: Write>(
 
 /// Chunked file encryption. Encrypt an (effectively) arbitrary amount of
 /// data formatted in chunks of the specified size. Chunk size must be
-/// less than (2^32 - 16) bytes on 32bit systems. 64KiB is a good default.
+/// less than (2^32 - 16) bytes on 32bit systems. 64KiB is a good choice.
 ///
 /// Passing aad will include the data as the first aad bytes along with
 /// the last chunk indicator and ciphertext length. This aad is used to

@@ -13,7 +13,7 @@ use crate::{CHUNK_SIZE, SCRYPT_N, SCRYPT_P, SCRYPT_R};
 
 const TAG_SIZE: usize = 16;
 
-/// Decrypt asymmetric encrypted data from [`crate::encrypt::encrypt`]
+/// Decrypt asymmetric encrypted data from [`crate::encrypt::key_encrypt`]
 pub fn key_decrypt<T: Read, U: Write>(
     ciphertext: &mut T,
     plaintext: &mut U,
@@ -61,6 +61,8 @@ pub fn pass_decrypt<T: Read, U: Write>(
 }
 
 /// Chunked file decryption of data from [`crate::encrypt::encrypt_chunks`]
+/// Chunk size must be less than (2^32 - 16) bytes on 32bit systems.
+/// 64KiB is a good choice.
 pub fn decrypt_chunks<T: Read, U: Write>(
     ciphertext: &mut T,
     plaintext: &mut U,
@@ -70,8 +72,8 @@ pub fn decrypt_chunks<T: Read, U: Write>(
 ) -> Result<(), DecryptError> {
     let mut chunk_number: u64 = 0;
     let mut done = false;
-    let chunk_size: usize = chunk_size.try_into().unwrap();
-    let mut buffer = vec![0; chunk_size + TAG_SIZE];
+    let cs: usize = chunk_size.try_into().unwrap();
+    let mut buffer = vec![0; cs + TAG_SIZE];
     let mut auth_data = match aad {
         Some(aad) => vec![0; aad.len() + 8],
         None => vec![0; 8],
@@ -84,11 +86,12 @@ pub fn decrypt_chunks<T: Read, U: Write>(
         let ciphertext_length_bytes: [u8; 4] = chunk_header[12..].try_into().unwrap();
         let last_chunk_indicator = u32::from_be_bytes(last_chunk_indicator_bytes);
         let ciphertext_length = u32::from_be_bytes(ciphertext_length_bytes);
-        if ciphertext_length > CHUNK_SIZE as u32 {
+        if ciphertext_length > chunk_size {
             return Err(DecryptError::ChunkLen);
         }
 
-        ciphertext.read_exact(&mut buffer[..(ciphertext_length as usize) + TAG_SIZE])?;
+        let ct_len: usize = ciphertext_length.try_into().unwrap();
+        ciphertext.read_exact(&mut buffer[..ct_len + TAG_SIZE])?;
 
         match aad {
             Some(aad) => {
@@ -103,7 +106,7 @@ pub fn decrypt_chunks<T: Read, U: Write>(
             }
         }
 
-        let ct = &buffer[..(ciphertext_length as usize) + TAG_SIZE];
+        let ct = &buffer[..ct_len + TAG_SIZE];
         let pt_chunk = chapoly_decrypt_noise(&key, chunk_number, auth_data.as_slice(), ct)?;
 
         // Here we know that our chunk is valid because we have successfully

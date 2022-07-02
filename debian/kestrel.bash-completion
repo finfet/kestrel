@@ -18,12 +18,12 @@ _kestrel_completions()
                     COMPREPLY=($(compgen -W "generate change-pass extract-pub" -- ${cur}))
                     ;;
                 *)
-                    COMPREPLY=($(compgen -f -W "-t --to -f --from -o --output" -- ${cur}))
+                    COMPREPLY=($(compgen -f -W "-t --to -f --from -o --output -k --keyring" -- ${cur}))
                     ;;
             esac
             ;;
         *)
-            COMPREPLY=($(compgen -f -W "-t --to -f --from -o --output" -- ${cur}))
+            COMPREPLY=($(compgen -f -W "-t --to -f --from -o --output -k --keyring" -- ${cur}))
             ;;
     esac
 }
