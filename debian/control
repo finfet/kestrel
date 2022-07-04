@@ -2,7 +2,7 @@ Source: kestrel
 Section: utils
 Priority: optional
 Maintainer: Kyle Schreiber <kyle@80x24.net>
-Build-Depends: debhelper-compat (= 12), cargo, bash-completion
+Build-Depends: debhelper-compat (= 12), cargo (>= 1.57), bash-completion
 Standards-Version: 4.5.0
 Homepage: https://getkestrel.com
 
