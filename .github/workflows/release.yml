@@ -14,7 +14,7 @@ jobs:
         with:
           ref: "${{ github.event.inputs.tag }}"
       - name: Create Archive
-        run: python3 build.py -a
+        run: python3 build.py --source
       - name: Upload Source Archive
         uses: actions/upload-artifact@v2
         with:
@@ -42,7 +42,7 @@ jobs:
         run: |
           tar -xf kestrel-*.tar.gz
           cd kestrel-*/
-          python3 build.py -s linux -t amd64
+          python3 build.py --os linux -a amd64 -a arm64 --test-arch amd64
       - name: Upload Binaries
         uses: actions/upload-artifact@v2
         with:
@@ -64,7 +64,7 @@ jobs:
         run: |
           tar -xf kestrel-*.tar.gz
           cd kestrel-*/
-          python3 build.py -s macos -t amd64
+          python3 build.py --os macos -a amd64 -a arm64 --test-arch amd64
       - name: Upload Binaries
         uses: actions/upload-artifact@v2
         with:
@@ -85,7 +85,7 @@ jobs:
         run: |
           python3 -m tarfile -e (get-item ./kestrel-*.tar.gz).Name
           cd kestrel-*/
-          python3 build.py -s windows -t amd64 -w
+          python3 build.py --os windows -a amd64 --test-arch amd64 --win-installer
       - name: Upload Binaries
         uses: actions/upload-artifact@v2
         with:
@@ -109,7 +109,7 @@ jobs:
         run: |
           tar -xf kestrel-*.tar.gz
           cd kestrel-*/
-          python3 build.py --deb
+          python3 build.py --deb -a amd64 -a arm64
         env:
           DOCKER_BUILDKIT: 1
       - name: Upload Deb Artifact
@@ -138,7 +138,7 @@ jobs:
           cp artifacts/kestrel-deb/kestrel-*/build/*.deb release/
           cp artifacts/build-py/build.py .
       - name: Generate Checksum
-        run: python3 build.py -c release/
+        run: python3 build.py --checksum release/
       - name: Upload Release Directory
         uses: actions/upload-artifact@v2
         with:

@@ -10,6 +10,8 @@ OS builds must be run on their respective systems
 """
 
 import os
+import sys
+import stat
 import argparse
 import subprocess
 import hashlib
@@ -19,11 +21,12 @@ from shutil import copy2, make_archive, copytree, rmtree
 
 def main():
     parser = argparse.ArgumentParser(description="Build application")
-    parser.add_argument("-s", "--system", type=str, choices=["linux", "macos", "windows"], help="Build for operating system")
-    parser.add_argument("-t", "--test-arch", choices=["amd64", "arm64"], help="Run tests on architecture")
-    parser.add_argument("-c", "--checksum", type=str, metavar="RELEASE_DIR", help="Create SHA-256 checksum file")
-    parser.add_argument("-w", "--win-installer", action="store_true", help="Create the windows installer")
-    parser.add_argument("-a", "--archive", action="store_true", help="Create source archive")
+    parser.add_argument("--os", type=str, choices=["linux", "macos", "windows"], help="Build for operating system")
+    parser.add_argument("-a", "--arch", type=str, choices=["amd64", "arm64"], action="append", help="CPU architecture")
+    parser.add_argument("--test-arch", type=str, choices=["amd64", "arm64"], help="Run tests on CPU architecture")
+    parser.add_argument("--checksum", type=str, metavar="RELEASE_DIR", help="Create SHA-256 checksum file")
+    parser.add_argument("--win-installer", action="store_true", help="Create the windows installer")
+    parser.add_argument("--source", action="store_true", help="Create source archive")
     parser.add_argument("--clean", action="store_true", help="Clean build directories")
     parser.add_argument("--deb", action="store_true", help="Build .deb package in container")
 
@@ -31,37 +34,47 @@ def main():
 
     if args.clean:
         clean_build()
-    elif args.system:
-        if args.system == "linux":
-            build_linux(args.test_arch)
-        elif args.system == "macos":
-            build_macos(args.test_arch)
-        elif args.system == "windows":
-            if args.win_installer:
-                build_windows(args.test_arch, create_installer=True)
-            else:
-                build_windows(args.test_arch)
+    elif args.os:
+        if len(args.arch) < 1 or len(args.arch) > 2:
+            print_help(parser)
+        if not args.test_arch:
+            print_help(parser)
+        cpus = args.arch
+        test_arch = args.test_arch
+        if args.os == "linux":
+            build_linux(cpus, test_arch)
+        elif args.os == "macos":
+            build_macos(cpus, test_arch)
+        elif args.os == "windows":
+            if len(cpus) > 1 or cpus[0] != "amd64":
+                print_help(parser)
+            build_windows(cpus, test_arch, args.win_installer)
         else:
             raise ValueError("OS support not implemented")
     elif args.checksum:
         release_loc = args.checksum
         calculate_checksums(release_loc)
-    elif args.archive:
-        build_archive()
+    elif args.source:
+        build_source_archive()
     elif args.deb:
-        build_deb()
+        cpus = args.arch
+        if len(cpus) < 1:
+            print_help(parser)
+        build_deb(cpus)
     else:
-        parser.print_help()
+        print_help(parser)
+
+def print_help(parser):
+    parser.print_help(file=sys.stderr)
+    sys.exit(1)
 
 def clean_build():
     rmtree("build", ignore_errors=True)
     rmtree("vendor", ignore_errors=True)
     rmtree("target", ignore_errors=True)
 
-def build_archive():
+def build_source_archive():
     source_version = read_version()
-    if source_version == "":
-        raise ValueError("Could not get source version")
 
     vendor_config = vendor_source()
 
@@ -109,44 +122,48 @@ def ignore_files(path, names):
 
     return []
 
-def build_linux(test_arch):
+def check_arch_equals(arch, check):
+    return arch == check
+
+def build_linux(cpus, test_arch):
     os_tag = "linux"
     bin_name = "kestrel"
 
     source_version = read_version()
-    if source_version == "":
-        raise ValueError("Could not get version from Cargo.toml")
 
-    amd64_test, arm64_test = check_test_arch(test_arch)
+    run_tests = False
+    if "amd64" in cpus:
+        run_tests = check_arch_equals(test_arch, "amd64")
+        build_target("x86_64-unknown-linux-musl", os_tag, source_version, "amd64", "x86_64-linux-gnu-strip", bin_name, run_tests=run_tests)
+    if "arm64" in cpus:
+        run_tests = check_arch_equals(test_arch, "arm64")
+        build_target("aarch64-unknown-linux-musl", os_tag, source_version, "arm64", "aarch64-linux-gnu-strip", bin_name, run_tests=run_tests)
 
-    build_target("x86_64-unknown-linux-musl", os_tag, source_version, "amd64", "x86_64-linux-gnu-strip", bin_name, make_build_dir=True, run_tests=amd64_test)
-    build_target("aarch64-unknown-linux-musl", os_tag, source_version, "arm64", "aarch64-linux-gnu-strip", bin_name, run_tests=arm64_test)
-
-def build_macos(test_arch):
+def build_macos(cpus, test_arch):
     os_tag = "macos"
     bin_name = "kestrel"
 
     source_version = read_version()
-    if source_version == "":
-        raise ValueError("Could not get version from Cargo.toml")
 
-    amd64_test, arm64_test = check_test_arch(test_arch)
+    run_tests = False
+    if "amd64" in cpus:
+        run_tests = check_arch_equals(test_arch, "amd64")
+        build_target("x86_64-apple-darwin", os_tag, source_version, "amd64", "strip", bin_name, run_tests=run_tests)
+    if "arm64" in cpus:
+        run_tests = check_arch_equals(test_arch, "arm64")
+        build_target("aarch64-apple-darwin", os_tag, source_version, "arm64", "strip", bin_name, run_tests=run_tests)
 
-    build_target("aarch64-apple-darwin", os_tag, source_version, "arm64", "strip", bin_name, make_build_dir=True, run_tests=arm64_test)
-    build_target("x86_64-apple-darwin", os_tag, source_version, "amd64", "strip", bin_name, run_tests=amd64_test)
-
-def build_windows(test_arch, create_installer=False):
+def build_windows(cpus, test_arch, create_installer):
     os_tag = "windows"
     bin_name = "kestrel.exe"
     arch_tag = "x64"
 
     source_version = read_version()
-    if source_version == "":
-        raise ValueError("Could not get version from Cargo.toml")
 
-    amd64_test, arm64_test = check_test_arch(test_arch)
-
-    build_target("x86_64-pc-windows-msvc", os_tag, source_version, arch_tag, None, bin_name, make_build_dir=True, run_tests=amd64_test, make_tarball=False)
+    run_tests = False
+    if "amd64" in cpus:
+        run_tests = check_arch_equals(test_arch, "amd64")
+        build_target("x86_64-pc-windows-msvc", os_tag, source_version, arch_tag, None, bin_name, run_tests=run_tests, make_tarball=False)
 
     if create_installer:
         archive_name = create_archive_name(os_tag, source_version, arch_tag)
@@ -175,13 +192,15 @@ def create_windows_installer(archive_path, bin_name):
     installer_bin = sorted(output_dir.glob("*.exe"))[0]
     copy2(installer_bin, Path("build"))
 
-def build_deb():
+def build_deb(cpus):
     version = read_version()
     deb_rev = "1"
     if not Path("build", "kestrel-{}.tar.gz".format(version)).exists():
-        build_archive()
-    build_deb_arch(version, "amd64", deb_rev)
-    build_deb_arch(version, "arm64", deb_rev)
+        build_source_archive()
+    if "amd64" in cpus:
+        build_deb_arch(version, "amd64", deb_rev)
+    if "arm64" in cpus:
+        build_deb_arch(version, "arm64", deb_rev)
 
 def build_deb_arch(version, arch, deb_rev):
     docker_build = "docker build --platform=linux/{} --build-arg APP_VERSION={} -t kestrel-deb-{}:latest .".format(arch, version, arch).split(" ")
@@ -227,7 +246,7 @@ def calculate_checksums(loc):
             filename, hash_value = hash_data
             f.write("{}  {}\n".format(hash_value, filename))
 
-def build_target(target_arch, os_tag, source_version, arch_tag, strip_prog_name, bin_name, make_build_dir=False, run_tests=False, make_tarball=True):
+def build_target(target_arch, os_tag, source_version, arch_tag, strip_prog_name, bin_name, run_tests=False, make_tarball=True):
     license_name = "LICENSE.txt"
     third_party_name = "THIRD-PARTY-LICENSE.txt"
 
@@ -242,7 +261,7 @@ def build_target(target_arch, os_tag, source_version, arch_tag, strip_prog_name,
 
     archive_name = create_archive_name(os_tag, source_version, arch_tag)
 
-    if make_build_dir:
+    if not Path("build").exists():
         os.mkdir("build")
 
     package_path = Path("build", archive_name)
@@ -283,18 +302,6 @@ def calculate_hash(loc):
 
     return (filename, hasher.hexdigest())
 
-def check_test_arch(test_arch):
-    """ Bool amd64, arm64 if test_arch equal to given arch """
-    if not test_arch:
-        return False, False
-
-    if test_arch == "amd64":
-        return True, False
-    elif test_arch == "arm64":
-        return False, True
-    else:
-        return False, False
-
 def create_tarball(archive_name):
     orig_dir = os.getcwd()
     os.chdir("build")
@@ -306,7 +313,10 @@ def change_perms(tarinfo):
     tarinfo.uid = 0
     tarinfo.gid = 0
     if tarinfo.isfile():
-        tarinfo.mode = 0o644
+        if tarinfo.mode & stat.S_IXUSR:
+            tarinfo.mode = 0o755
+        else:
+            tarinfo.mode = 0o644
     elif tarinfo.isdir():
         tarinfo.mode = 0o755
 
@@ -326,6 +336,10 @@ def read_version():
                 version = check_line.split("=")[1].strip().strip("\"")
                 source_version = version
                 break
+
+    if source_version == "":
+        raise RuntimeError("Could not get version from Cargo.toml")
+
     return source_version
 
 

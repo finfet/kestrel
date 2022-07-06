@@ -27,19 +27,25 @@ build script can be done but is much more laborious and is not recommended.
 
 Create a source release. Make sure the git directory doesn't have any files
 that aren't tracked: `git clean -dxi`
+
 ```
-python3 build.py --archive
+python3 build.py --source
 ```
 
 This will put a source tarball in `build/`
 
 ### Build Binaries
 
-Build from a source release created with `build.py -a`
+Build from a source release created with `build.py --source`
 
 ### Linux build
+The test architecture should be the architecture of the host machine that
+you're building on because it will also run tests. Striping the binaries
+requires the package binutils-x86_64-linux-gnu if you're running from an
+x86_64 host.
+
 ```
-python3 build.py --system linux --test-arch amd64
+python3 build.py --os linux --arch amd64 --arch arm64 --test-arch amd64
 ```
 
 ### Debian Package
@@ -67,25 +73,21 @@ pandoc -s -t man -o kestrel.1 kestrel.1.md
 ```
 
 ### macOS build
-Specifying arm64 or amd64 will run tests on the binary for
-that architecture. If you're on an ARM mac use arm64 or amd64 if you're on
-an intel mac
 ```
-python3 build.py -s macos -t arm64
+python3 build.py --os macos -a amd64 -a arm64 --test-arch arm64
 ```
 
 ### Windows build
-Specifying -w (--win-installer) will use Inno Setup to build the windows
+Specifying --win-installer will use Inno Setup to build the windows
 installer
 
 ```
-python3 build.py -s windows -t amd64 -w
+python3 build.py --os windows --arch amd64 --test-arch amd64 --win-installer
 ```
 
 ### SHA256SUMS file
-Create SHA-256 checksums of all of the .tar.gz, .zip, and .exe files in
-the specified directory
+Create SHA-256 checksums of all build artifacts in the specified directory
 
 ```
-python3 build.py -c build
+python3 build.py --checksum build
 ```
