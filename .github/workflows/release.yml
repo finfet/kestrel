@@ -94,7 +94,7 @@ jobs:
             kestrel-*/build/*.zip
             kestrel-*/build/*.exe
   release-deb:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     needs: create-archive
     steps:
       - name: Download Source Archive
@@ -107,7 +107,7 @@ jobs:
         run: |
           tar -xf kestrel-*.tar.gz
           cd kestrel-*/
-          python3 build.py --deb -a amd64 -a arm64
+          python3 build.py --deb --docker -a amd64 -a arm64
         env:
           DOCKER_BUILDKIT: 1
       - name: Upload Deb Artifact
