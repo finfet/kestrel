@@ -1,6 +1,6 @@
 # Changelog
 
-## Version 0.9.1
+## Version 0.10.0
 - Warn on use of empty password
 - Unreleased
 

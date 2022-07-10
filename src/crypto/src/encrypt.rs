@@ -69,12 +69,18 @@ pub fn pass_encrypt<T: Read, U: Write>(
 }
 
 /// Chunked file encryption. Encrypt an (effectively) arbitrary amount of
-/// data formatted in chunks of the specified size. Chunk size must be
-/// less than (2^32 - 16) bytes on 32bit systems. 64KiB is a good choice.
+/// data formatted in chunks of the specified chunk size.
+/// The chunk size must be less than (2^32 - 16) bytes on 32bit systems.
+/// 64KiB (65536) is a good choice.
 ///
-/// Passing aad will include the data as the first aad bytes along with
-/// the last chunk indicator and ciphertext length. This aad is used to
-/// authenticate the magic header bytes for password dervied encryption.
+/// Passing aad will include the data as the first aad bytes. The last 8 bytes
+/// of the aad are the last_chunk_indicator (4 bytes) and ciphertext_length
+/// (4 bytes).
+///
+/// Make sure to be aware of canonicalization attacks when adding aad data.
+/// This is a "low level" function. You are likely better served by
+/// [`crate::encrypt::key_encrypt`] or [`crate::encrypt::pass_encrypt`] which
+/// use this function internally.
 pub fn encrypt_chunks<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,

@@ -29,6 +29,7 @@ def main():
     parser.add_argument("--source", action="store_true", help="Create source archive")
     parser.add_argument("--clean", action="store_true", help="Clean build directories")
     parser.add_argument("--deb", action="store_true", help="Build .deb package in container")
+    parser.add_argument("--docker", action="store_true", help="Use docker command instead of podman")
 
     args = parser.parse_args()
 
@@ -60,7 +61,10 @@ def main():
         cpus = args.arch
         if len(cpus) < 1:
             print_help(parser)
-        build_deb(cpus)
+        use_podman = True
+        if args.docker:
+            use_podman = False
+        build_deb(cpus, podman=use_podman)
     else:
         print_help(parser)
 
@@ -192,21 +196,24 @@ def create_windows_installer(archive_path, bin_name):
     installer_bin = sorted(output_dir.glob("*.exe"))[0]
     copy2(installer_bin, Path("build"))
 
-def build_deb(cpus):
+def build_deb(cpus, podman=True):
     version = read_version()
     deb_rev = "1"
     if not Path("build", "kestrel-{}.tar.gz".format(version)).exists():
         build_source_archive()
     if "amd64" in cpus:
-        build_deb_arch(version, "amd64", deb_rev)
+        build_deb_arch(version, "amd64", deb_rev, podman=podman)
     if "arm64" in cpus:
-        build_deb_arch(version, "arm64", deb_rev)
+        build_deb_arch(version, "arm64", deb_rev, podman=podman)
 
-def build_deb_arch(version, arch, deb_rev):
-    docker_build = "docker build --platform=linux/{} --build-arg APP_VERSION={} -t kestrel-deb-{}:latest .".format(arch, version, arch).split(" ")
-    docker_container = "docker container create --name kdeb-{} kestrel-deb-{}:latest".format(arch, arch).split(" ")
-    docker_cp = "docker cp kdeb-{}:/build/kestrel_{}-{}_{}.deb build/".format(arch, version, deb_rev, arch).split(" ")
-    docker_container_rm = "docker container rm kdeb-{}".format(arch).split(" ")
+def build_deb_arch(version, arch, deb_rev, podman=True):
+    build_tool = "podman"
+    if not podman:
+        build_tool = "docker"
+    docker_build = "{} build --platform=linux/{} --build-arg APP_VERSION={} -f docker-deb -t kestrel-deb-{}:latest".format(build_tool, arch, version, arch).split(" ")
+    docker_container = "{} container create --name kdeb-{} kestrel-deb-{}:latest".format(build_tool, arch, arch).split(" ")
+    docker_cp = "{} cp kdeb-{}:/build/kestrel_{}-{}_{}.deb build/".format(build_tool, arch, version, deb_rev, arch).split(" ")
+    docker_container_rm = "{} container rm kdeb-{}".format(build_tool, arch).split(" ")
 
     prv = subprocess.run(docker_build)
     prv.check_returncode()
