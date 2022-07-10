@@ -102,7 +102,7 @@ jobs:
         with:
           name: kestrel-source
       - name: Set up QEMU
-        run: sudo apt-get intall -y qemu-user-static
+        run: sudo apt-get install -y qemu-user-static
       - name: Build Deb
         run: |
           tar -xf kestrel-*.tar.gz
