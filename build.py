@@ -210,7 +210,7 @@ def build_deb_arch(version, arch, deb_rev, podman=True):
     build_tool = "podman"
     if not podman:
         build_tool = "docker"
-    docker_build = "{} build --platform=linux/{} --build-arg APP_VERSION={} -f docker-deb -t kestrel-deb-{}:latest".format(build_tool, arch, version, arch).split(" ")
+    docker_build = "{} build --platform=linux/{} --build-arg APP_VERSION={} -t kestrel-deb-{}:latest -f docker-deb .".format(build_tool, arch, version, arch).split(" ")
     docker_container = "{} container create --name kdeb-{} kestrel-deb-{}:latest".format(build_tool, arch, arch).split(" ")
     docker_cp = "{} cp kdeb-{}:/build/kestrel_{}-{}_{}.deb build/".format(build_tool, arch, version, deb_rev, arch).split(" ")
     docker_container_rm = "{} container rm kdeb-{}".format(build_tool, arch).split(" ")
