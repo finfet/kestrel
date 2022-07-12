@@ -117,7 +117,7 @@ jobs:
           path: |
             kestrel-*/build/*.deb
   release-rpm:
-    run-on: ubuntu-20.04
+    runs-on: ubuntu-20.04
     needs: create-archive
     steps:
       - name: Download Source Archive
