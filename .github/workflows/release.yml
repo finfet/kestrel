@@ -10,18 +10,18 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout Tag
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: "${{ github.event.inputs.tag }}"
       - name: Create Archive
         run: python3 build.py --source
       - name: Upload Source Archive
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: kestrel-source
           path: build/*.tar.gz
       - name: Upload build.py
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: build-py
           path: build.py
@@ -35,7 +35,7 @@ jobs:
           rustup target add aarch64-unknown-linux-musl
           sudo apt-get install -y gcc-aarch64-linux-gnu
       - name: Download Source Archive
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: kestrel-source
       - name: Build Binary
@@ -44,7 +44,7 @@ jobs:
           cd kestrel-*/
           python3 build.py --os linux -a amd64 -a arm64 --test-arch amd64
       - name: Upload Binaries
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: kestrel-linux
           path: kestrel-*/build/*.tar.gz
@@ -57,7 +57,7 @@ jobs:
           rustup target add x86_64-apple-darwin
           rustup target add aarch64-apple-darwin
       - name: Download Source Archive
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: kestrel-source
       - name: Build Binary
@@ -66,7 +66,7 @@ jobs:
           cd kestrel-*/
           python3 build.py --os macos -a amd64 -a arm64 --test-arch amd64
       - name: Upload Binaries
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: kestrel-macos
           path: kestrel-*/build/*.tar.gz
@@ -78,7 +78,7 @@ jobs:
         run: |
           rustup target add x86_64-pc-windows-msvc
       - name: Download Source Archive
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: kestrel-source
       - name: Build Binary
@@ -87,7 +87,7 @@ jobs:
           cd kestrel-*/
           python3 build.py --os windows -a amd64 --test-arch amd64 --win-installer
       - name: Upload Binaries
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: kestrel-windows
           path: |
@@ -98,13 +98,11 @@ jobs:
     needs: create-archive
     steps:
       - name: Download Source Archive
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: kestrel-source
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
       - name: Build Deb
         run: |
           tar -xf kestrel-*.tar.gz
@@ -113,11 +111,34 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
       - name: Upload Deb Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: kestrel-deb
           path: |
             kestrel-*/build/*.deb
+  release-rpm:
+    run-on: ubuntu-20.04
+    needs: create-archive
+    steps:
+      - name: Download Source Archive
+        uses: actions/download-artifact@v3
+        with:
+          name: kestrel-source
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      - name: Build RPM
+        run: |
+          tar -xf kestrel-*.tar.gz
+          cd kestrel-*/
+          python3 build.py --rpm --docker -a amd64 -a arm64
+        env:
+          DOCKER_BUILDKIT: 1
+      - name: Upload RPM Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: kestrel-rpm
+          path: |
+            kestrel-*/build/*.rpm
   bundle-artifacts:
     runs-on: ubuntu-20.04
     needs: [create-archive, release-linux, release-macos, release-windows, release-deb]
@@ -125,7 +146,7 @@ jobs:
       - name: Create release dir
         run: mkdir release
       - name: Download Artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           path: artifacts
       - name: Copy data
@@ -140,7 +161,7 @@ jobs:
       - name: Generate Checksum
         run: python3 build.py --checksum release/
       - name: Upload Release Directory
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: kestrel-release
           path: release

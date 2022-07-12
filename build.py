@@ -29,6 +29,7 @@ def main():
     parser.add_argument("--source", action="store_true", help="Create source archive")
     parser.add_argument("--clean", action="store_true", help="Clean build directories")
     parser.add_argument("--deb", action="store_true", help="Build .deb package in container")
+    parser.add_argument("--rpm", action="store_true", help="Build .rpm package in container")
     parser.add_argument("--docker", action="store_true", help="Use docker command instead of podman")
 
     args = parser.parse_args()
@@ -65,6 +66,14 @@ def main():
         if args.docker:
             use_podman = False
         build_deb(cpus, podman=use_podman)
+    elif args.rpm:
+        cpus = args.arch
+        if len(cpus) < 1:
+            print_help(parser)
+        use_podman = True
+        if args.docker:
+            use_podman = False
+        build_rpm(cpus, podman=use_podman)
     else:
         print_help(parser)
 
@@ -214,6 +223,45 @@ def build_deb_arch(version, arch, deb_rev, podman=True):
     docker_container = "{} container create --name kdeb-{} kestrel-deb-{}:latest".format(build_tool, arch, arch).split(" ")
     docker_cp = "{} cp kdeb-{}:/build/kestrel_{}-{}_{}.deb build/".format(build_tool, arch, version, deb_rev, arch).split(" ")
     docker_container_rm = "{} container rm kdeb-{}".format(build_tool, arch).split(" ")
+
+    prv = subprocess.run(docker_build)
+    prv.check_returncode()
+
+    prv = subprocess.run(docker_container)
+    prv.check_returncode()
+
+    prv = subprocess.run(docker_cp)
+    prv.check_returncode()
+
+    prv = subprocess.run(docker_container_rm)
+    prv.check_returncode()
+
+def build_rpm(cpus, podman=True):
+    version = read_version()
+    rpm_rev = "1"
+    if not Path("build", "kestrel-{}.tar.gz".format(version)).exists():
+        build_source_archive()
+
+    if "amd64" in cpus:
+        build_rpm_arch(version, "amd64", rpm_rev, podman=podman)
+    if "arm64" in cpus:
+        build_rpm_arch(version, "arm64", rpm_rev, podman=podman)
+
+def build_rpm_arch(version, arch, rpm_rev, podman=True):
+    build_tool = "podman"
+    if not podman:
+        build_tool = "docker"
+
+    alt_arch = ""
+    if arch == "amd64":
+        alt_arch = "x86_64"
+    elif arch == "arm64":
+        alt_arch = "aarch64"
+
+    docker_build = "{} build --platform=linux/{} --build-arg APP_VERSION={} -t kestrel-rpm-{}:latest -f docker-rpm .".format(build_tool, arch, version, arch).split(" ")
+    docker_container = "{} container create --name krpm-{} kestrel-rpm-{}:latest".format(build_tool, arch, arch).split(" ")
+    docker_cp = "{} cp krpm-{}:/home/buildbot/rpmbuild/RPMS/{}/kestrel-{}-{}.fc36.{}.rpm build/".format(build_tool, arch, alt_arch, version, rpm_rev, alt_arch).split(" ")
+    docker_container_rm = "{} container rm krpm-{}".format(build_tool, arch).split(" ")
 
     prv = subprocess.run(docker_build)
     prv.check_returncode()
