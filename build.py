@@ -150,7 +150,10 @@ def build_linux(cpus, test_arch):
         build_target("x86_64-unknown-linux-musl", os_tag, source_version, "amd64", "x86_64-linux-gnu-strip", bin_name, run_tests=run_tests)
     if "arm64" in cpus:
         run_tests = check_arch_equals(test_arch, "arm64")
-        build_target("aarch64-unknown-linux-musl", os_tag, source_version, "arm64", "aarch64-linux-gnu-strip", bin_name, run_tests=run_tests)
+        env_var = {
+            "RUSTFLAGS": "-C linker=aarch64-linux-gnu-gcc"
+        }
+        build_target("aarch64-unknown-linux-musl", os_tag, source_version, "arm64", "aarch64-linux-gnu-strip", bin_name, run_tests=run_tests, env_vars=env_var)
 
 def build_macos(cpus, test_arch):
     os_tag = "macos"
@@ -301,7 +304,7 @@ def calculate_checksums(loc):
             filename, hash_value = hash_data
             f.write("{}  {}\n".format(hash_value, filename))
 
-def build_target(target_arch, os_tag, source_version, arch_tag, strip_prog_name, bin_name, run_tests=False, make_tarball=True):
+def build_target(target_arch, os_tag, source_version, arch_tag, strip_prog_name, bin_name, run_tests=False, make_tarball=True, env_vars=None):
     license_name = "LICENSE.txt"
     third_party_name = "THIRD-PARTY-LICENSE.txt"
 
@@ -311,7 +314,11 @@ def build_target(target_arch, os_tag, source_version, arch_tag, strip_prog_name,
         prv.check_returncode()
 
     print("Building for {}".format(target_arch))
-    prv = subprocess.run(["cargo", "build", "--frozen", "--release", "--target", target_arch])
+    if env_vars:
+        os_env = os.environ.copy()
+        env_vars = {**env_vars, **os_env}
+
+    prv = subprocess.run(["cargo", "build", "--frozen", "--release", "--target", target_arch], env=env_vars)
     prv.check_returncode()
 
     archive_name = create_archive_name(os_tag, source_version, arch_tag)
