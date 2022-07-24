@@ -341,6 +341,9 @@ def build_target(target_arch, os_tag, source_version, arch_tag, strip_prog_name,
 
     copy2(Path(license_name), Path(package_path, license_name))
     copy2(Path(third_party_name), Path(package_path, third_party_name))
+    if os_tag != "windows":
+        copytree(Path("docs", "man"), Path(package_path, "man"), dirs_exist_ok=True)
+        copytree(Path("completion"), Path(package_path, "completion"), dirs_exist_ok=True)
 
     if make_tarball:
         print("creating tarball")
