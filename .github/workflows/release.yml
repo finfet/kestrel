@@ -101,13 +101,11 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: kestrel-source
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
       - name: Build Deb
         run: |
           tar -xf kestrel-*.tar.gz
           cd kestrel-*/
-          python3 build.py --deb --docker -a amd64 -a arm64
+          python3 build.py --deb --docker -a amd64
         env:
           DOCKER_BUILDKIT: 1
       - name: Upload Deb Artifact
@@ -124,13 +122,11 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: kestrel-source
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
       - name: Build RPM
         run: |
           tar -xf kestrel-*.tar.gz
           cd kestrel-*/
-          python3 build.py --rpm --docker -a amd64 -a arm64
+          python3 build.py --rpm --docker -a amd64
         env:
           DOCKER_BUILDKIT: 1
       - name: Upload RPM Artifact
@@ -141,7 +137,14 @@ jobs:
             kestrel-*/build/*.rpm
   bundle-artifacts:
     runs-on: ubuntu-20.04
-    needs: [create-archive, release-linux, release-macos, release-windows, release-deb]
+    needs: [
+      create-archive,
+      release-linux,
+      release-macos,
+      release-windows,
+      release-deb,
+      release-rpm
+    ]
     steps:
       - name: Create release dir
         run: mkdir release
@@ -157,6 +160,7 @@ jobs:
           cp artifacts/kestrel-windows/kestrel-*/build/*.zip release/
           cp artifacts/kestrel-windows/kestrel-*/build/*.exe release/
           cp artifacts/kestrel-deb/kestrel-*/build/*.deb release/
+          cp artifacts/kestrel-rpm/kestrel-*/build/*.rpm release/
           cp artifacts/build-py/build.py .
       - name: Generate Checksum
         run: python3 build.py --checksum release/
