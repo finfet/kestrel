@@ -1,6 +1,6 @@
 # Build Instructions
 
-This application is built with cargo. rustc 1.57+ is required.
+This application is built with cargo. rustc 1.59+ is required.
 
 **Cargo**
 
@@ -26,8 +26,7 @@ and bash completion script.
 
 **Linux**
 
-- gcc and the debian build-essential equivalent
-- The strip program. On Fedora binutils-x86_64-linux-gnu is required
+- gcc and the debian build-essential package or equivalent
 - When building from x86_64 to aarch64 the aarch64 linker
   `gcc-aarch64-linux-gnu` is needed.
 - cargo targets: x86_64-unknown-linux-musl, aarch64-unknown-linux-musl,
