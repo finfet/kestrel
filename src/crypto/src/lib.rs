@@ -15,7 +15,7 @@ mod noise;
 
 use getrandom::getrandom;
 
-use chacha20poly1305::aead::{Aead, NewAead, Payload};
+use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 
 use hmac::{Hmac, Mac};
@@ -271,15 +271,13 @@ pub fn chapoly_decrypt_ietf(
     ciphertext: &[u8],
     aad: &[u8],
 ) -> Result<Vec<u8>, ChaPolyDecryptError> {
-    let secret_key = Key::from_slice(key);
-    let the_nonce = Nonce::from_slice(nonce);
-    let cipher = ChaCha20Poly1305::new(secret_key);
+    let cipher = ChaCha20Poly1305::new_from_slice(key).unwrap();
     let ct_and_aad = Payload {
         msg: ciphertext,
         aad: aad,
     };
 
-    match cipher.decrypt(the_nonce, ct_and_aad) {
+    match cipher.decrypt(Nonce::from_slice(nonce), ct_and_aad) {
         Ok(pt) => Ok(pt),
         Err(_) => Err(ChaPolyDecryptError),
     }
@@ -293,7 +291,7 @@ pub fn sha256(data: &[u8]) -> [u8; 32] {
 
 /// HMAC-SHA-256
 pub fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
-    let mut mac = Hmac::<Sha256>::new_from_slice(key).unwrap();
+    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(key).unwrap();
     mac.update(data);
     let res = mac.finalize();
     res.into_bytes().try_into().unwrap()
