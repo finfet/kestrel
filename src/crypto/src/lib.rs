@@ -52,27 +52,8 @@ pub struct PublicKey {
 
 /// X25519 Private Key
 #[derive(Clone, Zeroize)]
-#[zeroize(drop)]
 pub struct PrivateKey {
     key: [u8; 32],
-}
-
-/// KeyPair holding a [`PrivateKey`] and [`PublicKey`]
-#[derive(Clone, Zeroize)]
-#[zeroize(drop)]
-pub struct KeyPair {
-    pub private_key: PrivateKey,
-    pub public_key: PublicKey,
-}
-
-impl From<&PrivateKey> for KeyPair {
-    fn from(sk: &PrivateKey) -> Self {
-        let pk = sk.to_public();
-        Self {
-            private_key: sk.clone(),
-            public_key: pk,
-        }
-    }
 }
 
 impl PublicKey {
@@ -144,7 +125,7 @@ pub fn x25519_derive_public(private_key: &[u8]) -> [u8; 32] {
 /// Encrypt the payload key using the noise X protocol.
 /// Passing None to ephemeral generates a new key pair. This is almost
 /// certainly what you want.
-/// Returns the handshake messsage ciphertext.
+/// Returns the handshake message ciphertext.
 pub fn noise_encrypt(
     sender: &PrivateKey,
     recipient: &PublicKey,
@@ -152,16 +133,8 @@ pub fn noise_encrypt(
     prologue: &[u8],
     payload_key: &PayloadKey,
 ) -> Vec<u8> {
-    let sender_keypair = sender.into();
-    let ephem_keypair = ephemeral.map(|e| e.into());
-    let mut handshake_state = HandshakeState::initialize(
-        true,
-        prologue,
-        Some(sender_keypair),
-        ephem_keypair,
-        Some(recipient.clone()),
-        None,
-    );
+    let mut handshake_state =
+        HandshakeState::init_x(true, prologue, sender, ephemeral, Some(recipient.clone()));
 
     // Encrypt the payload key
     let (ciphertext, _) = handshake_state.write_message(payload_key);
@@ -176,16 +149,9 @@ pub fn noise_decrypt(
     prologue: &[u8],
     handshake_message: &[u8],
 ) -> Result<(PayloadKey, PublicKey), ChaPolyDecryptError> {
-    let recipient_pair = recipient.into();
     let initiator = false;
-    let mut handshake_state = noise::HandshakeState::initialize(
-        initiator,
-        prologue,
-        Some(recipient_pair),
-        None,
-        None,
-        None,
-    );
+    let mut handshake_state =
+        noise::HandshakeState::init_x(initiator, prologue, recipient, None, None);
 
     // Decrypt the payload key
     let (payload_key, _) = handshake_state.read_message(handshake_message)?;
@@ -198,7 +164,7 @@ pub fn noise_decrypt(
     Ok((payload_key, sender_pubkey))
 }
 
-/// ChaCha20-Poly1305 encrypt function as specified by the noise protcol.
+/// ChaCha20-Poly1305 encrypt function as specified by the noise protocol.
 /// The nonce is stored as a little endian integer in the lowest eight
 /// bytes of the nonce. The top four bytes of the nonce are zeros.
 /// Returns the ciphertxt and 16 byte Poly1305 tag appended.

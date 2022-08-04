@@ -7,12 +7,30 @@ use std::collections::VecDeque;
 
 use crate::errors::ChaPolyDecryptError;
 use crate::{
-    chapoly_decrypt_noise, chapoly_encrypt_noise, hkdf_noise, sha256, KeyPair, PrivateKey,
-    PublicKey,
+    chapoly_decrypt_noise, chapoly_encrypt_noise, hkdf_noise, sha256, PrivateKey, PublicKey,
 };
+
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 const HASH_LEN: usize = 32;
 const DH_LEN: usize = 32;
+
+/// KeyPair holding a [`PrivateKey`] and [`PublicKey`]
+#[derive(Clone, Zeroize, ZeroizeOnDrop)]
+struct KeyPair {
+    pub private_key: PrivateKey,
+    pub public_key: PublicKey,
+}
+
+impl From<&PrivateKey> for KeyPair {
+    fn from(sk: &PrivateKey) -> Self {
+        let pk = sk.to_public();
+        Self {
+            private_key: sk.clone(),
+            public_key: pk,
+        }
+    }
+}
 
 #[allow(dead_code)]
 #[derive(Clone, Copy)]
@@ -177,29 +195,29 @@ impl SymmetricState {
 impl HandshakeState {
     /// Implementation of the noise X pattern Noise_X_25519_ChaChaPoly_SHA256
     /// Initialize a handshake state.
-    /// When sending a message (initiator == true): s and rs are required, and
-    /// e is optional.
-    /// When receiving a message (initiator == false): s is required.
-    pub fn initialize(
+    /// When sending a message (initiator == true): rs is required
+    pub fn init_x(
         initiator: bool,
         prologue: &[u8],
-        s: Option<KeyPair>,
-        e: Option<KeyPair>,
+        s: &PrivateKey,
+        e: Option<&PrivateKey>,
         rs: Option<PublicKey>,
-        re: Option<PublicKey>,
     ) -> Self {
         let mut symmetric_state = SymmetricState::new("Noise_X_25519_ChaChaPoly_SHA256");
         symmetric_state.mix_hash(prologue);
 
+        let s_pair: KeyPair = s.into();
+        let e_pair: Option<KeyPair> = match e {
+            Some(epk) => Some(epk.into()),
+            None => None,
+        };
+
         // Public key mixing here is hardcoded for the X pattern.
-        assert!(s.is_some());
         if initiator {
             assert!(rs.is_some());
             let rs_public_key = rs.as_ref().unwrap();
             symmetric_state.mix_hash(rs_public_key.as_bytes());
         } else {
-            let s_pair = s.as_ref().unwrap();
-
             symmetric_state.mix_hash(s_pair.public_key.as_bytes());
         }
 
@@ -209,10 +227,10 @@ impl HandshakeState {
         message_patterns.push_back(pattern);
         Self {
             symmetric_state,
-            s,
-            e,
+            s: Some(s_pair),
+            e: e_pair,
             rs,
-            re,
+            re: None,
             initiator,
             message_patterns,
         }
@@ -305,6 +323,10 @@ impl HandshakeState {
             .pop_front()
             .expect("X pattern consists of a single message");
         let mut msgidx: usize = 0;
+        assert!(
+            message.len() >= 64,
+            "Noise X pattern handshake message must be at least 64 bytes"
+        );
         for pattern in message_pattern {
             match pattern {
                 Token::E => {
@@ -328,7 +350,7 @@ impl HandshakeState {
                     self.rs = Some(rs);
                 }
                 Token::EE => {
-                    unimplemented!("EE not used in the X pattern")
+                    unimplemented!("EE not used in the X pattern");
                 }
                 Token::ES => {
                     // In the X scheme, we can't be an initiator while reading
@@ -340,7 +362,7 @@ impl HandshakeState {
                     self.symmetric_state.mix_key(&shared_secret);
                 }
                 Token::SE => {
-                    unimplemented!("SE not used in the X pattern")
+                    unimplemented!("SE not used in the X pattern");
                 }
                 Token::SS => {
                     let s = self.s.as_ref().unwrap();
@@ -363,7 +385,7 @@ impl HandshakeState {
 #[cfg(test)]
 mod tests {
     use super::HandshakeState;
-    use super::{KeyPair, PrivateKey, PublicKey};
+    use super::{PrivateKey, PublicKey};
 
     #[test]
     fn test_write_message() {
@@ -393,29 +415,18 @@ mod tests {
             hex::decode("9fdd2576d757f880de49b32b80abf53afec16ddc86769f0e92daff").unwrap();
 
         let static_priv = PrivateKey::from(initiator_priv_bytes.as_ref());
-        let static_pub = static_priv.to_public();
-        let static_pair = KeyPair {
-            private_key: static_priv,
-            public_key: static_pub,
-        };
 
         let ephem_priv = PrivateKey::from(ephem_priv_bytes.as_ref());
-        let ephem_pub = ephem_priv.to_public();
-        let ephem_pair = KeyPair {
-            private_key: ephem_priv,
-            public_key: ephem_pub,
-        };
 
         let remote_static_pub = PublicKey::from(remote_static_pub_bytes.as_ref());
 
         let initiator = true;
-        let mut handshake_state = HandshakeState::initialize(
+        let mut handshake_state = HandshakeState::init_x(
             initiator,
             prologue.as_slice(),
-            Some(static_pair),
-            Some(ephem_pair),
+            &static_priv,
+            Some(&ephem_priv),
             Some(remote_static_pub),
-            None,
         );
 
         // handshake message
@@ -454,18 +465,12 @@ mod tests {
             hex::decode("9fdd2576d757f880de49b32b80abf53afec16ddc86769f0e92daff").unwrap();
 
         let responder_private = PrivateKey::from(responder_static_bytes.as_slice());
-        let responder_public = responder_private.to_public();
-        let responder_pair = KeyPair {
-            private_key: responder_private,
-            public_key: responder_public,
-        };
 
         let initiator = false;
-        let mut handshake_state = HandshakeState::initialize(
+        let mut handshake_state = HandshakeState::init_x(
             initiator,
             prologue.as_slice(),
-            Some(responder_pair),
-            None,
+            &responder_private,
             None,
             None,
         );
