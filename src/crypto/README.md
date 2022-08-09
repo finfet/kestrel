@@ -5,6 +5,7 @@ general purpose cryptography library, but does include access to a number
 of primitives.
 
 API Includes
+
 - X25519
 - ChaCha20Poly1305
 - Noise X protocol
@@ -13,4 +14,3 @@ API Includes
 - Random key generation
 - Public Key authenticated encryption of data
 - Password bassed authenticated encryption
-

@@ -1,3 +1,6 @@
+// Copyright 2022 Kyle Schreiber
+// SPDX-License-Identifier: BSD-3-Clause
+
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};

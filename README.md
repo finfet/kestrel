@@ -63,15 +63,15 @@ protecting metadata.
 
 **age**
 
-age is a newer tool with strong defaults and is a great choice in comparison
-to GPG. However, age does not provide sender authentication. A successfully
-decrypted file could have come from anyone, including a malicious user.
-Mitigating this would require keeping track of file hashes out of band.
-Kestrel solves this issue by providing sender authentication.
+age is a newer tool with strong defaults and is much less complex than GPG.
+However, age does not provide sender authentication. A successfully decrypted
+file could have come from anyone, including from an attacker that replaced the
+file with a malicious copy. Kestrel fixes this by showing you the exact sender
+of a file.
 
 ## Installation
 
-Tested on Linux, macOS, Windows 10
+Tested on Linux, macOS, Windows
 
 Download from the [Official Site](https://getkestrel.com)
 
