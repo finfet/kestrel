@@ -105,7 +105,7 @@ jobs:
         run: |
           tar -xf kestrel-*.tar.gz
           cd kestrel-*/
-          python3 build.py --deb --docker -a amd64
+          python3 build.py --deb --docker -a amd64 -a arm64
         env:
           DOCKER_BUILDKIT: 1
       - name: Upload Deb Artifact
@@ -126,7 +126,7 @@ jobs:
         run: |
           tar -xf kestrel-*.tar.gz
           cd kestrel-*/
-          python3 build.py --rpm --docker -a amd64
+          python3 build.py --rpm --docker -a amd64 -a arm64
         env:
           DOCKER_BUILDKIT: 1
       - name: Upload RPM Artifact

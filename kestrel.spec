@@ -1,37 +1,40 @@
 # Need to tell rpmbuild not to expect a debug binary
-# because we're only building with cargo --release
 %global _enable_debug_package 0
 %global debug_package %{nil}
 
-Name:           kestrel
-Version:        0.10.0
-Release:        1%{?dist}
-Summary:        File encryption done right
+%ifarch x86_64
+%define bin_arch amd64
+%endif
+%ifarch aarch64
+%define bin_arch arm64
+%endif
 
-License:        BSD
-URL:            https://getkestrel.com
-Source0:        %{name}-%{version}.tar.gz
+Name: kestrel
+Version: 0.10.1
+Release: 1
+Summary: File encryption done right
+
+License: BSD-3-Clause
+URL: https://getkestrel.com
+Source0: %{name}-linux-v%{version}-%{bin_arch}.tar.gz
 
 # libc6 deps are picked up automatically by rpmbuild analyzing the binary
-BuildRequires:  cargo >= 1.57
 
 %description
 Kestrel is a file encryption utility that lets you encrypt files to
 anyone with a public key.
 
 %prep
-%autosetup
+%autosetup -n %{name}-linux-v%{version}-%{bin_arch}
 
 %build
-cargo build --release
-strip target/release/%{name}
-gzip -k docs/man/kestrel.1
+gzip -k man/kestrel.1
 
 %install
 mkdir -p $RPM_BUILD_ROOT/%{_bindir}
-install -m 755 target/release/%{name} $RPM_BUILD_ROOT/%{_bindir}
+install -m 755 kestrel $RPM_BUILD_ROOT/%{_bindir}
 mkdir -p $RPM_BUILD_ROOT/%{_mandir}/man1
-install -m 644 docs/man/kestrel.1.gz $RPM_BUILD_ROOT/%{_mandir}/man1
+install -m 644 man/kestrel.1.gz $RPM_BUILD_ROOT/%{_mandir}/man1
 mkdir -p $RPM_BUILD_ROOT/%{_docdir}/kestrel
 install -m 644 LICENSE.txt $RPM_BUILD_ROOT/%{_docdir}/kestrel
 install -m 644 THIRD-PARTY-LICENSE.txt $RPM_BUILD_ROOT/%{_docdir}/kestrel

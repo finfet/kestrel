@@ -4,3 +4,6 @@
 /tests/tmp*
 /windows/install
 /windows/output
+/debian/*
+!/debian/Makefile
+!/debian/control

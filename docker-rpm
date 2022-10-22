@@ -1,8 +1,11 @@
 FROM fedora:36
 
-ARG APP_VERSION
+ARG ARCH
+ARG ALTARCH
+ARG APPVER
+ENV APPVERSION=${APPVER}
 
-RUN dnf update -y && dnf install -y rpmdevtools rpmlint cargo
+RUN dnf update -y && dnf install -y rpmdevtools rpmlint
 
 RUN adduser buildbot
 
@@ -13,7 +16,7 @@ WORKDIR /home/buildbot
 RUN rpmdev-setuptree
 
 COPY --chmod=644 kestrel.spec rpmbuild/SPECS/
+RUN sed -i "s/Version: .*/Version: $APPVERSION/g" rpmbuild/SPECS/kestrel.spec
+COPY --chmod=644 build/kestrel-linux-v${APPVER}-${ARCH}.tar.gz rpmbuild/SOURCES/
 
-COPY --chmod=644 build/kestrel-$APP_VERSION.tar.gz rpmbuild/SOURCES/
-
-RUN rpmbuild -bb ~/rpmbuild/SPECS/kestrel.spec
+RUN rpmbuild -bb --target ${ALTARCH} ~/rpmbuild/SPECS/kestrel.spec

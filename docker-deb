@@ -1,18 +1,15 @@
 FROM ubuntu:20.04
 
-ARG APP_VERSION
+ARG APPVER
+ARG DEBREV
+ARG ARCH
 
-RUN apt-get update && \
- apt-get upgrade -y && \
- DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential devscripts \
- debhelper fakeroot bash-completion cargo
+RUN apt-get update && apt-get upgrade -y
 
 RUN mkdir /build
 
 WORKDIR /build
 
-COPY --chmod=644 build/kestrel-$APP_VERSION.tar.gz .
+COPY --chmod=644 build/deb/kestrel_${APPVER}-${DEBREV}_${ARCH}.tar.gz .
 
-RUN cp kestrel-$APP_VERSION.tar.gz kestrel_$APP_VERSION.orig.tar.gz
-
-RUN tar -xf kestrel-$APP_VERSION.tar.gz && cd kestrel-$APP_VERSION && debuild --no-lintian -us -uc -rfakeroot -b
+RUN tar -xf kestrel_${APPVER}-${DEBREV}_${ARCH}.tar.gz && dpkg-deb --build --root-owner-group kestrel_${APPVER}-${DEBREV}_${ARCH}

@@ -89,38 +89,15 @@ def clean_build():
 def build_source_archive():
     source_version = read_version()
 
-    vendor_config = vendor_source()
-
     archive_name = "kestrel-{}".format(source_version)
 
     source_archive_path = Path("build", archive_name)
 
     copytree(Path("."), source_archive_path, ignore=ignore_files)
 
-    # Check if the cargo config.toml is set up to use archived sources,
-    # if not, write the archived sources config
-    cargo_toml_path = Path(source_archive_path, ".cargo", "config.toml")
-    write_config = True
-    with open(cargo_toml_path, "r") as f:
-        for line in f.readlines():
-            if "[source.vendored-sources]" in line:
-                write_config = False
-                break
-
-    if write_config:
-        with open(cargo_toml_path, "a") as f:
-            f.write(vendor_config)
-
     create_tarball(archive_name)
 
     rmtree(source_archive_path)
-
-def vendor_source():
-    vendor_output = subprocess.run(["cargo", "vendor", "--versioned-dirs", "--locked"], capture_output=True)
-    vendor_output.check_returncode()
-    vendor_config = vendor_output.stdout.decode("utf-8")
-
-    return vendor_config
 
 def ignore_files(path, names):
     ignored_dirs = [
@@ -211,18 +188,36 @@ def create_windows_installer(archive_path, bin_name):
 def build_deb(cpus, podman=True):
     version = read_version()
     deb_rev = "1"
-    if not Path("build", "kestrel-{}.tar.gz".format(version)).exists():
-        build_source_archive()
+
     if "amd64" in cpus:
+        if not Path("build", "kestrel-linux-v{}-{}.tar.gz".format(version, "amd64")).exists():
+            build_linux("amd64", "amd64")
+
+        prv = subprocess.run(["make", "-f", "make-deb", "VERSION={}".format(version), "ARCH={}".format("amd64"), "DEB_REV={}".format(deb_rev), "package"])
+        prv.check_returncode()
+
         build_deb_arch(version, "amd64", deb_rev, podman=podman)
+
+        prv = subprocess.run(["make", "-f", "make-deb", "clean"])
+        prv.check_returncode()
+
     if "arm64" in cpus:
+        if not Path("build", "kestrel-linux-v{}-{}.tar.gz".format(version, "arm64")).exists():
+            build_linux("arm64", "amd64")
+
+        prv = subprocess.run(["make", "-f", "make-deb", "VERSION={}".format(version), "ARCH={}".format("arm64"), "DEB_REV={}".format(deb_rev), "package"])
+        prv.check_returncode()
+
         build_deb_arch(version, "arm64", deb_rev, podman=podman)
+
+        prv = subprocess.run(["make", "-f", "make-deb", "clean"])
+        prv.check_returncode()
 
 def build_deb_arch(version, arch, deb_rev, podman=True):
     build_tool = "podman"
     if not podman:
         build_tool = "docker"
-    docker_build = "{} build --platform=linux/{} --build-arg APP_VERSION={} -t kestrel-deb-{}:latest -f docker-deb .".format(build_tool, arch, version, arch).split(" ")
+    docker_build = "{} build --build-arg APPVER={} --build-arg DEBREV={} --build-arg ARCH={} -t kestrel-deb-{}:latest -f docker-deb .".format(build_tool, version, deb_rev, arch, arch).split(" ")
     docker_container = "{} container create --name kdeb-{} kestrel-deb-{}:latest".format(build_tool, arch, arch).split(" ")
     docker_cp = "{} cp kdeb-{}:/build/kestrel_{}-{}_{}.deb build/".format(build_tool, arch, version, deb_rev, arch).split(" ")
     docker_container_rm = "{} container rm kdeb-{}".format(build_tool, arch).split(" ")
@@ -233,21 +228,26 @@ def build_deb_arch(version, arch, deb_rev, podman=True):
     prv = subprocess.run(docker_container)
     prv.check_returncode()
 
-    prv = subprocess.run(docker_cp)
-    prv.check_returncode()
-
-    prv = subprocess.run(docker_container_rm)
-    prv.check_returncode()
+    try:
+        prv = subprocess.run(docker_cp)
+        prv.check_returncode()
+    finally:
+        prv = subprocess.run(docker_container_rm)
+        prv.check_returncode()
 
 def build_rpm(cpus, podman=True):
     version = read_version()
     rpm_rev = "1"
-    if not Path("build", "kestrel-{}.tar.gz".format(version)).exists():
-        build_source_archive()
 
     if "amd64" in cpus:
+        if not Path("build", "kestrel-linux-v{}-{}.tar.gz".format(version, "amd64")).exists():
+            build_linux("amd64", "amd64")
+
         build_rpm_arch(version, "amd64", rpm_rev, podman=podman)
     if "arm64" in cpus:
+        if not Path("build", "kestrel-linux-v{}-{}.tar.gz".format(version, "arm64")).exists():
+            build_linux("arm64", "amd64")
+
         build_rpm_arch(version, "arm64", rpm_rev, podman=podman)
 
 def build_rpm_arch(version, arch, rpm_rev, podman=True):
@@ -261,9 +261,9 @@ def build_rpm_arch(version, arch, rpm_rev, podman=True):
     elif arch == "arm64":
         alt_arch = "aarch64"
 
-    docker_build = "{} build --platform=linux/{} --build-arg APP_VERSION={} -t kestrel-rpm-{}:latest -f docker-rpm .".format(build_tool, arch, version, arch).split(" ")
+    docker_build = "{} build --build-arg ARCH={} --build-arg ALTARCH={} --build-arg APPVER={} -t kestrel-rpm-{}:latest -f docker-rpm .".format(build_tool, arch, alt_arch, version, arch).split(" ")
     docker_container = "{} container create --name krpm-{} kestrel-rpm-{}:latest".format(build_tool, arch, arch).split(" ")
-    docker_cp = "{} cp krpm-{}:/home/buildbot/rpmbuild/RPMS/{}/kestrel-{}-{}.fc36.{}.rpm build/".format(build_tool, arch, alt_arch, version, rpm_rev, alt_arch).split(" ")
+    docker_cp = "{} cp krpm-{}:/home/buildbot/rpmbuild/RPMS/{}/kestrel-{}-{}.{}.rpm build/".format(build_tool, arch, alt_arch, version, rpm_rev, alt_arch).split(" ")
     docker_container_rm = "{} container rm krpm-{}".format(build_tool, arch).split(" ")
 
     prv = subprocess.run(docker_build)
@@ -272,11 +272,12 @@ def build_rpm_arch(version, arch, rpm_rev, podman=True):
     prv = subprocess.run(docker_container)
     prv.check_returncode()
 
-    prv = subprocess.run(docker_cp)
-    prv.check_returncode()
-
-    prv = subprocess.run(docker_container_rm)
-    prv.check_returncode()
+    try:
+        prv = subprocess.run(docker_cp)
+        prv.check_returncode()
+    finally:
+        prv = subprocess.run(docker_container_rm)
+        prv.check_returncode()
 
 def calculate_checksums(loc):
     """
@@ -292,7 +293,8 @@ def calculate_checksums(loc):
         if (path_name.endswith(".tar.gz") or
             path_name.endswith(".zip") or
             path_name.endswith(".exe") or
-            path_name.endswith(".deb")
+            path_name.endswith(".deb") or
+            path_name.endswith(".rpm")
         ):
             hash_data = calculate_hash(path)
             hashes.append(hash_data)

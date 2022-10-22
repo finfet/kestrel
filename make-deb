@@ -1,0 +1,31 @@
+VERSION = 0.10.1
+ARCH = amd64
+DEB_REV = 1
+
+APP_DIR = kestrel_$(VERSION)-$(DEB_REV)_$(ARCH)
+BIN_DIR = kestrel-linux-v$(VERSION)-$(ARCH)
+BUILD_DIR = build/deb
+
+prepare:
+	-rm -rf $(BUILD_DIR)
+	mkdir -p $(BUILD_DIR)
+	cp build/$(BIN_DIR).tar.gz $(BUILD_DIR)
+	tar -C $(BUILD_DIR) -xf $(BUILD_DIR)/$(BIN_DIR).tar.gz
+	cp debian/control $(BUILD_DIR)
+	sed -i "s/Architecture: .*/Architecture: $(ARCH)/g" $(BUILD_DIR)/control
+	sed -i "s/Version: .*/Version: $(VERSION)/g" $(BUILD_DIR)/control
+
+package: prepare
+	install -D -m 644 $(BUILD_DIR)/control $(BUILD_DIR)/$(APP_DIR)/DEBIAN/control
+	gzip $(BUILD_DIR)/$(BIN_DIR)/man/kestrel.1
+	install -D -m 755 $(BUILD_DIR)/$(BIN_DIR)/kestrel $(BUILD_DIR)/$(APP_DIR)/usr/bin/kestrel
+	install -D -m 644 $(BUILD_DIR)/$(BIN_DIR)/completion/kestrel.bash-completion $(BUILD_DIR)/$(APP_DIR)/usr/share/bash-completion/completions/kestrel
+	install -D -m 644 $(BUILD_DIR)/$(BIN_DIR)/LICENSE.txt $(BUILD_DIR)/$(APP_DIR)/usr/doc/kestrel/LICENSE.txt
+	install -D -m 644 $(BUILD_DIR)/$(BIN_DIR)/THIRD-PARTY-LICENSE.txt $(BUILD_DIR)/$(APP_DIR)/usr/doc/kestrel/THIRD-PARTY-LICENSE.txt
+	install -D -m 644 $(BUILD_DIR)/$(BIN_DIR)/man/kestrel.1.gz $(BUILD_DIR)/$(APP_DIR)/usr/man/man1/kestrel.1.gz
+	tar -C $(BUILD_DIR) -czvpf $(BUILD_DIR)/$(APP_DIR).tar.gz $(APP_DIR)
+
+clean:
+	-rm -rf  $(BUILD_DIR)
+
+.PHONY: prepare package clean

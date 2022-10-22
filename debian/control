@@ -1,15 +1,10 @@
-Source: kestrel
+Package: kestrel
+Version: 0.10.1
+Architecture: arm64
 Section: utils
 Priority: optional
-Maintainer: Kyle Schreiber <kyle@80x24.net>
-Build-Depends: debhelper-compat (= 12), cargo (>= 0.57.0), bash-completion
-Standards-Version: 4.5.0
-Homepage: https://getkestrel.com
-
-Package: kestrel
-Architecture: any
-# libc6 appears to be automatically depended on here.
-Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: File encryption done right
  Kestrel is a file encryption utility that lets you encrypt files to
  anyone with a public key.
+Maintainer: Kyle Schreiber <kyle@80x24.net>
+Homepage: https://getkestrel.com
