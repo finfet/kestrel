@@ -101,13 +101,10 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v3
         with:
-          path: artifcats
-      - name: Copy data
-        run: |
-          cp artifacts/kestrel-source/kestrel-*.tar.gz .
-          cp artifacts/kestrel-linux/kestrel-*/build/kestrel-linux-*.tar.gz .
+          name: [ kestrel-source, kestrel-linux ]
       - name: Build Deb
         run: |
+          ls -lha
           tar -xf kestrel-*.tar.gz
           cd kestrel-*/
           mkdir build
@@ -133,13 +130,10 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v3
         with:
-          path: artifacts
-      - name: Copy data
-        run: |
-          cp artifacts/kestrel-source/kestrel-*.tar.gz .
-          cp artifacts/kestrel-linux/kestrel-*/build/kestrel-linux-*.tar.gz .
+          name: [ kestrel-source, kestrel-linux ]
       - name: Build RPM
         run: |
+          ls -lha
           tar -xf kestrel-*.tar.gz
           cd kestrel-*/
           mkdir build
