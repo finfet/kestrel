@@ -93,14 +93,25 @@ jobs:
     runs-on: ubuntu-20.04
     needs: create-archive
     steps:
-      - name: Download Source Archive
+      - name: Install Build Dependencies
+        run: |
+          rustup target add x86_64-unknown-linux-musl
+          rustup target add aarch64-unknown-linux-musl
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Download Artifacts
         uses: actions/download-artifact@v3
         with:
-          name: kestrel-source
+          path: artifcats
+      - name: Copy data
+        run: |
+          cp artifacts/kestrel-source/kestrel-*.tar.gz .
+          cp artifacts/kestrel-linux/kestrel-*/build/kestrel-linux-*.tar.gz .
       - name: Build Deb
         run: |
           tar -xf kestrel-*.tar.gz
           cd kestrel-*/
+          mkdir build
+          cp ../kestrel-linux-*.tar.gz build/
           python3 build.py --deb --docker -a amd64 -a arm64
         env:
           DOCKER_BUILDKIT: 1
@@ -112,16 +123,27 @@ jobs:
             kestrel-*/build/*.deb
   release-rpm:
     runs-on: ubuntu-20.04
-    needs: create-archive
+    needs: [ create-archive, release-linux ]
     steps:
-      - name: Download Source Archive
+      - name: Install Build Dependencies
+        run: |
+          rustup target add x86_64-unknown-linux-musl
+          rustup target add aarch64-unknown-linux-musl
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Download Artifacts
         uses: actions/download-artifact@v3
         with:
-          name: kestrel-source
+          path: artifacts
+      - name: Copy data
+        run: |
+          cp artifacts/kestrel-source/kestrel-*.tar.gz .
+          cp artifacts/kestrel-linux/kestrel-*/build/kestrel-linux-*.tar.gz .
       - name: Build RPM
         run: |
           tar -xf kestrel-*.tar.gz
           cd kestrel-*/
+          mkdir build
+          cp ../kestrel-linux-*.tar.gz build/
           python3 build.py --rpm --docker -a amd64 -a arm64
         env:
           DOCKER_BUILDKIT: 1
