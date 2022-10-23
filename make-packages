@@ -28,8 +28,11 @@ deb:
 
 rpm:
 	-rm -rf $(RPM_DIR)
-	mkdir -p $(RPM_DIR)/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-	ls -lha $(RPM_DIR)/rpmbuild
+	mkdir -p $(RPM_DIR)/rpmbuild/BUILD
+	mkdir -p $(RPM_DIR)/rpmbuild/RPMS
+	mkdir -p $(RPM_DIR)/rpmbuild/SOURCES
+	mkdir -p $(RPM_DIR)/rpmbuild/SPECS
+	mkdir -p $(RPM_DIR)/rpmbuild/SRPMS
 	cp build/$(BIN_DIR).tar.gz $(RPM_DIR)/rpmbuild/SOURCES/
 	cp kestrel.spec $(RPM_DIR)/rpmbuild/SPECS/
 	sed -i "s/Version: .*/Version: $(VERSION)/g" $(RPM_DIR)/rpmbuild/SPECS/kestrel.spec
