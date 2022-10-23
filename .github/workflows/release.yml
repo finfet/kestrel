@@ -89,7 +89,7 @@ jobs:
           path: |
             kestrel-*/build/*.zip
             kestrel-*/build/*.exe
-  release-deb:
+  release-deb-rpm:
     runs-on: ubuntu-20.04
     needs: [ create-archive, release-linux ]
     steps:
@@ -102,44 +102,22 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           path: artifacts
-      - name: Build Deb
+      - name: Build .deb and .rpm Packages
         run: |
           tar -xf artifacts/kestrel-source/kestrel-*.tar.gz
           cd kestrel-*/
           mkdir build
           cp ../artifacts/kestrel-linux/kestrel-*/build/kestrel-linux-*.tar.gz build/
-          python3 build.py --deb --docker -a amd64 -a arm64
+          python3 build.py --linux-packages -a amd64 -a arm64
         env:
           DOCKER_BUILDKIT: 1
-      - name: Upload Deb Artifact
+      - name: Upload .deb Artifact
         uses: actions/upload-artifact@v3
         with:
           name: kestrel-deb
           path: |
             kestrel-*/build/*.deb
-  release-rpm:
-    runs-on: ubuntu-20.04
-    needs: [ create-archive, release-linux ]
-    steps:
-      - name: Install Build Dependencies
-        run: |
-          rustup target add x86_64-unknown-linux-musl
-          rustup target add aarch64-unknown-linux-musl
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-      - name: Download Artifacts
-        uses: actions/download-artifact@v3
-        with:
-          path: artifacts
-      - name: Build RPM
-        run: |
-          tar -xf artifacts/kestrel-source/kestrel-*.tar.gz
-          cd kestrel-*/
-          mkdir build
-          cp ../artifacts/kestrel-linux/kestrel-*/build/kestrel-linux-*.tar.gz build/
-          python3 build.py --rpm --docker -a amd64 -a arm64
-        env:
-          DOCKER_BUILDKIT: 1
-      - name: Upload RPM Artifact
+      - name: Upload .rpm Artifact
         uses: actions/upload-artifact@v3
         with:
           name: kestrel-rpm
@@ -152,8 +130,7 @@ jobs:
       release-linux,
       release-macos,
       release-windows,
-      release-deb,
-      release-rpm
+      release-deb-rpm,
     ]
     steps:
       - name: Create release dir

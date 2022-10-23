@@ -28,8 +28,7 @@ def main():
     parser.add_argument("--win-installer", action="store_true", help="Create the windows installer")
     parser.add_argument("--source", action="store_true", help="Create source archive")
     parser.add_argument("--clean", action="store_true", help="Clean build directories")
-    parser.add_argument("--deb", action="store_true", help="Build .deb package in container")
-    parser.add_argument("--rpm", action="store_true", help="Build .rpm package in container")
+    parser.add_argument("--linux-packages", action="store_true", help="Create .deb and .rpm packages in container")
     parser.add_argument("--docker", action="store_true", help="Use docker command instead of podman")
 
     args = parser.parse_args()
@@ -58,22 +57,14 @@ def main():
         calculate_checksums(release_loc)
     elif args.source:
         build_source_archive()
-    elif args.deb:
+    elif args.linux_packages:
         cpus = args.arch
         if len(cpus) < 1:
             print_help(parser)
         use_podman = True
         if args.docker:
             use_podman = False
-        build_deb(cpus, podman=use_podman)
-    elif args.rpm:
-        cpus = args.arch
-        if len(cpus) < 1:
-            print_help(parser)
-        use_podman = True
-        if args.docker:
-            use_podman = False
-        build_rpm(cpus, podman=use_podman)
+        build_linux_packages(cpus, podman=use_podman)
     else:
         print_help(parser)
 
@@ -185,72 +176,35 @@ def create_windows_installer(archive_path, bin_name):
     installer_bin = sorted(output_dir.glob("*.exe"))[0]
     copy2(installer_bin, Path("build"))
 
-def build_deb(cpus, podman=True):
+def build_linux_packages(cpus, podman=True):
     version = read_version()
     deb_rev = "1"
-
-    if "amd64" in cpus:
-        if not Path("build", "kestrel-linux-v{}-{}.tar.gz".format(version, "amd64")).exists():
-            build_linux("amd64", "amd64")
-
-        prv = subprocess.run(["make", "-f", "make-deb", "VERSION={}".format(version), "ARCH={}".format("amd64"), "DEB_REV={}".format(deb_rev), "package"])
-        prv.check_returncode()
-
-        build_deb_arch(version, "amd64", deb_rev, podman=podman)
-
-        prv = subprocess.run(["make", "-f", "make-deb", "clean"])
-        prv.check_returncode()
-
-    if "arm64" in cpus:
-        if not Path("build", "kestrel-linux-v{}-{}.tar.gz".format(version, "arm64")).exists():
-            build_linux("arm64", "amd64")
-
-        prv = subprocess.run(["make", "-f", "make-deb", "VERSION={}".format(version), "ARCH={}".format("arm64"), "DEB_REV={}".format(deb_rev), "package"])
-        prv.check_returncode()
-
-        build_deb_arch(version, "arm64", deb_rev, podman=podman)
-
-        prv = subprocess.run(["make", "-f", "make-deb", "clean"])
-        prv.check_returncode()
-
-def build_deb_arch(version, arch, deb_rev, podman=True):
-    build_tool = "podman"
-    if not podman:
-        build_tool = "docker"
-    docker_build = "{} build --build-arg APPVER={} --build-arg DEBREV={} --build-arg ARCH={} -t kestrel-deb-{}:latest -f docker-deb .".format(build_tool, version, deb_rev, arch, arch).split(" ")
-    docker_container = "{} container create --name kdeb-{} kestrel-deb-{}:latest".format(build_tool, arch, arch).split(" ")
-    docker_cp = "{} cp kdeb-{}:/build/kestrel_{}-{}_{}.deb build/".format(build_tool, arch, version, deb_rev, arch).split(" ")
-    docker_container_rm = "{} container rm kdeb-{}".format(build_tool, arch).split(" ")
-
-    prv = subprocess.run(docker_build)
-    prv.check_returncode()
-
-    prv = subprocess.run(docker_container)
-    prv.check_returncode()
-
-    try:
-        prv = subprocess.run(docker_cp)
-        prv.check_returncode()
-    finally:
-        prv = subprocess.run(docker_container_rm)
-        prv.check_returncode()
-
-def build_rpm(cpus, podman=True):
-    version = read_version()
     rpm_rev = "1"
-
     if "amd64" in cpus:
         if not Path("build", "kestrel-linux-v{}-{}.tar.gz".format(version, "amd64")).exists():
             build_linux("amd64", "amd64")
 
-        build_rpm_arch(version, "amd64", rpm_rev, podman=podman)
+        prv = subprocess.run(["make", "-f", "make-packages", "VERSION={}".format(version), "ARCH={}".format("amd64"), "DEB_REV={}".format(deb_rev)])
+        prv.check_returncode()
+
+        build_packages_container(version, "amd64", deb_rev, rpm_rev, podman=podman)
+
+        prv = subprocess.run(["make", "-f", "make-packages", "clean"])
+        prv.check_returncode()
+
     if "arm64" in cpus:
         if not Path("build", "kestrel-linux-v{}-{}.tar.gz".format(version, "arm64")).exists():
             build_linux("arm64", "amd64")
 
-        build_rpm_arch(version, "arm64", rpm_rev, podman=podman)
+        prv = subprocess.run(["make", "-f", "make-packages", "VERSION={}".format(version), "ARCH={}".format("arm64"), "DEB_REV={}".format(deb_rev)])
+        prv.check_returncode()
 
-def build_rpm_arch(version, arch, rpm_rev, podman=True):
+        build_packages_container(version, "arm64", deb_rev, rpm_rev, podman=podman)
+
+        prv = subprocess.run(["make", "-f", "make-packages", "clean"])
+        prv.check_returncode()
+
+def build_packages_container(version, arch, deb_rev, rpm_rev, podman=True):
     build_tool = "podman"
     if not podman:
         build_tool = "docker"
@@ -261,10 +215,11 @@ def build_rpm_arch(version, arch, rpm_rev, podman=True):
     elif arch == "arm64":
         alt_arch = "aarch64"
 
-    docker_build = "{} build --build-arg ARCH={} --build-arg ALTARCH={} --build-arg APPVER={} -t kestrel-rpm-{}:latest -f docker-rpm .".format(build_tool, arch, alt_arch, version, arch).split(" ")
-    docker_container = "{} container create --name krpm-{} kestrel-rpm-{}:latest".format(build_tool, arch, arch).split(" ")
-    docker_cp = "{} cp krpm-{}:/build/rpmbuild/RPMS/{}/kestrel-{}-{}.{}.rpm build/".format(build_tool, arch, alt_arch, version, rpm_rev, alt_arch).split(" ")
-    docker_container_rm = "{} container rm krpm-{}".format(build_tool, arch).split(" ")
+    docker_build = "{} build --build-arg APPVER={} --build-arg DEBREV={} --build-arg ARCH={} --build-arg ALTARCH={} -t kestrel-packages-{}:latest -f docker-packages .".format(build_tool, version, deb_rev, arch, alt_arch, arch).split(" ")
+    docker_container = "{} container create --name kpkgs-{} kestrel-packages-{}:latest".format(build_tool, arch, arch).split(" ")
+    docker_cp_deb = "{} cp kpkgs-{}:/build/deb/kestrel_{}-{}_{}.deb build/".format(build_tool, arch, version, deb_rev, arch).split(" ")
+    docker_cp_rpm = "{} cp kpkgs-{}:/build/rpm/rpmbuild/RPMS/{}/kestrel-{}-{}.{}.rpm build/".format(build_tool, arch, alt_arch, version, rpm_rev, alt_arch).split(" ")
+    docker_container_rm = "{} container rm kpkgs-{}".format(build_tool, arch).split(" ")
 
     prv = subprocess.run(docker_build)
     prv.check_returncode()
@@ -273,7 +228,10 @@ def build_rpm_arch(version, arch, rpm_rev, podman=True):
     prv.check_returncode()
 
     try:
-        prv = subprocess.run(docker_cp)
+        prv = subprocess.run(docker_cp_deb)
+        prv.check_returncode()
+
+        prv = subprocess.run(docker_cp_rpm)
         prv.check_returncode()
     finally:
         prv = subprocess.run(docker_container_rm)

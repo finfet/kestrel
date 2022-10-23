@@ -1,0 +1,23 @@
+FROM debian:bullseye
+
+# Build kestrel .deb and .rpm packages
+
+ARG APPVER=0.10.1
+ARG DEBREV=1
+ARG ARCH=amd64
+ARG ALTARCH=x86_64
+
+RUN apt-get update && apt-get upgrade -y && apt-get install -y rpm
+
+RUN mkdir /build && mkdir /build/deb && mkdir /build/rpm
+
+WORKDIR /build
+
+COPY --chmod=644 build/deb/kestrel_${APPVER}-${DEBREV}_${ARCH}.tar.gz deb/
+COPY --chmod=644 build/rpm/rpmbuild.tar.gz rpm/
+
+WORKDIR /build/deb
+RUN tar -xf kestrel_${APPVER}-${DEBREV}_${ARCH}.tar.gz && dpkg-deb --build --root-owner-group kestrel_${APPVER}-${DEBREV}_${ARCH}
+
+WORKDIR /build/rpm
+RUN tar -xf rpmbuild.tar.gz && rpmbuild -bb --target ${ALTARCH} --define "_topdir /build/rpm/rpmbuild/" /build/rpm/rpmbuild/SPECS/kestrel.spec
