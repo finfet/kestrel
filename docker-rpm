@@ -1,22 +1,18 @@
-FROM fedora:36
+FROM debian:bullseye
 
 ARG ARCH
 ARG ALTARCH
 ARG APPVER
 ENV APPVERSION=${APPVER}
 
-RUN dnf update -y && dnf install -y rpmdevtools rpmlint
+RUN apt-get update && apt-get upgrade -y && apt-get install -y rpm
 
-RUN adduser buildbot
+RUN mkdir /build && mkdir -p mkdir -p rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
-USER buildbot
-
-WORKDIR /home/buildbot
-
-RUN rpmdev-setuptree
+WORKDIR /build
 
 COPY --chmod=644 kestrel.spec rpmbuild/SPECS/
 RUN sed -i "s/Version: .*/Version: $APPVERSION/g" rpmbuild/SPECS/kestrel.spec
 COPY --chmod=644 build/kestrel-linux-v${APPVER}-${ARCH}.tar.gz rpmbuild/SOURCES/
 
-RUN rpmbuild -bb --target ${ALTARCH} ~/rpmbuild/SPECS/kestrel.spec
+RUN rpmbuild -bb --target ${ALTARCH} --define "_topdir /build/rpmbuild/" /build/rpmbuild/SPECS/kestrel.spec

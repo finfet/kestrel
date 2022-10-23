@@ -263,7 +263,7 @@ def build_rpm_arch(version, arch, rpm_rev, podman=True):
 
     docker_build = "{} build --build-arg ARCH={} --build-arg ALTARCH={} --build-arg APPVER={} -t kestrel-rpm-{}:latest -f docker-rpm .".format(build_tool, arch, alt_arch, version, arch).split(" ")
     docker_container = "{} container create --name krpm-{} kestrel-rpm-{}:latest".format(build_tool, arch, arch).split(" ")
-    docker_cp = "{} cp krpm-{}:/home/buildbot/rpmbuild/RPMS/{}/kestrel-{}-{}.{}.rpm build/".format(build_tool, arch, alt_arch, version, rpm_rev, alt_arch).split(" ")
+    docker_cp = "{} cp krpm-{}:/build/rpmbuild/RPMS/{}/kestrel-{}-{}.{}.rpm build/".format(build_tool, arch, alt_arch, version, rpm_rev, alt_arch).split(" ")
     docker_container_rm = "{} container rm krpm-{}".format(build_tool, arch).split(" ")
 
     prv = subprocess.run(docker_build)
