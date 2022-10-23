@@ -7,10 +7,8 @@ jobs:
   create-archive:
     runs-on: ubuntu-20.04
     steps:
-      - name: Checkout Tag
+      - name: Checkout
         uses: actions/checkout@v3
-        with:
-          ref: "${{ github.event.inputs.tag }}"
       - name: Create Archive
         run: python3 build.py --source
       - name: Upload Source Archive
