@@ -91,7 +91,7 @@ jobs:
             kestrel-*/build/*.exe
   release-deb:
     runs-on: ubuntu-20.04
-    needs: create-archive
+    needs: [ create-archive, release-linux ]
     steps:
       - name: Install Build Dependencies
         run: |
