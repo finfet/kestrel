@@ -93,11 +93,6 @@ jobs:
     runs-on: ubuntu-20.04
     needs: [ create-archive, release-linux ]
     steps:
-      - name: Install Build Dependencies
-        run: |
-          rustup target add x86_64-unknown-linux-musl
-          rustup target add aarch64-unknown-linux-musl
-          sudo apt-get install -y gcc-aarch64-linux-gnu
       - name: Download Artifacts
         uses: actions/download-artifact@v3
         with:
