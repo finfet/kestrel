@@ -270,7 +270,7 @@ def build_target(target_arch, os_tag, source_version, arch_tag, bin_name, run_te
 
     if run_tests:
         print("Running tests for {}".format(target_arch))
-        prv = subprocess.run(["cargo", "test", "--release", "--workspace", "--target", target_arch])
+        prv = subprocess.run(["cargo", "test", "--workspace", "--target", target_arch])
         prv.check_returncode()
 
     print("Building for {}".format(target_arch))
@@ -278,7 +278,7 @@ def build_target(target_arch, os_tag, source_version, arch_tag, bin_name, run_te
         os_env = os.environ.copy()
         env_vars = {**env_vars, **os_env}
 
-    prv = subprocess.run(["cargo", "build", "--frozen", "--release", "--target", target_arch], env=env_vars)
+    prv = subprocess.run(["cargo", "build", "--locked", "--release", "--target", target_arch], env=env_vars)
     prv.check_returncode()
 
     archive_name = create_archive_name(os_tag, source_version, arch_tag)
