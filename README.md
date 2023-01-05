@@ -21,7 +21,7 @@ to anyone with a public key.
 - Supports Linux, macOS, Windows.
 
 
-## Disadvantages
+## Limitations
 
 - Does not handle signatures. You can't sign files with this. However,
   sender authentication is guaranteed.

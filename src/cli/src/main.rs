@@ -56,11 +56,11 @@ fn main() -> Result<(), anyhow::Error> {
     match args[1] {
         "enc" | "encrypt" => match parse_encrypt(args.as_slice()) {
             Ok(opts) => commands::encrypt(opts)?,
-            Err(e) => print_usage(e)?,
+            Err(e) => print_error(e)?,
         },
         "dec" | "decrypt" => match parse_decrypt(args.as_slice()) {
             Ok(opts) => commands::decrypt(opts)?,
-            Err(e) => print_usage(e)?,
+            Err(e) => print_error(e)?,
         },
         "key" => match parse_key(args.as_slice()) {
             Ok(key_command) => match key_command {
@@ -68,14 +68,14 @@ fn main() -> Result<(), anyhow::Error> {
                 KeyCommand::ChangePass(priv_key) => commands::change_pass(priv_key)?,
                 KeyCommand::ExtractPub(priv_key) => commands::extract_pub(priv_key)?,
             },
-            Err(e) => print_usage(e)?,
+            Err(e) => print_error(e)?,
         },
         "pass" | "password" => match parse_password(args.as_slice()) {
             Ok(pass_command) => match pass_command {
                 PasswordCommand::Encrypt(pass_opts) => commands::pass_encrypt(pass_opts)?,
                 PasswordCommand::Decrypt(pass_opts) => commands::pass_decrypt(pass_opts)?,
             },
-            Err(e) => print_usage(e)?,
+            Err(e) => print_error(e)?,
         },
         _ => {
             return Err(anyhow!("{}", USAGE));
@@ -93,11 +93,11 @@ fn print_version() {
     println!("v{}", VERSION.unwrap_or("0.0.1"));
 }
 
-fn print_usage(msg: Option<String>) -> Result<(), anyhow::Error> {
+fn print_error(msg: Option<String>) -> Result<(), anyhow::Error> {
     if let Some(msg) = msg {
-        return Err(anyhow!("{}\n\nError: {}", USAGE, msg));
+        return Err(anyhow!("{}\n\n{}", msg, "For more information try --help"));
     } else {
-        return Err(anyhow!("{}", USAGE));
+        return Err(anyhow!("\n\n{}", USAGE));
     }
 }
 
@@ -169,6 +169,10 @@ fn parse_decrypt(args: &[&str]) -> Result<DecryptOptions, Option<String>> {
 }
 
 fn parse_key(args: &[&str]) -> Result<KeyCommand, Option<String>> {
+    if args.len() < 4 {
+        return Err(Some("Not enough arguments".to_string()));
+    }
+
     match args[2] {
         "gen" | "generate" => {
             let mut gen_opts = Options::new();
