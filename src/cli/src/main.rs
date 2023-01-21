@@ -1,4 +1,4 @@
-// Copyright 2021-2022 Kyle Schreiber
+// Copyright 2021-2023 Kyle Schreiber
 // SPDX-License-Identifier: BSD-3-Clause
 
 mod commands;
@@ -56,11 +56,11 @@ fn main() -> Result<(), anyhow::Error> {
     match args[1] {
         "enc" | "encrypt" => match parse_encrypt(args.as_slice()) {
             Ok(opts) => commands::encrypt(opts)?,
-            Err(e) => print_error(e)?,
+            Err(e) => print_error(&e)?,
         },
         "dec" | "decrypt" => match parse_decrypt(args.as_slice()) {
             Ok(opts) => commands::decrypt(opts)?,
-            Err(e) => print_error(e)?,
+            Err(e) => print_error(&e)?,
         },
         "key" => match parse_key(args.as_slice()) {
             Ok(key_command) => match key_command {
@@ -68,14 +68,14 @@ fn main() -> Result<(), anyhow::Error> {
                 KeyCommand::ChangePass(priv_key) => commands::change_pass(priv_key)?,
                 KeyCommand::ExtractPub(priv_key) => commands::extract_pub(priv_key)?,
             },
-            Err(e) => print_error(e)?,
+            Err(e) => print_error(&e)?,
         },
         "pass" | "password" => match parse_password(args.as_slice()) {
             Ok(pass_command) => match pass_command {
                 PasswordCommand::Encrypt(pass_opts) => commands::pass_encrypt(pass_opts)?,
                 PasswordCommand::Decrypt(pass_opts) => commands::pass_decrypt(pass_opts)?,
             },
-            Err(e) => print_error(e)?,
+            Err(e) => print_error(&e)?,
         },
         _ => {
             return Err(anyhow!("{}", USAGE));
@@ -93,17 +93,13 @@ fn print_version() {
     println!("v{}", VERSION.unwrap_or("0.0.1"));
 }
 
-fn print_error(msg: Option<String>) -> Result<(), anyhow::Error> {
-    if let Some(msg) = msg {
-        return Err(anyhow!("{}\n\n{}", msg, "For more information try --help"));
-    } else {
-        return Err(anyhow!("\n\n{}", USAGE));
-    }
+fn print_error(msg: &str) -> Result<(), anyhow::Error> {
+    Err(anyhow!("{}\n{}", msg, "For more info use '--help'"))
 }
 
-fn parse_encrypt(args: &[&str]) -> Result<EncryptOptions, Option<String>> {
+fn parse_encrypt(args: &[&str]) -> Result<EncryptOptions, String> {
     if args.len() < 3 {
-        return Err(Some("Not enough arguments".to_string()));
+        return Err("Not enough arguments".to_string());
     }
 
     let mut encrypt_opts = Options::new();
@@ -114,11 +110,11 @@ fn parse_encrypt(args: &[&str]) -> Result<EncryptOptions, Option<String>> {
 
     let matches = match encrypt_opts.parse(&args[2..]) {
         Ok(m) => m,
-        Err(e) => return Err(Some(e.to_string())),
+        Err(e) => return Err(e.to_string()),
     };
 
     if matches.free.len() != 1 {
-        return Err(Some("Specify an input file to encrypt".to_string()));
+        return Err("Specify an input file to encrypt".to_string());
     }
 
     let infile = matches.free[0].clone();
@@ -136,9 +132,9 @@ fn parse_encrypt(args: &[&str]) -> Result<EncryptOptions, Option<String>> {
     })
 }
 
-fn parse_decrypt(args: &[&str]) -> Result<DecryptOptions, Option<String>> {
+fn parse_decrypt(args: &[&str]) -> Result<DecryptOptions, String> {
     if args.len() < 3 {
-        return Err(Some("Not enough arguments".to_string()));
+        return Err("Not enough arguments".to_string());
     }
 
     let mut decrypt_opts = Options::new();
@@ -148,11 +144,11 @@ fn parse_decrypt(args: &[&str]) -> Result<DecryptOptions, Option<String>> {
 
     let matches = match decrypt_opts.parse(&args[2..]) {
         Ok(m) => m,
-        Err(e) => return Err(Some(e.to_string())),
+        Err(e) => return Err(e.to_string()),
     };
 
     if matches.free.len() != 1 {
-        return Err(Some("Specify an input file to decrypt".to_string()));
+        return Err("Specify an input file to decrypt".to_string());
     }
 
     let infile = matches.free[0].clone();
@@ -168,9 +164,9 @@ fn parse_decrypt(args: &[&str]) -> Result<DecryptOptions, Option<String>> {
     })
 }
 
-fn parse_key(args: &[&str]) -> Result<KeyCommand, Option<String>> {
+fn parse_key(args: &[&str]) -> Result<KeyCommand, String> {
     if args.len() < 4 {
-        return Err(Some("Not enough arguments".to_string()));
+        return Err("Not enough arguments".to_string());
     }
 
     match args[2] {
@@ -179,7 +175,7 @@ fn parse_key(args: &[&str]) -> Result<KeyCommand, Option<String>> {
             gen_opts.reqopt("o", "output", "Output file", "FILE");
             let matches = match gen_opts.parse(&args[3..]) {
                 Ok(m) => m,
-                Err(e) => return Err(Some(e.to_string())),
+                Err(e) => return Err(e.to_string()),
             };
 
             let outfile = matches.opt_str("o").unwrap();
@@ -191,7 +187,7 @@ fn parse_key(args: &[&str]) -> Result<KeyCommand, Option<String>> {
                 let priv_key = args[3].to_string();
                 Ok(KeyCommand::ChangePass(priv_key))
             } else {
-                Err(Some("Provide a private key".to_string()))
+                Err("Provide a private key".to_string())
             }
         }
         "extract-pub" => {
@@ -199,16 +195,16 @@ fn parse_key(args: &[&str]) -> Result<KeyCommand, Option<String>> {
                 let priv_key = args[3].to_string();
                 Ok(KeyCommand::ExtractPub(priv_key))
             } else {
-                Err(Some("Provide a private key".to_string()))
+                Err("Provide a private key".to_string())
             }
         }
-        _ => Err(None),
+        _ => Err("Incorrect usage".to_string()),
     }
 }
 
-fn parse_password(args: &[&str]) -> Result<PasswordCommand, Option<String>> {
+fn parse_password(args: &[&str]) -> Result<PasswordCommand, String> {
     if args.len() < 4 {
-        return Err(Some("Not enough arguments".to_string()));
+        return Err("Not enough arguments".to_string());
     }
 
     match args[2] {
@@ -220,21 +216,21 @@ fn parse_password(args: &[&str]) -> Result<PasswordCommand, Option<String>> {
             Ok(pass_opts) => Ok(PasswordCommand::Decrypt(pass_opts)),
             Err(e) => Err(e),
         },
-        _ => Err(None),
+        _ => Err("Incorrect usage".to_string()),
     }
 }
 
-fn parse_pass_encrypt(args: &[&str]) -> Result<PasswordOptions, Option<String>> {
+fn parse_pass_encrypt(args: &[&str]) -> Result<PasswordOptions, String> {
     let mut pass_encrypt_opts = Options::new();
     pass_encrypt_opts.optopt("o", "output", "Output file", "FILE");
 
     let matches = match pass_encrypt_opts.parse(args) {
         Ok(m) => m,
-        Err(e) => return Err(Some(e.to_string())),
+        Err(e) => return Err(e.to_string()),
     };
 
     if matches.free.len() != 1 {
-        return Err(Some("Specify an input file to encrypt".to_string()));
+        return Err("Specify an input file to encrypt".to_string());
     }
 
     let infile = matches.free[0].clone();
@@ -243,17 +239,17 @@ fn parse_pass_encrypt(args: &[&str]) -> Result<PasswordOptions, Option<String>> 
     Ok(PasswordOptions { infile, outfile })
 }
 
-fn parse_pass_decrypt(args: &[&str]) -> Result<PasswordOptions, Option<String>> {
+fn parse_pass_decrypt(args: &[&str]) -> Result<PasswordOptions, String> {
     let mut pass_decrypt_opts = Options::new();
     pass_decrypt_opts.optopt("o", "output", "Output file", "FILE");
 
     let matches = match pass_decrypt_opts.parse(args) {
         Ok(m) => m,
-        Err(e) => return Err(Some(e.to_string())),
+        Err(e) => return Err(e.to_string()),
     };
 
     if matches.free.len() != 1 {
-        return Err(Some("Specify an input file to decrypt".to_string()));
+        return Err("Specify an input file to decrypt".to_string());
     }
 
     let infile = matches.free[0].clone();
