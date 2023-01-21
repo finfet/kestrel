@@ -70,7 +70,7 @@ requires the package binutils-x86_64-linux-gnu if you're running from an
 x86_64 host.
 
 ### .deb and .rpm packages
-Creating in Docker containers. `build.py` follows the standard packging
+Created in Docker containers. `build.py` follows the standard packging
 procedure for debian and fedora to create packages.
 
 ### Manpage Generation
