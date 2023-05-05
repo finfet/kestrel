@@ -2,7 +2,7 @@ FROM debian:bullseye
 
 # Build kestrel .deb and .rpm packages
 
-ARG APPVER=0.10.1
+ARG APPVER=0.11.0
 ARG DEBREV=1
 ARG ARCH=amd64
 ARG ALTARCH=x86_64

@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 0.11.0
+
+- Unreleased
+
 ## Version 0.10.1
 
 - Fixed crash when running kestrel key

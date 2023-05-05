@@ -1,6 +1,6 @@
 # Build Instructions
 
-This application is built with cargo. rustc 1.59+ is required.
+This application is built with cargo. rustc 1.69+ is required.
 
 **Cargo**
 

@@ -1,5 +1,5 @@
 Package: kestrel
-Version: 0.10.1
+Version: 0.11.0
 Architecture: arm64
 Section: utils
 Priority: optional
