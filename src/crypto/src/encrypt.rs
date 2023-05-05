@@ -27,10 +27,10 @@ pub fn key_encrypt<T: Read, U: Write>(
     file_format: AsymFileFormat,
 ) -> Result<(), EncryptError> {
     let _file_format = file_format;
-    let key: [u8; 32] = secure_random(32).try_into().unwrap();
-    let payload_key = match payload_key {
-        Some(pk) => pk,
-        None => key,
+    let payload_key = if let Some(pk) = payload_key {
+        pk
+    } else {
+        secure_random(32).try_into().unwrap()
     };
     let noise_message = noise_encrypt(sender, recipient, ephemeral, &PROLOGUE, &payload_key);
 
