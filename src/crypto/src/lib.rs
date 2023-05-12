@@ -282,7 +282,8 @@ pub fn scrypt(password: &[u8], salt: &[u8], n: u32, r: u32, p: u32, dk_len: usiz
     // The conversion here is safe because all u32 can be represented in a f64
     // and the log2 of any u32 is guaranteed to fit into a u8
     let n: u8 = (n as f64).log2().round() as u8;
-    let scrypt_params = scrypt::Params::new(n, r, p).unwrap();
+    // The length parameter of 32 is ignored by scrypt::scrypt.
+    let scrypt_params = scrypt::Params::new(n, r, p, 32).unwrap();
     let mut key = vec![0u8; dk_len];
 
     scrypt::scrypt(password, salt, &scrypt_params, &mut key).expect("scrypt kdf failed");
@@ -383,8 +384,11 @@ mod tests {
         let expected =
             hex::decode("3ebb9ac0d1da595f755407fe8fc246fe67fe6075730fc6e853351c2834bd6157")
                 .unwrap();
+        let expected2 = hex::decode("3ebb9ac0d1da595f").unwrap();
+        let result2 = scrypt(password, salt, 32768, 8, 1, 8);
 
         assert_eq!(&expected, &result);
+        assert_eq!(&expected2, &result2);
     }
 
     #[test]
