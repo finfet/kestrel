@@ -5,8 +5,9 @@
 //! This library provides implementations of ChaCha20-Poly1305, X25519,
 //! SHA-256, HMAC-SHA-256 and the Noise X protocol.
 //!
-//! The goal of this library is not to provide a general cryptographic
-//! library, but the functions provided here could certainly be used as such.
+//! The goal of this library is not to serve as a general purpose
+//! cryptographic library, but the functions provided here could certainly
+//! be used as such.
 
 pub mod decrypt;
 pub mod encrypt;

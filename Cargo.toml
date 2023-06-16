@@ -1,5 +1,5 @@
 [workspace]
-members = ["src/crypto", "src/cli"]
+members = ["crates/*"]
 
 [profile.dev.package.scrypt]
 opt-level = 3

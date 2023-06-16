@@ -17,7 +17,7 @@ categories = ["cryptography"]
 getrandom = { version = "0.2.9", features = ["js"] }
 x25519-dalek = "2.0.0-rc.2"
 chacha20poly1305 = "0.10.1"
-sha2 = "0.10.6"
+sha2 = "0.10.7"
 hmac = "0.12.1"
 scrypt = "0.11.0"
 zeroize = { version = "1.6", features = ["zeroize_derive"] }
