@@ -1,6 +1,6 @@
 # Build Instructions
 
-This application is built with cargo. rustc 1.69+ is required.
+This application is built with cargo. rustc 1.70+ is required.
 
 **Cargo**
 
@@ -17,12 +17,10 @@ sudo make prefix=/usr/local install
 
 **Creating a release**
 
-The official release process includes a `build.py` script that builds the
-application and creates installer packages for the supported architectures
-and operating systems. Official .deb and .rpm packages include a man page
-and bash completion script.
+The Makefile includes the ability to build .rpm and .deb packages as well as
+a tarball containing the binary and associated docs and man pages.
 
-## Required Packages for build.py
+## Required Packages
 
 **Linux**
 
@@ -46,53 +44,11 @@ and bash completion script.
 
 ## Building
 
-### Source Release
-Create a source release. Make sure the git directory doesn't have any files
-that aren't tracked: `git clean -dxi`
-
+Create the linux .deb, .rpm, and binary releases
 ```
-python3 build.py --source
+make all-linux
 ```
-
-This will put a source tarball in `build/`
-
-### Build Binaries
-Binaries should be built from a source release created with `build.py --source`
-
-### Linux build
-```
-python3 build.py --os linux --arch amd64 --arch arm64 --test-arch amd64
-```
-
-The test architecture should be the architecture of the host machine that
-you're building on because it will also run tests. Striping the binaries
-requires the package binutils-x86_64-linux-gnu if you're running from an
-x86_64 host.
-
-### .deb and .rpm packages
-Created in Docker containers. `build.py` follows the standard packging
-procedure for debian and fedora to create packages.
 
 ### Manpage Generation
 Manpages are converted from markdown using pandoc. Running `make` in the
 `docs/` directory will generate the manpage.
-
-### macOS build
-```
-python3 build.py --os macos -a amd64 -a arm64 --test-arch arm64
-```
-
-### Windows build
-```
-python3 build.py --os windows --arch amd64 --test-arch amd64 --win-installer
-```
-
-Specifying --win-installer will use Inno Setup to build the windows
-installer
-
-### SHA256SUMS file
-Create SHA-256 checksums of all build artifacts in the specified directory
-
-```
-python3 build.py --checksum build
-```

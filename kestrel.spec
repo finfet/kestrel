@@ -31,15 +31,15 @@ anyone with a public key.
 gzip -k man/kestrel.1
 
 %install
-mkdir -p $RPM_BUILD_ROOT/%{_bindir}
-install -m 755 kestrel $RPM_BUILD_ROOT/%{_bindir}
-mkdir -p $RPM_BUILD_ROOT/%{_mandir}/man1
-install -m 644 man/kestrel.1.gz $RPM_BUILD_ROOT/%{_mandir}/man1
-mkdir -p $RPM_BUILD_ROOT/%{_docdir}/kestrel
-install -m 644 LICENSE.txt $RPM_BUILD_ROOT/%{_docdir}/kestrel
-install -m 644 THIRD-PARTY-LICENSE.txt $RPM_BUILD_ROOT/%{_docdir}/kestrel
-mkdir -p $RPM_BUILD_ROOT/usr/share/bash-completion/completions
-install -m 644 completion/kestrel.bash-completion $RPM_BUILD_ROOT/usr/share/bash-completion/completions/kestrel
+mkdir -p %{buildroot}/%{_bindir}
+install -m 755 kestrel %{buildroot}/%{_bindir}
+mkdir -p %{buildroot}/%{_mandir}/man1
+install -m 644 man/kestrel.1.gz %{buildroot}/%{_mandir}/man1
+mkdir -p %{buildroot}/%{_docdir}/kestrel
+install -m 644 LICENSE.txt %{buildroot}/%{_docdir}/kestrel
+install -m 644 THIRD-PARTY-LICENSE.txt %{buildroot}/%{_docdir}/kestrel
+mkdir -p %{buildroot}/usr/share/bash-completion/completions
+install -m 644 completion/kestrel.bash-completion %{buildroot}/usr/share/bash-completion/completions/kestrel
 
 %files
 # Make sure we know about the kestrel doc folder so we can delete it
@@ -51,5 +51,8 @@ install -m 644 completion/kestrel.bash-completion $RPM_BUILD_ROOT/usr/share/bash
 /usr/share/bash-completion/completions/kestrel
 
 %changelog
+* Fri Jan 20 2023 Kyle Schreiber <kyle@80x24.net> - 0.10.1-1
+- Fixed crash when running kestrel key
+- Improved cli error message output
 * Mon Jul 04 2022 Kyle Schreiber <kyle@80x24.net> - 0.10.0-1
 - Warn on use of empty password.

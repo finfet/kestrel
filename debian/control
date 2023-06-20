@@ -1,6 +1,6 @@
 Package: kestrel
 Version: 0.11.0
-Architecture: arm64
+Architecture: amd64
 Section: utils
 Priority: optional
 Description: File encryption done right

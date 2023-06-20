@@ -21,7 +21,7 @@ AppUpdatesURL={#AppURL}
 DefaultDirName={autopf}\KestrelCLI
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
-LicenseFile=install\LICENSE.txt
+LicenseFile=LICENSE.txt
 ; Remove the following line to run in administrative install mode (install for all users.)
 PrivilegesRequired=lowest
 OutputDir=output
@@ -37,9 +37,9 @@ ChangesEnvironment=yes
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "install\bin\{#AppExeName}"; DestDir: "{app}\bin"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "install\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
-Source: "install\THIRD-PARTY-LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "target\release\{#AppExeName}"; DestDir: "{app}\bin"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "THIRD-PARTY-LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Tasks]
