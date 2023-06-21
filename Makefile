@@ -93,14 +93,19 @@ deb: clean-deb package
 	dpkg-deb --build --root-owner-group $(deb_build_dir)/$(deb_app_dir)
 
 rpm: clean-rpm package
-	mkdir -p $(rpm_build_dir)/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+	mkdir -p $(rpm_build_dir)/rpmbuild/BUILD
+	mkdir -p $(rpm_build_dir)/rpmbuild/RPMS
+	mkdir -p $(rpm_build_dir)/rpmbuild/SOURCES
+	mkdir -p $(rpm_build_dir)/rpmbuild/SPECS
+	mkdir -p $(rpm_build_dir)/rpmbuild/SRPMS
 	cp build/$(BIN_PACKAGE_DIR).tar.gz $(rpm_build_dir)/rpmbuild/SOURCES/
 	cp kestrel.spec $(rpm_build_dir)/rpmbuild/SPECS/kestrel.spec
 	rpmbuild -bb --target $(ALTARCH) --define "_topdir $(current_dir)/$(rpm_build_dir)/rpmbuild" $(rpm_build_dir)/rpmbuild/SPECS/kestrel.spec
 
 package: test build-target
 	-rm -rf build/$(BIN_PACKAGE_DIR)
-	mkdir -p build/$(BIN_PACKAGE_DIR)/{completion,man}
+	mkdir -p build/$(BIN_PACKAGE_DIR)/completion
+	mkdir -p build/$(BIN_PACKAGE_DIR)/man
 
 	install -m 644 completion/kestrel.bash-completion build/$(BIN_PACKAGE_DIR)/completion/kestrel.bash-completion
 	install -m 755 target/$(BUILD_TARGET)/release/kestrel build/$(BIN_PACKAGE_DIR)/kestrel
