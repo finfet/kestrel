@@ -42,7 +42,7 @@ jobs:
           name: release-macos
           path: build/release-macos-*.tar.gz
   release-windows:
-    run-on: windows-2019
+    runs-on: windows-2019
     steps:
       - name: Install Build Dependencies
         run: |
