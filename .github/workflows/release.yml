@@ -4,7 +4,8 @@ on:
     branches:
       - main
     tags:
-      - "*"
+      - v0.*
+      - v1.*
 
 jobs:
   release-linux:
@@ -46,6 +47,8 @@ jobs:
       - name: Install Build Dependencies
         run: |
           rustup target add x86_64-pc-windows-msvc
+      - name: Checkout
+        uses: actions/checkout@v3
       - name: Build Release
         run: |
           cargo build --release --target x86_64-pc-windows-msvc
