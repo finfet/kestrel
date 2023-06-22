@@ -14,6 +14,7 @@ AppId={{4917E236-8B10-497E-9D48-D530AE55B46A}
 AppName={#AppName}
 AppVersion={#AppVersion}
 ;AppVerName={#MyAppName} {#MyAppVersion}
+VersionInfoVersion={#AppVersion}
 AppPublisher={#AppPublisher}
 AppPublisherURL={#AppURL}
 AppSupportURL={#AppURL}
@@ -24,7 +25,7 @@ DisableProgramGroupPage=yes
 LicenseFile=LICENSE.txt
 ; Remove the following line to run in administrative install mode (install for all users.)
 PrivilegesRequired=lowest
-OutputDir=output
+OutputDir=build\wininstaller
 OutputBaseFilename=kestrel-cli-setup-v{#AppVersion}-x64
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
@@ -37,7 +38,7 @@ ChangesEnvironment=yes
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "target\release\{#AppExeName}"; DestDir: "{app}\bin"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "build\{#AppExeName}"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "THIRD-PARTY-LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
