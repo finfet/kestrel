@@ -50,6 +50,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Build Release
+        shell: pwsh
         run: |
           .\windows-installer.ps1 all
       - name: Upload Release Archive
