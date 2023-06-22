@@ -26,7 +26,7 @@ jobs:
           name: release-linux
           path: build/release-linux-*.tar.gz
   release-macos:
-    runs-on: macos-11
+    runs-on: macos-latest
     steps:
       - name: Install Build Dependencies
         run: |
@@ -42,7 +42,7 @@ jobs:
           name: release-macos
           path: build/release-macos-*.tar.gz
   release-windows:
-    runs-on: windows-2019
+    runs-on: windows-latest
     steps:
       - name: Install Build Dependencies
         run: |
@@ -50,9 +50,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Build Release
-        shell: pwsh
         run: |
           .\windows-installer.ps1 all
+        shell: powershell
       - name: Upload Release Archive
         uses: actions/upload-artifact@v3
         with:
