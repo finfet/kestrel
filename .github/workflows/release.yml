@@ -88,12 +88,16 @@ jobs:
           cd release-windows && unzip release-windows-*.zip
       - name: Create Combined Release
         run: |
-          mkdir release-all
-          cp -a release-linux/release-linux-*/* release-all/
-          cp -a release-macos/release-macos-*/* release-all/
-          cp release-windows/release-windows-*/* release-all/
-          cd release-all && sha256sum -b * > SHA256SUMS.txt
-          tar -czvpf release-all.tar.gz release-all
+          ls -lha
+          echo "---"
+          ls -lha release-windows
+          echo "---"
+          # mkdir release-all
+          # cp -a release-linux/release-linux-*/* release-all/
+          # cp -a release-macos/release-macos-*/* release-all/
+          # cp release-windows/release-windows-*/* release-all/
+          # cd release-all && sha256sum -b * > SHA256SUMS.txt
+          # tar -czvpf release-all.tar.gz release-all
       - name: Upload Release Archive
         uses: actions/upload-artifact@v3
         with:
