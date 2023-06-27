@@ -6,6 +6,11 @@ on:
     tags:
       - v0.*
       - v1.*
+  workflow_dispatch:
+    inputs:
+      git-ref:
+        description: "Git Ref"
+        required: false
 
 jobs:
   release-linux:
@@ -16,8 +21,12 @@ jobs:
           rustup target add x86_64-unknown-linux-musl
           rustup target add aarch64-unknown-linux-musl
           sudo apt-get install -y gcc-aarch64-linux-gnu rpm
-      - name: Checkout
+      - name: Checkout (Latest)
         uses: actions/checkout@v3
+        if: github.event.inputs.git-ref == ''
+      - name: Checkout (Ref)
+        uses: actions/checkout@v3
+        if: github.event.inputs.git-ref != ''
       - name: Build Release
         run: make all-linux
       - name: Upload Release Archive
@@ -32,8 +41,12 @@ jobs:
         run: |
           rustup target add x86_64-apple-darwin
           rustup target add aarch64-apple-darwin
-      - name: Checkout
+      - name: Checkout (Latest)
         uses: actions/checkout@v3
+        if: github.event.inputs.git-ref == ''
+      - name: Checkout (Ref)
+        uses: actions/checkout@v3
+        if: github.event.inputs.git-ref != ''
       - name: Build Release
         run: make all-macos
       - name: Upload Release Archive
@@ -47,8 +60,12 @@ jobs:
       - name: Install Build Dependencies
         run: |
           rustup target add x86_64-pc-windows-msvc
-      - name: Checkout
+      - name: Checkout (Latest)
         uses: actions/checkout@v3
+        if: github.event.inputs.git-ref == ''
+      - name: Checkout (Ref)
+        uses: actions/checkout@v3
+        if: github.event.inputs.git-ref != ''
       - name: Build Release
         run: |
           .\windows-build.ps1 all
