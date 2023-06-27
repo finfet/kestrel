@@ -83,14 +83,14 @@ jobs:
         uses: actions/download-artifact@v3
       - name: Extract Files
         run: |
-          tar -xf release-linux/release-linux-*.tar.gz
-          tar -xf release-macos/release-macos-*.tar.gz
+          tar -C release-linux -xf release-linux/release-linux-*.tar.gz
+          tar -C release-macos -xf release-macos/release-macos-*.tar.gz
           unzip release-windows/release-windows-*.zip -d release-windows
       - name: Create Combined Release
         run: |
-          cp -a release-linux/release-linux-*/* release-all/
-          cp -a release-macos/release-macos-*/* release-all/
-          cp -a release-windows/release-windows-*/* release-all/
+          cp -a release-linux/release-linux-*/. release-all/
+          cp -a release-macos/release-macos-*/. release-all/
+          cp -a release-windows/release-windows-*/. release-all/
           cd release-all && sha256sum -b * > SHA256SUMS.txt
           tar -czvpf release-all.tar.gz release-all
       - name: Upload Release Archive
