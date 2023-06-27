@@ -92,7 +92,7 @@ jobs:
           cp -a release-linux/release-linux-*/* release-all/
           cp -a release-macos/release-macos-*/* release-all/
           cp release-windows/release-windows-*/* release-all/
-          cd release-all && sha256sum -b * > SHA256SUMS.txt
+          cd release-all && sha256sum -b * > SHA256SUMS.txt && cd ..
           tar -czvpf release-all.tar.gz release-all
       - name: Upload Release Archive
         uses: actions/upload-artifact@v3
