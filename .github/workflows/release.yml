@@ -85,7 +85,7 @@ jobs:
         run: |
           tar -xf release-linux/release-linux-*.tar.gz
           tar -xf release-macos/release-macos-*.tar.gz
-          unzip -d release-windows/release-windows-*.zip -d release-windows
+          unzip release-windows/release-windows-*.zip -d release-windows
       - name: Create Combined Release
         run: |
           cp -a release-linux/release-linux-*/. release-all/
