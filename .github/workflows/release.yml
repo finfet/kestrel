@@ -68,6 +68,7 @@ jobs:
         if: github.event.inputs.git-ref != ''
       - name: Build Release
         run: |
+          Get-Module "Microsoft.PowerShell.Archive"
           .\windows-build.ps1 all
         shell: powershell
       - name: Upload Release Archive
