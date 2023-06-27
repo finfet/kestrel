@@ -85,14 +85,12 @@ jobs:
         run: |
           tar -C release-linux -xf release-linux/release-linux-*.tar.gz
           tar -C release-macos -xf release-macos/release-macos-*.tar.gz
-          unzip release-windows/release-windows-*.zip -d release-windows
+          cd release-windows && unzip release-windows-*.zip
       - name: Create Combined Release
         run: |
           mkdir release-all
           cp -a release-linux/release-linux-*/* release-all/
           cp -a release-macos/release-macos-*/* release-all/
-          ls -lha
-          ls -lha release-windows/
           cp release-windows/release-windows-*/* release-all/
           cd release-all && sha256sum -b * > SHA256SUMS.txt
           tar -czvpf release-all.tar.gz release-all
