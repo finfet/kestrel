@@ -91,6 +91,8 @@ jobs:
           mkdir release-all
           cp -a release-linux/release-linux-*/* release-all/
           cp -a release-macos/release-macos-*/* release-all/
+          ls -lha
+          ls -lha release-windows/
           cp release-windows/release-windows-*/* release-all/
           cd release-all && sha256sum -b * > SHA256SUMS.txt
           tar -czvpf release-all.tar.gz release-all
