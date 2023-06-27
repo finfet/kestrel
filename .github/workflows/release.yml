@@ -88,9 +88,10 @@ jobs:
           unzip release-windows/release-windows-*.zip -d release-windows
       - name: Create Combined Release
         run: |
-          cp -a release-linux/release-linux-*/. release-all/
-          cp -a release-macos/release-macos-*/. release-all/
-          cp -a release-windows/release-windows-*/. release-all/
+          mkdir release-all
+          cp -a release-linux/release-linux-*/* release-all/
+          cp -a release-macos/release-macos-*/* release-all/
+          cp release-windows/release-windows-*/* release-all/
           cd release-all && sha256sum -b * > SHA256SUMS.txt
           tar -czvpf release-all.tar.gz release-all
       - name: Upload Release Archive
