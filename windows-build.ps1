@@ -33,7 +33,7 @@ function package {
     Copy-Item "LICENSE.txt" -Destination "build\$packageDir"
     Copy-Item "THIRD-PARTY-LICENSE.txt" -Destination "build\$packageDir"
     Copy-Item "target\$buildTarget\release\kestrel.exe" -Destination "build\$packageDir\kestrel.exe"
-    Compress-Archive -Path "build\$packageDir" -DestinationPath "build\$packageDir.zip"
+    7z a "build\$packageDir.zip" "build\$packageDir"
 }
 
 function installer {
