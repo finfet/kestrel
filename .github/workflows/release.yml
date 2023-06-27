@@ -80,7 +80,7 @@ jobs:
     needs: [release-linux, release-macos, release-windows]
     steps:
       - name: Download Artifacts
-        uses: actions/download-artifact
+        uses: actions/download-artifact@v3
       - name: Extract Files
         run: |
           tar -xf release-linux/release-linux-*.tar.gz
