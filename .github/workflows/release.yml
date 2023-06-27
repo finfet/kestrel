@@ -75,3 +75,26 @@ jobs:
         with:
           name: release-windows
           path: build/release-windows-*.zip
+  combine-artifacts:
+    runs-on: ubuntu-22.04
+    needs: [release-linux, release-macos, release-windows]
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact
+      - name: Extract Files
+        run: |
+          tar -xf release-linux/release-linux-*.tar.gz
+          tar -xf release-macos/release-macos-*.tar.gz
+          unzip -d release-windows/release-windows-*.zip -d release-windows
+      - name: Create Combined Release
+        run: |
+          cp -a release-linux/release-linux-*/. release-all/
+          cp -a release-macos/release-macos-*/. release-all/
+          cp -a release-windows/release-windows-*/. release-all/
+          cd release-all && sha256sum -b * > SHA256SUMS.txt
+          tar -czvpf release-all.tar.gz release-all
+      - name: Upload Release Archive
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-all
+          path: release-all.tar.gz

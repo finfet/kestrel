@@ -46,7 +46,6 @@ all-linux: linux-amd64 linux-arm64 rpm-amd64 rpm-arm64 deb-amd64 deb-arm64
 	cp -a build/kestrel-linux-v$(version)-arm64.tar.gz build/$(linux_release_dir)/
 	cp -a build/rpm_amd64/rpmbuild/RPMS/x86_64/*.rpm build/$(linux_release_dir)/
 	cp -a build/rpm_arm64/rpmbuild/RPMS/aarch64/*rpm build/$(linux_release_dir)/
-	cd build/$(linux_release_dir) && sha256sum -b * > SHA256SUMS.txt
 	tar -C build -czpvf build/$(linux_release_dir).tar.gz $(linux_release_dir)
 
 macos-amd64:
@@ -60,7 +59,6 @@ all-macos: macos-amd64 macos-arm64
 	mkdir -p build/$(macos_release_dir)
 	cp -a build/kestrel-macos-v$(version)-amd64.tar.gz build/$(macos_release_dir)/
 	cp -a build/kestrel-macos-v$(version)-arm64.tar.gz build/$(macos_release_dir)/
-	cd build/$(macos_release_dir) && shasum -a 256 -b * > SHA256SUMS.txt
 	tar -C build -czpvf build/$(macos_release_dir).tar.gz $(macos_release_dir)
 
 build:
