@@ -33,7 +33,7 @@ function package {
     Copy-Item "LICENSE.txt" -Destination "build\$packageDir"
     Copy-Item "THIRD-PARTY-LICENSE.txt" -Destination "build\$packageDir"
     Copy-Item "target\$buildTarget\release\kestrel.exe" -Destination "build\$packageDir\kestrel.exe"
-    7z a "build\$packageDir.zip" "build\$packageDir"
+    cd build; 7z a "$packageDir.zip" "$packageDir"; cd ..;
 }
 
 function installer {
@@ -51,7 +51,7 @@ function all {
     create-dir("build\$releaseDir")
     Copy-Item "build\$packageDir.zip" -Destination "build\$releaseDir"
     Copy-Item "build\wininstaller\$installerName" -Destination "build\$releaseDir"
-    7z a "build\$releaseDir.zip" "build\$releaseDir"
+    cd build; 7z a "$releaseDir.zip" "$releaseDir"; cd ..;
 }
 
 function create-dir($d) {
