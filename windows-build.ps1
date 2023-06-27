@@ -51,7 +51,7 @@ function all {
     create-dir("build\$releaseDir")
     Copy-Item "build\$packageDir.zip" -Destination "build\$releaseDir"
     Copy-Item "build\wininstaller\$installerName" -Destination "build\$releaseDir"
-    Compress-Archive -Path "build\$releaseDir" -DestinationPath "build\$releaseDir.zip"
+    7z a "build\$releaseDir.zip" "build\$releaseDir"
 }
 
 function create-dir($d) {
