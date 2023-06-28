@@ -114,7 +114,7 @@ package: test build-target
 	tar -C build -czpvf build/$(BIN_PACKAGE_DIR).tar.gz $(BIN_PACKAGE_DIR)
 
 source:
-	-mkdir build
+	mkdir -p build
 	git archive --prefix="$(source_dir)/" -o build/$(source_dir).tar.gz HEAD
 
 clean-deb:
