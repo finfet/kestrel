@@ -3,17 +3,19 @@ $version = "0.11.0"
 $buildTarget = "x86_64-pc-windows-msvc"
 $packageDir = "kestrel-windows-v$version-x64"
 $releaseDir = "release-windows-v$version"
+$sourceDir = "kestrel-$version"
 $installerName = "kestrel-cli-setup-v$version-x64.exe"
 
 function main($cliArgs) {
     $subcommand = $cliArgs[0]
     switch ($subcommand) {
         "build" { build }
-        "package" {package }
+        "package" { package }
+        "source" { source }
         "installer" { installer }
         "all" { all }
         Default {
-            "Command not found. Choose from [build, package, installer]"
+            "Command not found. Choose from [build, package, soruce, installer, all]"
             exit 1
         }
     }
@@ -33,7 +35,12 @@ function package {
     Copy-Item "LICENSE.txt" -Destination "build\$packageDir"
     Copy-Item "THIRD-PARTY-LICENSE.txt" -Destination "build\$packageDir"
     Copy-Item "target\$buildTarget\release\kestrel.exe" -Destination "build\$packageDir\kestrel.exe"
-    cd build; 7z a "$packageDir.zip" "$packageDir"; cd ..;
+    Compress-Archive -Path "build\$packageDir" -DestinationPath "build$packageDir.zip"
+}
+
+function source {
+    create-dir("build")
+    git archive --prefix="$sourceDir/" -o "build/$sourceDir.tar.gz" HEAD
 }
 
 function installer {
@@ -51,7 +58,7 @@ function all {
     create-dir("build\$releaseDir")
     Copy-Item "build\$packageDir.zip" -Destination "build\$releaseDir"
     Copy-Item "build\wininstaller\$installerName" -Destination "build\$releaseDir"
-    cd build; 7z a "$releaseDir.zip" "$releaseDir"; cd ..;
+    Compress-Archive -Path "build\$releaseDir" -DestinationPath "build\$releaseDir.zip"
 }
 
 function create-dir($d) {

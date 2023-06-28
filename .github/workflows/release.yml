@@ -69,7 +69,7 @@ jobs:
       - name: Build Release
         run: |
           .\windows-build.ps1 all
-        shell: powershell
+        shell: pwsh
       - name: Upload Release Archive
         uses: actions/upload-artifact@v3
         with:

@@ -11,6 +11,7 @@ deb_rev := 1
 deb_build_dir := build/deb_$(ARCH)
 deb_app_dir := kestrel_$(version)-$(deb_rev)_$(ARCH)
 rpm_build_dir := build/rpm_$(ARCH)
+source_dir := kestrel-$(version)
 current_dir := $(shell pwd)
 
 linux_release_dir = release-linux-v$(version)
@@ -111,6 +112,10 @@ package: test build-target
 	install -m 644 THIRD-PARTY-LICENSE.txt build/$(BIN_PACKAGE_DIR)/THIRD-PARTY-LICENSE.txt
 	install -m 644 docs/man/kestrel.1 build/$(BIN_PACKAGE_DIR)/man/kestrel.1
 	tar -C build -czpvf build/$(BIN_PACKAGE_DIR).tar.gz $(BIN_PACKAGE_DIR)
+
+source:
+	-mkdir build
+	git archive --prefix="$(source_dir)/" -o build/$(source_dir).tar.gz HEAD
 
 clean-deb:
 	-rm -rf $(deb_build_dir)
