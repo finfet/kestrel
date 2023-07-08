@@ -128,12 +128,12 @@ USAGE:
     Option -k is required unless KESTREL_KEYRING env var is set.
 
 OPTIONS:
-    -t, --to        Recipient key name. Decrypt requires a private key.
-    -f, --from      Sender key name. Must be a private key.
-    -o, --output    Output file name.
-    -k, --keyring   Location of a keyring file.
-    -h, --help      Print help information.
-    -v, --version   Print version information.
+    -t, --to      NAME    Recipient key name. Decrypt requires a private key.
+    -f, --from    NAME    Sender key name. Must be a private key.
+    -o, --output  FILE    Output file name.
+    -k, --keyring KEYRING Location of a keyring file.
+    -h, --help            Print help information.
+    -v, --version         Print version information.
 ```
 
 ## Documentation

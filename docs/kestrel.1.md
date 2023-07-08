@@ -43,16 +43,16 @@ Name = bob
 PublicKey = BASE64-PUBLIC-KEY  
 
 # OPTIONS
--t, --to  
+-t, --to NAME  
 Recipient key name. Decrypt requires a private key.
 
--f, --from  
+-f, --from NAME  
 Sender key name. Must be a private key.
 
--o, --output  
+-o, --output FILE  
 Output file name.
 
--k, --keyring  
+-k, --keyring KEYRING  
 Location of a keyring file.
 
 -h, --help  
