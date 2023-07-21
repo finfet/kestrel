@@ -284,12 +284,10 @@ pub(crate) fn gen_key(outfile: String) -> Result<(), anyhow::Error> {
 }
 
 pub(crate) fn change_pass(private_key: String) -> Result<(), anyhow::Error> {
-    eprint!("Old password: ");
-    let mut old_pass = passterm::read_password()?;
-    eprintln!();
-    eprint!("New password: ");
-    let mut new_pass = passterm::read_password()?;
-    eprintln!();
+    let mut old_pass =
+        passterm::prompt_password_stdin(Some("Old password: "), passterm::Stream::Stderr)?;
+    let mut new_pass =
+        passterm::prompt_password_stdin(Some("New password: "), passterm::Stream::Stderr)?;
 
     let old_sk: EncodedSk = private_key
         .as_str()
@@ -310,9 +308,7 @@ pub(crate) fn change_pass(private_key: String) -> Result<(), anyhow::Error> {
 }
 
 pub(crate) fn extract_pub(private_key: String) -> Result<(), anyhow::Error> {
-    eprint!("Password: ");
-    let mut pass = passterm::read_password()?;
-    eprintln!();
+    let mut pass = passterm::prompt_password_stdin(Some("Password: "), passterm::Stream::Stderr)?;
 
     let esk: EncodedSk = private_key
         .as_str()
@@ -481,14 +477,9 @@ fn calculate_output_path<T: AsRef<Path>, U: Into<PathBuf>>(
 
 fn confirm_password_stderr(prompt: &str) -> Result<String, anyhow::Error> {
     let password = loop {
-        eprint!("{}", prompt);
-        std::io::stderr().flush()?;
-        let pass = passterm::read_password()?;
-        eprintln!();
-        eprint!("Confirm password: ");
-        std::io::stderr().flush()?;
-        let confirm_pass = passterm::read_password()?;
-        eprintln!();
+        let pass = passterm::prompt_password_stdin(Some(prompt), passterm::Stream::Stderr)?;
+        let confirm_pass =
+            passterm::prompt_password_stdin(Some("Confirm password: "), passterm::Stream::Stderr)?;
 
         if pass != confirm_pass {
             // Don't loop if we're not in an interactive prompt.
@@ -516,9 +507,7 @@ fn confirm_password_stderr(prompt: &str) -> Result<String, anyhow::Error> {
 }
 
 fn ask_pass_stderr(prompt: &str) -> Result<String, anyhow::Error> {
-    eprint!("{}", prompt);
-    let pass = passterm::read_password()?;
-    eprintln!();
+    let pass = passterm::prompt_password_stdin(Some(prompt), passterm::Stream::Stderr)?;
 
     Ok(pass)
 }
