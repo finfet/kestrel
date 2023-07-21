@@ -120,7 +120,7 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     pass.zeroize();
 
     let mut plaintext = File::open(infile_path).context("Could not open input file.")?;
-    let mut ciphertext = File::create(&outfile_path)?;
+    let mut ciphertext = File::create(outfile_path)?;
 
     eprint!("Encrypting...");
 
@@ -215,8 +215,8 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
 
     pass.zeroize();
 
-    let mut ciphertext = File::open(&infile_path).context("Could not open input file")?;
-    let mut plaintext = File::create(&outfile_path)?;
+    let mut ciphertext = File::open(infile_path).context("Could not open input file")?;
+    let mut plaintext = File::create(outfile_path)?;
 
     eprint!("Decrypting...");
     let sender_public = match decrypt::key_decrypt(
@@ -350,7 +350,7 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let mut pass = confirm_password_stderr("Use password: ")?;
 
     let mut plaintext = File::open(infile_path).context("Could not open plaintext file")?;
-    let mut ciphertext = File::create(&outfile_path).context("Could not create ciphertext file")?;
+    let mut ciphertext = File::create(outfile_path).context("Could not create ciphertext file")?;
 
     eprint!("Encrypting...");
     let salt: [u8; 32] = kestrel_crypto::secure_random(32).try_into().unwrap();
@@ -409,8 +409,8 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
 
     let mut pass = ask_pass_stderr("Password: ")?;
 
-    let mut ciphertext = File::open(&infile_path).context("Could not open ciphertext file")?;
-    let mut plaintext = File::create(&outfile_path).context("Could not create plaintext file")?;
+    let mut ciphertext = File::open(infile_path).context("Could not open ciphertext file")?;
+    let mut plaintext = File::create(outfile_path).context("Could not create plaintext file")?;
 
     eprint!("Decrypting...");
     if let Err(e) = decrypt::pass_decrypt(
@@ -451,8 +451,8 @@ fn calculate_output_path<T: AsRef<Path>, U: Into<PathBuf>>(
         Some(o.into())
     } else {
         let outpath = match action {
-            ExtensionAction::AddExtension => Some(add_file_ext(&infile.as_ref(), "ktl")),
-            ExtensionAction::RemoveExtension => remove_file_ext(&infile.as_ref(), "ktl"),
+            ExtensionAction::AddExtension => Some(add_file_ext(infile.as_ref(), "ktl")),
+            ExtensionAction::RemoveExtension => remove_file_ext(infile.as_ref(), "ktl"),
         };
 
         match outpath {

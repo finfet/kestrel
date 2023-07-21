@@ -207,10 +207,7 @@ impl HandshakeState {
         symmetric_state.mix_hash(prologue);
 
         let s_pair: KeyPair = s.into();
-        let e_pair: Option<KeyPair> = match e {
-            Some(epk) => Some(epk.into()),
-            None => None,
-        };
+        let e_pair: Option<KeyPair> = e.map(|epk| epk.into());
 
         // Public key mixing here is hardcoded for the X pattern.
         if initiator {

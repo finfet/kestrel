@@ -217,8 +217,23 @@ dependencies = [
  "base64ct",
  "getopts",
  "hex",
- "kestrel-crypto",
+ "kestrel-crypto 0.11.0",
  "passterm",
+ "zeroize",
+]
+
+[[package]]
+name = "kestrel-crypto"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "226120e1e12ad6c0fef08b2a8c6d0a802acabf2a77abcf410aabcaa3eb88283e"
+dependencies = [
+ "chacha20poly1305",
+ "getrandom",
+ "hmac",
+ "scrypt 0.10.0",
+ "sha2",
+ "x25519-dalek",
  "zeroize",
 ]
 
@@ -230,10 +245,18 @@ dependencies = [
  "getrandom",
  "hex",
  "hmac",
- "scrypt",
+ "scrypt 0.11.0",
  "sha2",
  "x25519-dalek",
  "zeroize",
+]
+
+[[package]]
+name = "kestrel-ffi"
+version = "0.1.0"
+dependencies = [
+ "kestrel-crypto 0.10.1",
+ "libc",
 ]
 
 [[package]]
@@ -273,6 +296,17 @@ dependencies = [
 
 [[package]]
 name = "password-hash"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7676374caaee8a325c9e7a2ae557f216c5563a171d6997b0ef8a65af35147700"
+dependencies = [
+ "base64ct",
+ "rand_core",
+ "subtle",
+]
+
+[[package]]
+name = "password-hash"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "346f04948ba92c43e8469c1ee6736c7563d71012b17d40745260fe106aac2166"
@@ -280,6 +314,15 @@ dependencies = [
  "base64ct",
  "rand_core",
  "subtle",
+]
+
+[[package]]
+name = "pbkdf2"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83a0692ec44e4cf1ef28ca317f14f8f07da2d95ec3fa01f86e4467b725e60917"
+dependencies = [
+ "digest",
 ]
 
 [[package]]
@@ -356,12 +399,25 @@ dependencies = [
 
 [[package]]
 name = "scrypt"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f9e24d2b632954ded8ab2ef9fea0a0c769ea56ea98bddbafbad22caeeadf45d"
+dependencies = [
+ "hmac",
+ "password-hash 0.4.2",
+ "pbkdf2 0.11.0",
+ "salsa20",
+ "sha2",
+]
+
+[[package]]
+name = "scrypt"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0516a385866c09368f0b5bcd1caff3366aace790fcd46e2bb032697bb172fd1f"
 dependencies = [
- "password-hash",
- "pbkdf2",
+ "password-hash 0.5.0",
+ "pbkdf2 0.12.2",
  "salsa20",
  "sha2",
 ]

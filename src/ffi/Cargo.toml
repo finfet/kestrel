@@ -1,0 +1,26 @@
+[package]
+name = "kestrel-ffi"
+version = "0.1.0"
+edition = "2021"
+authors = [
+	"Kyle Schreiber <kyle@80x24.net>"
+]
+readme = "README.md"
+license = "BSD-3-Clause"
+description = "Kestrel C library"
+repository = "https://github.com/finfet/kestrel"
+homepage = "https://getkestrel.com"
+keywords = ["encryption"]
+categories = ["cryptography"]
+include = [
+	"**/*.rs",
+	"Cargo.tom",
+	"README.md"
+]
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+kestrel-crypto = "0.10.1"
+libc = "0.2"

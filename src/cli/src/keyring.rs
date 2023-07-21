@@ -97,12 +97,7 @@ impl Keyring {
     }
 
     pub(crate) fn get_key(&self, name: &str) -> Option<&Key> {
-        for key in &self.keys {
-            if key.name.as_str() == name {
-                return Some(key);
-            }
-        }
-        None
+        self.keys.iter().find(|&key| key.name.as_str() == name)
     }
 
     pub(crate) fn get_name_from_key(&self, pk: &EncodedPk) -> Option<String> {
