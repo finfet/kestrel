@@ -15,12 +15,12 @@ categories = ["cryptography"]
 
 [dependencies]
 getrandom = { version = "0.2.10", features = ["js"] }
-x25519-dalek = "2.0.0-rc.3"
+curve25519-dalek = "4.0.0"
 chacha20poly1305 = "0.10.1"
 sha2 = "0.10.7"
 hmac = "0.12.1"
 scrypt = "0.11.0"
-zeroize = { version = "1.6", features = ["zeroize_derive"] }
+zeroize = "1.6"
 
 [dev-dependencies]
 hex = "0.4.3"

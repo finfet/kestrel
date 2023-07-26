@@ -19,6 +19,8 @@ use getrandom::getrandom;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 
+use curve25519_dalek::montgomery::MontgomeryPoint;
+
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
 
@@ -46,13 +48,13 @@ pub enum PassFileFormat {
 pub type PayloadKey = [u8; 32];
 
 /// X25519 Public Key
-#[derive(Clone, Zeroize)]
+#[derive(Clone)]
 pub struct PublicKey {
     key: [u8; 32],
 }
 
 /// X25519 Private Key
-#[derive(Clone, Zeroize)]
+#[derive(Clone)]
 pub struct PrivateKey {
     key: [u8; 32],
 }
@@ -105,13 +107,20 @@ impl From<&[u8]> for PrivateKey {
     }
 }
 
+impl Zeroize for PrivateKey {
+    fn zeroize(&mut self) {
+        self.key.zeroize()
+    }
+}
+
 /// RFC 7748 compliant X25519.
 /// k is the private key and u is the public key.
 /// Keys must be 32 bytes.
 pub fn x25519(k: &[u8], u: &[u8]) -> [u8; 32] {
     let sk: [u8; 32] = k.try_into().expect("Private key must be 32 bytes");
     let pk: [u8; 32] = u.try_into().expect("Public key must be 32 bytes");
-    x25519_dalek::x25519(sk, pk)
+
+    MontgomeryPoint(pk).mul_clamped(sk).to_bytes()
 }
 
 /// Derive an X25519 public key from a private key.
@@ -120,7 +129,8 @@ pub fn x25519_derive_public(private_key: &[u8]) -> [u8; 32] {
     let sk: [u8; 32] = private_key
         .try_into()
         .expect("Private key must be 32 bytes");
-    x25519_dalek::x25519(sk, x25519_dalek::X25519_BASEPOINT_BYTES)
+
+    MontgomeryPoint::mul_base_clamped(sk).to_bytes()
 }
 
 /// Encrypt the payload key using the noise X protocol.

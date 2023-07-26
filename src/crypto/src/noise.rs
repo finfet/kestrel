@@ -10,13 +10,13 @@ use crate::{
     chapoly_decrypt_noise, chapoly_encrypt_noise, hkdf_noise, sha256, PrivateKey, PublicKey,
 };
 
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use zeroize::Zeroize;
 
 const HASH_LEN: usize = 32;
 const DH_LEN: usize = 32;
 
 /// KeyPair holding a [`PrivateKey`] and [`PublicKey`]
-#[derive(Clone, Zeroize, ZeroizeOnDrop)]
+#[derive(Clone)]
 struct KeyPair {
     pub private_key: PrivateKey,
     pub public_key: PublicKey,
@@ -29,6 +29,12 @@ impl From<&PrivateKey> for KeyPair {
             private_key: sk.clone(),
             public_key: pk,
         }
+    }
+}
+
+impl Zeroize for KeyPair {
+    fn zeroize(&mut self) {
+        self.private_key.zeroize()
     }
 }
 
@@ -308,6 +314,8 @@ impl HandshakeState {
         // X pattern is one way so we don't need the second cipher state
         let (cipher_state, _) = self.symmetric_state.split();
 
+        self.s.zeroize();
+
         (message_buffer, cipher_state)
     }
 
@@ -374,6 +382,8 @@ impl HandshakeState {
 
         // X pattern is one way so we don't need the second cipher state
         let (cipher_state, _) = self.symmetric_state.split();
+
+        self.s.zeroize();
 
         Ok((dec_payload_buffer, cipher_state))
     }
