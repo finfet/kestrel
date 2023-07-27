@@ -100,7 +100,7 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     let pass = ask_pass_stderr(&unlock_prompt)?;
 
     let mut pass = pass;
-    let mut sender_private = loop {
+    let sender_private = loop {
         match Keyring::unlock_private_key(sender_key, pass.as_bytes()) {
             Ok(sk) => break sk,
             Err(_) => {
@@ -133,15 +133,12 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
         None,
         AsymFileFormat::V1,
     ) {
-        sender_private.zeroize();
         eprintln!("failed");
         return Err(anyhow!(e));
     }
 
     ciphertext.sync_all()?;
     eprintln!("done");
-
-    sender_private.zeroize();
 
     Ok(())
 }
@@ -198,7 +195,7 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
     let pass = ask_pass_stderr(&unlock_prompt)?;
 
     let mut pass = pass;
-    let mut recipient_private = loop {
+    let recipient_private = loop {
         match Keyring::unlock_private_key(recipient_key, pass.as_bytes()) {
             Ok(sk) => break sk,
             Err(_) => {
@@ -227,15 +224,12 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
     ) {
         Ok(pk) => pk,
         Err(e) => {
-            recipient_private.zeroize();
             eprintln!("failed");
             return Err(anyhow!(e));
         }
     };
     plaintext.sync_all()?;
     eprintln!("done");
-
-    recipient_private.zeroize();
 
     let encoded_public = Keyring::encode_public_key(&sender_public);
     match keyring.get_name_from_key(&encoded_public) {
@@ -255,13 +249,13 @@ pub(crate) fn gen_key(outfile: String) -> Result<(), anyhow::Error> {
         return Err(anyhow!("Name must be at least 1 and 128 characters."));
     }
     let mut pass = confirm_password_stderr("New password: ")?;
-    let mut private_key = PrivateKey::generate();
+    let private_key = PrivateKey::generate();
     let public_key = private_key.to_public();
     let salt: [u8; 16] = kestrel_crypto::secure_random(16).try_into().unwrap();
 
     let encoded_private_key = Keyring::lock_private_key(&private_key, pass.as_bytes(), salt);
     pass.zeroize();
-    private_key.zeroize();
+
     let encoded_public_key = Keyring::encode_public_key(&public_key);
 
     let key_config =
@@ -293,12 +287,11 @@ pub(crate) fn change_pass(private_key: String) -> Result<(), anyhow::Error> {
         .as_str()
         .try_into()
         .map_err(|e| anyhow!("{}", e))?;
-    let mut sk = Keyring::unlock_private_key(&old_sk, old_pass.as_bytes())?;
+    let sk = Keyring::unlock_private_key(&old_sk, old_pass.as_bytes())?;
 
     let salt: [u8; 16] = kestrel_crypto::secure_random(16).try_into().unwrap();
     let new_sk = Keyring::lock_private_key(&sk, new_pass.as_bytes(), salt);
 
-    sk.zeroize();
     old_pass.zeroize();
     new_pass.zeroize();
 
@@ -315,12 +308,11 @@ pub(crate) fn extract_pub(private_key: String) -> Result<(), anyhow::Error> {
         .try_into()
         .map_err(|e| anyhow!("{}", e))?;
 
-    let mut sk = Keyring::unlock_private_key(&esk, pass.as_bytes())?;
+    let sk = Keyring::unlock_private_key(&esk, pass.as_bytes())?;
 
     pass.zeroize();
 
     let pk = sk.to_public();
-    sk.zeroize();
 
     let epk = Keyring::encode_public_key(&pk);
 

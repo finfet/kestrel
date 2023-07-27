@@ -17,14 +17,14 @@ mod noise;
 use getrandom::getrandom;
 
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
-use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
+use chacha20poly1305::ChaCha20Poly1305;
 
 use curve25519_dalek::montgomery::MontgomeryPoint;
 
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
 
-use zeroize::Zeroize;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use errors::ChaPolyDecryptError;
 use noise::HandshakeState;
@@ -89,7 +89,7 @@ impl PrivateKey {
 
     /// Derive the public key from the private key
     pub fn to_public(&self) -> PublicKey {
-        PublicKey::from(&x25519_derive_public(&self.key)[..])
+        PublicKey::from(x25519_derive_public(&self.key).as_slice())
     }
 
     /// X25519 Key Exchange between private and a public key,
@@ -107,11 +107,13 @@ impl From<&[u8]> for PrivateKey {
     }
 }
 
-impl Zeroize for PrivateKey {
-    fn zeroize(&mut self) {
-        self.key.zeroize()
+impl Drop for PrivateKey {
+    fn drop(&mut self) {
+        self.key.as_mut_slice().zeroize();
     }
 }
+
+impl ZeroizeOnDrop for PrivateKey {}
 
 /// RFC 7748 compliant X25519.
 /// k is the private key and u is the public key.
@@ -200,16 +202,13 @@ pub(crate) fn chapoly_encrypt_noise(
 /// Returns the ciphertext
 #[allow(clippy::let_and_return, clippy::redundant_field_names)]
 pub fn chapoly_encrypt_ietf(key: &[u8], nonce: &[u8], plaintext: &[u8], aad: &[u8]) -> Vec<u8> {
-    let secret_key = Key::from_slice(key);
-    let the_nonce = Nonce::from_slice(nonce);
-    let cipher = ChaCha20Poly1305::new(secret_key);
+    let cipher = ChaCha20Poly1305::new_from_slice(key).unwrap();
     let pt_and_aad = Payload {
         msg: plaintext,
         aad: aad,
     };
-
     let ct_and_tag = cipher
-        .encrypt(the_nonce, pt_and_aad)
+        .encrypt(nonce.into(), pt_and_aad)
         .expect("ChaCha20-Poly1305 encryption failed.");
 
     ct_and_tag
@@ -249,13 +248,14 @@ pub fn chapoly_decrypt_ietf(
     aad: &[u8],
 ) -> Result<Vec<u8>, ChaPolyDecryptError> {
     let cipher = ChaCha20Poly1305::new_from_slice(key).unwrap();
+
     let ct_and_aad = Payload {
         msg: ciphertext,
         aad: aad,
     };
 
-    match cipher.decrypt(Nonce::from_slice(nonce), ct_and_aad) {
-        Ok(pt) => Ok(pt),
+    match cipher.decrypt(nonce.into(), ct_and_aad) {
+        Ok(plaintext) => Ok(plaintext),
         Err(_) => Err(ChaPolyDecryptError),
     }
 }
