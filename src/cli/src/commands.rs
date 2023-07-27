@@ -79,7 +79,7 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
         None => return Ok(()), // The user didn't want to overwrite the file.
     };
 
-    let keyring = open_keyring(keyring)?;
+    let keyring = open_keyring(keyring).context("Failed to open keyring")?;
     let recipient_key = keyring.get_key(&to);
     if recipient_key.is_none() {
         return Err(anyhow!("Recipient key '{}' not found.", &to));
@@ -181,7 +181,8 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
         None => return Ok(()), // The user didn't want to overwrite the file.
     };
 
-    let keyring = open_keyring(keyring)?;
+    let keyring = open_keyring(keyring).context("Failed to open keyring")?;
+
     let recipient_key = keyring.get_key(&to);
     let recipient_key = match recipient_key {
         Some(k) => k,
@@ -557,7 +558,18 @@ fn open_keyring(keyring_loc: Option<String>) -> Result<Keyring, anyhow::Error> {
         }
     };
 
-    let keyring_data = std::fs::read(path)?;
+    let keyring_data = match std::fs::read(&path) {
+        Ok(k) => k,
+        Err(e) => match e.kind() {
+            std::io::ErrorKind::NotFound => {
+                let filename = extract_filename(path.file_name());
+                return Err(e).context(format!("Keyring file '{}' does not exist.", &filename));
+            }
+            _ => {
+                return Err(anyhow!(e));
+            }
+        },
+    };
     let keyring_data = String::from_utf8(keyring_data).context("Invalid Keyring encoding")?;
 
     Ok(Keyring::new(&keyring_data)?)

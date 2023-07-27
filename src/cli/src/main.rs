@@ -103,6 +103,7 @@ fn parse_encrypt(args: &[&str]) -> Result<EncryptOptions, String> {
     }
 
     let mut encrypt_opts = Options::new();
+    encrypt_opts.long_only(true);
     encrypt_opts.reqopt("t", "to", "Recipient key name", "NAME");
     encrypt_opts.reqopt("f", "from", "Sender key name", "NAME");
     encrypt_opts.optopt("o", "output", "Output file", "FILE");
@@ -138,6 +139,7 @@ fn parse_decrypt(args: &[&str]) -> Result<DecryptOptions, String> {
     }
 
     let mut decrypt_opts = Options::new();
+    decrypt_opts.long_only(true);
     decrypt_opts.reqopt("t", "to", "Recipient key name", "NAME");
     decrypt_opts.optopt("o", "output", "Output file", "FILE");
     decrypt_opts.optopt("k", "keyring", "Keyring file", "FILE");
@@ -173,6 +175,7 @@ fn parse_key(args: &[&str]) -> Result<KeyCommand, String> {
         "gen" | "generate" => {
             let mut gen_opts = Options::new();
             gen_opts.reqopt("o", "output", "Output file", "FILE");
+            gen_opts.long_only(true);
             let matches = match gen_opts.parse(&args[3..]) {
                 Ok(m) => m,
                 Err(e) => return Err(e.to_string()),
@@ -222,6 +225,7 @@ fn parse_password(args: &[&str]) -> Result<PasswordCommand, String> {
 
 fn parse_pass_encrypt(args: &[&str]) -> Result<PasswordOptions, String> {
     let mut pass_encrypt_opts = Options::new();
+    pass_encrypt_opts.long_only(true);
     pass_encrypt_opts.optopt("o", "output", "Output file", "FILE");
 
     let matches = match pass_encrypt_opts.parse(args) {
@@ -241,6 +245,7 @@ fn parse_pass_encrypt(args: &[&str]) -> Result<PasswordOptions, String> {
 
 fn parse_pass_decrypt(args: &[&str]) -> Result<PasswordOptions, String> {
     let mut pass_decrypt_opts = Options::new();
+    pass_decrypt_opts.long_only(true);
     pass_decrypt_opts.optopt("o", "output", "Output file", "FILE");
 
     let matches = match pass_decrypt_opts.parse(args) {
