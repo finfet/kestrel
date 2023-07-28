@@ -75,6 +75,9 @@ install:
 	mkdir -p $(DESTDIR)$(prefix)/bin/
 	install target/release/kestrel $(DESTDIR)$(prefix)/bin/kestrel
 
+uninstall:
+	-rm -f $(DESTDIR)$(prefix)/bin/kestrel
+
 deb: clean-deb package
 	mkdir -p $(deb_build_dir)
 	cp build/$(BIN_PACKAGE_DIR).tar.gz $(deb_build_dir)
@@ -126,4 +129,4 @@ clean-rpm:
 clean:
 	-rm -rf build
 
-.PHONY: all all-linux build build-target deb rpm package clean-deb clean-rpm clean
+.PHONY: all all-linux all-macos build build-target test install uninstall deb rpm package source clean-deb clean-rpm clean
