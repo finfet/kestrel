@@ -290,9 +290,13 @@ fn hkdf_noise(chaining_key: &[u8], ikm: &[u8]) -> ([u8; 32], [u8; 32]) {
 /// Parameter n must be larger than 1 and a power of 2
 pub fn scrypt(password: &[u8], salt: &[u8], n: u32, r: u32, p: u32, dk_len: usize) -> Vec<u8> {
     assert!(n > 1, "n must be >1");
-    // The conversion here is safe because all u32 can be represented in a f64
-    // and the log2 of any u32 is guaranteed to fit into a u8
-    let n: u8 = (n as f64).log2().round() as u8;
+    assert!(n.count_ones() == 1, "n must be a power of 2");
+
+    // The conversion here is safe because we are taking the log2(n) by counting
+    // the number of zeros before our number. Because n must be a power of 2,
+    // this will always give us the correct log2(n), and the result will
+    // always fit into a u8 for all values of u32
+    let n: u8 = n.trailing_zeros() as u8;
     // The length parameter of 32 is ignored by scrypt::scrypt.
     let scrypt_params = scrypt::Params::new(n, r, p, 32).unwrap();
     let mut key = vec![0u8; dk_len];
@@ -391,15 +395,20 @@ mod tests {
     fn test_scrypt() {
         let password = b"hackme";
         let salt = b"yellowsubmarine.";
-        let result = scrypt(password, salt, 32768, 8, 1, 32);
-        let expected =
+
+        let expected1 =
             hex::decode("3ebb9ac0d1da595f755407fe8fc246fe67fe6075730fc6e853351c2834bd6157")
                 .unwrap();
+        let result1 = scrypt(password, salt, 32768, 8, 1, 32);
+        assert_eq!(&expected1, &result1);
+
         let expected2 = hex::decode("3ebb9ac0d1da595f").unwrap();
         let result2 = scrypt(password, salt, 32768, 8, 1, 8);
-
-        assert_eq!(&expected, &result);
         assert_eq!(&expected2, &result2);
+
+        let expected3 = hex::decode("87b33dba57a7633a3df7741eabee3de0").unwrap();
+        let result3 = scrypt(password, salt, 1024, 8, 1, 16);
+        assert_eq!(&expected3, &result3);
     }
 
     #[test]

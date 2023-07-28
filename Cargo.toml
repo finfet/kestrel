@@ -9,3 +9,7 @@ opt-level = 3
 
 [profile.release]
 strip = true
+
+[profile.release-ffi]
+inherits = "release"
+lto = true
