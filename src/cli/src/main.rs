@@ -33,7 +33,8 @@ OPTIONS:
     -v, --version         Print version information.";
 
 fn main() -> Result<(), anyhow::Error> {
-    let args: Vec<String> = std::env::args().collect();
+    let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
+    let args = convert_args(args.as_slice())?;
     let args: Vec<&str> = args.iter().map(|arg| arg.as_str()).collect();
 
     if args.len() <= 1 {
@@ -85,6 +86,20 @@ fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+fn convert_args<T: AsRef<std::ffi::OsStr>>(args: &[T]) -> Result<Vec<String>, anyhow::Error> {
+    let mut converted = Vec::<String>::new();
+    for arg in args.iter() {
+        let a = arg
+            .as_ref()
+            .to_str()
+            .ok_or_else(|| anyhow!("Arguments must be valid UTF-8"))?
+            .to_string();
+        converted.push(a);
+    }
+
+    Ok(converted)
+}
+
 fn print_help() {
     println!("{}", USAGE);
 }
@@ -114,8 +129,10 @@ fn parse_encrypt(args: &[&str]) -> Result<EncryptOptions, String> {
         Err(e) => return Err(e.to_string()),
     };
 
-    if matches.free.len() != 1 {
+    if matches.free.len() < 1 {
         return Err("Specify an input file to encrypt".to_string());
+    } else if matches.free.len() > 1 {
+        return Err("Invalid usage".to_string());
     }
 
     let infile = matches.free[0].clone();
@@ -149,8 +166,10 @@ fn parse_decrypt(args: &[&str]) -> Result<DecryptOptions, String> {
         Err(e) => return Err(e.to_string()),
     };
 
-    if matches.free.len() != 1 {
+    if matches.free.len() < 1 {
         return Err("Specify an input file to decrypt".to_string());
+    } else if matches.free.len() > 1 {
+        return Err("Invalid usage".to_string());
     }
 
     let infile = matches.free[0].clone();
@@ -233,8 +252,10 @@ fn parse_pass_encrypt(args: &[&str]) -> Result<PasswordOptions, String> {
         Err(e) => return Err(e.to_string()),
     };
 
-    if matches.free.len() != 1 {
+    if matches.free.len() < 1 {
         return Err("Specify an input file to encrypt".to_string());
+    } else if matches.free.len() > 1 {
+        return Err("Invalid usage".to_string());
     }
 
     let infile = matches.free[0].clone();
@@ -253,8 +274,10 @@ fn parse_pass_decrypt(args: &[&str]) -> Result<PasswordOptions, String> {
         Err(e) => return Err(e.to_string()),
     };
 
-    if matches.free.len() != 1 {
+    if matches.free.len() < 1 {
         return Err("Specify an input file to decrypt".to_string());
+    } else if matches.free.len() > 1 {
+        return Err("Invalid usage".to_string());
     }
 
     let infile = matches.free[0].clone();
