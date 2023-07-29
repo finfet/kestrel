@@ -43,18 +43,15 @@ fn main() -> Result<(), anyhow::Error> {
         return Ok(());
     }
 
-    for arg in &args {
-        let arg = *arg;
-        if arg == "-h" || arg == "--help" {
+    match args[1] {
+        "-h" | "--help" => {
             print_help();
             return Ok(());
-        } else if arg == "-v" || arg == "--version" {
+        }
+        "-v" | "--version" => {
             print_version();
             return Ok(());
         }
-    }
-
-    match args[1] {
         "enc" | "encrypt" => match parse_encrypt(args.as_slice()) {
             Ok(opts) => commands::encrypt(opts)?,
             Err(e) => print_error(&e)?,
@@ -132,7 +129,7 @@ fn parse_encrypt(args: &[&str]) -> Result<EncryptOptions, String> {
     if matches.free.len() < 1 {
         return Err("Specify an input file to encrypt".to_string());
     } else if matches.free.len() > 1 {
-        return Err("Invalid usage".to_string());
+        return Err("Too many arguments".to_string());
     }
 
     let infile = matches.free[0].clone();
@@ -169,7 +166,7 @@ fn parse_decrypt(args: &[&str]) -> Result<DecryptOptions, String> {
     if matches.free.len() < 1 {
         return Err("Specify an input file to decrypt".to_string());
     } else if matches.free.len() > 1 {
-        return Err("Invalid usage".to_string());
+        return Err("Too many arguments".to_string());
     }
 
     let infile = matches.free[0].clone();
@@ -220,7 +217,7 @@ fn parse_key(args: &[&str]) -> Result<KeyCommand, String> {
                 Err("Provide a private key".to_string())
             }
         }
-        _ => Err("Incorrect usage".to_string()),
+        _ => Err("Invaild argument".to_string()),
     }
 }
 
@@ -238,7 +235,7 @@ fn parse_password(args: &[&str]) -> Result<PasswordCommand, String> {
             Ok(pass_opts) => Ok(PasswordCommand::Decrypt(pass_opts)),
             Err(e) => Err(e),
         },
-        _ => Err("Incorrect usage".to_string()),
+        _ => Err("Invalid argument".to_string()),
     }
 }
 
@@ -255,7 +252,7 @@ fn parse_pass_encrypt(args: &[&str]) -> Result<PasswordOptions, String> {
     if matches.free.len() < 1 {
         return Err("Specify an input file to encrypt".to_string());
     } else if matches.free.len() > 1 {
-        return Err("Invalid usage".to_string());
+        return Err("Too many arguments".to_string());
     }
 
     let infile = matches.free[0].clone();
@@ -277,7 +274,7 @@ fn parse_pass_decrypt(args: &[&str]) -> Result<PasswordOptions, String> {
     if matches.free.len() < 1 {
         return Err("Specify an input file to decrypt".to_string());
     } else if matches.free.len() > 1 {
-        return Err("Invalid usage".to_string());
+        return Err("Too many arguments".to_string());
     }
 
     let infile = matches.free[0].clone();
