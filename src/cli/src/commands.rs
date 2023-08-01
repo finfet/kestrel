@@ -21,18 +21,6 @@ use kestrel_crypto::{decrypt, encrypt};
 use kestrel_crypto::{AsymFileFormat, PassFileFormat};
 
 #[derive(Debug)]
-pub(crate) enum KeyCommand {
-    Generate(String),
-    ChangePass(String),
-    ExtractPub(String),
-}
-
-pub(crate) enum PasswordCommand {
-    Encrypt(PasswordOptions),
-    Decrypt(PasswordOptions),
-}
-
-#[derive(Debug)]
 pub(crate) struct EncryptOptions {
     pub infile: String,
     pub to: String,

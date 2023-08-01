@@ -5,7 +5,7 @@ mod commands;
 mod errors;
 mod keyring;
 
-use commands::{DecryptOptions, EncryptOptions, KeyCommand, PasswordCommand, PasswordOptions};
+use commands::{DecryptOptions, EncryptOptions, PasswordOptions};
 
 use anyhow::anyhow;
 use getopts::Options;
@@ -31,6 +31,19 @@ OPTIONS:
     -k, --keyring KEYRING Location of a keyring file.
     -h, --help            Print help information.
     -v, --version         Print version information.";
+
+#[derive(Debug)]
+pub(crate) enum KeyCommand {
+    Generate(String),
+    ChangePass(String),
+    ExtractPub(String),
+}
+
+#[derive(Debug)]
+pub(crate) enum PasswordCommand {
+    Encrypt(PasswordOptions),
+    Decrypt(PasswordOptions),
+}
 
 fn main() -> Result<(), anyhow::Error> {
     let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
