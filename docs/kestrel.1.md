@@ -8,17 +8,17 @@ header: Kestrel Manual
 kestrel - File Encryption Utility
 
 # SYNOPSIS
-kestrel encrypt FILE -t NAME -f NAME [-o FILE] [-k KEYRING]
+kestrel encrypt [FILE] -t NAME -f NAME [-o FILE] [-k KEYRING]
 
-kestrel decrypt FILE -t NAME [-o FILE] [-k KEYRING]
+kestrel decrypt [FILE] -t NAME [-o FILE] [-k KEYRING]
 
-kestrel key generate -o FILE
+kestrel key generate [-o FILE]
 
 kestrel key change-pass PRIVATE-KEY
 
 kestrel key extract-pub PRIVATE-KEY
 
-kestrel password encrypt|decrypt FILE [-o FILE]
+kestrel password encrypt|decrypt [FILE] [-o FILE]
 
 # DESCRIPTION
 Kestrel is a file encryption utility that lets you encrypt files to anyone with a public key.
@@ -60,6 +60,11 @@ Print help information.
 
 -v, --version  
 Print version information.
+
+--env-pass  
+Read password from the KESTREL_PASSWORD environment variable.
+
+The change-pass command requires setting both KESTREL_PASSWORD and KESTREL_NEW_PASSWORD if --env-pass is used.
 
 # AUTHOR
 Kyle Schreiber <kyle@80x24.net>

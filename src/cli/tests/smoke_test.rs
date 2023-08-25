@@ -18,6 +18,8 @@ fn test_key_gen() {
         .arg("generate")
         .arg("-o")
         .arg(key_file_loc.as_os_str())
+        .arg("--env-pass")
+        .env("KESTREL_PASSWORD", "joepass")
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -27,9 +29,7 @@ fn test_key_gen() {
     let mut stdin = app.stdin.take().unwrap();
     // Rust docs reccommend running write in a separate thread.
     std::thread::spawn(move || {
-        stdin
-            .write_all("joe\njoepass\njoepass\n".as_bytes())
-            .unwrap();
+        stdin.write_all("joe\n".as_bytes()).unwrap();
     });
 
     let output = app.wait_with_output().unwrap();
@@ -43,10 +43,8 @@ fn test_key_gen() {
         .lines()
         .map(|l| l.to_string())
         .collect::<Vec<String>>();
-    assert_eq!(stderr_lines.len(), 3);
+    assert_eq!(stderr_lines.len(), 1);
     assert_eq!("Key name: ", stderr_lines[0]);
-    assert_eq!("New password: ", stderr_lines[1]);
-    assert_eq!("Confirm password: ", stderr_lines[2]);
 }
 
 #[test]
@@ -54,20 +52,18 @@ fn test_key_change_pass() {
     let alice_private =
         "AAG0rhkawzo/HQgNkV0TVJcK+p4WMgXy/KPNDpASrmiRXoCqG6yJvzOAv0zyxcaQQe7nYG2GtRxcWuo15u1Q69k+";
 
-    let mut app = Command::new(EXE_LOC)
+    let app = Command::new(EXE_LOC)
         .arg("key")
         .arg("change-pass")
         .arg(alice_private)
-        .stdin(Stdio::piped())
+        .arg("--env-pass")
+        .env("KESTREL_PASSWORD", "alicepass")
+        .env("KESTREL_NEW_PASSWORD", "alicenew")
+        .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-
-    let mut stdin = app.stdin.take().unwrap();
-    std::thread::spawn(move || {
-        stdin.write_all("alicepass\nalicenew\n".as_bytes()).unwrap();
-    });
 
     let output = app.wait_with_output().unwrap();
 
@@ -84,12 +80,8 @@ fn test_key_change_pass() {
         .map(|l| l.to_string())
         .collect::<Vec<String>>();
 
-    assert_eq!(stderr_lines.len(), 2);
+    assert_eq!(stderr_lines.len(), 0);
     assert_eq!(stdout_lines.len(), 1);
-
-    assert_eq!("Old password: ", stderr_lines[0]);
-    assert_eq!("New password: ", stderr_lines[1]);
-
     assert_eq!(stdout_lines[0].len(), 101);
 }
 
@@ -99,20 +91,17 @@ fn test_key_extract_pub() {
         "AAG0rhkawzo/HQgNkV0TVJcK+p4WMgXy/KPNDpASrmiRXoCqG6yJvzOAv0zyxcaQQe7nYG2GtRxcWuo15u1Q69k+";
     let expected_stdout = "PublicKey = bJMx+URyEwCKSYYPDyVwRrVhiAu2MJSSxG/NC8l570DojWkm";
 
-    let mut app = Command::new(EXE_LOC)
+    let app = Command::new(EXE_LOC)
         .arg("key")
         .arg("extract-pub")
         .arg(alice_private)
-        .stdin(Stdio::piped())
+        .arg("--env-pass")
+        .env("KESTREL_PASSWORD", "alicepass")
+        .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-
-    let mut stdin = app.stdin.take().unwrap();
-    std::thread::spawn(move || {
-        stdin.write_all("alicepass\n".as_bytes()).unwrap();
-    });
 
     let output = app.wait_with_output().unwrap();
 
@@ -129,11 +118,8 @@ fn test_key_extract_pub() {
         .map(|l| l.to_string())
         .collect::<Vec<String>>();
 
-    assert_eq!(stderr_lines.len(), 1);
+    assert_eq!(stderr_lines.len(), 0);
     assert_eq!(stdout_lines.len(), 1);
-
-    assert_eq!("Password: ", stderr_lines[0]);
-
     assert_eq!(expected_stdout, stdout_lines[0]);
 }
 
@@ -151,7 +137,7 @@ fn test_encrypt() {
     ciphertext_loc.push("tests");
     ciphertext_loc.push("tmp_data.txt.ktl");
 
-    let mut app = Command::new(EXE_LOC)
+    let app = Command::new(EXE_LOC)
         .arg("encrypt")
         .arg(plaintext_loc.as_os_str())
         .arg("--to")
@@ -162,16 +148,13 @@ fn test_encrypt() {
         .arg(ciphertext_loc.as_os_str())
         .arg("--keyring")
         .arg(keyring_loc.as_os_str())
-        .stdin(Stdio::piped())
+        .arg("--env-pass")
+        .env("KESTREL_PASSWORD", "alicepass")
+        .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-
-    let mut stdin = app.stdin.take().unwrap();
-    std::thread::spawn(move || {
-        stdin.write_all("alicepass\n".as_bytes()).unwrap();
-    });
 
     let output = app.wait_with_output().unwrap();
 
@@ -185,10 +168,8 @@ fn test_encrypt() {
         .map(|l| l.to_string())
         .collect::<Vec<String>>();
 
-    assert_eq!(stderr_lines.len(), 2);
-
-    assert_eq!("Unlock 'alice' key: ", stderr_lines[0]);
-    assert_eq!("Encrypting...done", stderr_lines[1]);
+    assert_eq!(stderr_lines.len(), 1);
+    assert_eq!("Encrypting...done", stderr_lines[0]);
 }
 
 #[test]
@@ -205,7 +186,7 @@ fn test_decrypt() {
     plaintext_loc.push("tests");
     plaintext_loc.push("tmp_data.out");
 
-    let mut app = Command::new(EXE_LOC)
+    let app = Command::new(EXE_LOC)
         .arg("decrypt")
         .arg(ciphertext_loc.as_os_str())
         .arg("-t")
@@ -214,16 +195,13 @@ fn test_decrypt() {
         .arg(plaintext_loc.as_os_str())
         .arg("-k")
         .arg(keyring_loc.as_os_str())
+        .arg("--env-pass")
+        .env("KESTREL_PASSWORD", "bobpass")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-
-    let mut stdin = app.stdin.take().unwrap();
-    std::thread::spawn(move || {
-        stdin.write_all("bobpass\n".as_bytes()).unwrap();
-    });
 
     let output = app.wait_with_output().unwrap();
 
@@ -243,11 +221,9 @@ fn test_decrypt() {
         .collect::<Vec<String>>();
 
     assert_eq!(stdout_lines.len(), 1);
-    assert_eq!(stderr_lines.len(), 2);
+    assert_eq!(stderr_lines.len(), 1);
 
-    assert_eq!("Unlock 'bob' key: ", stderr_lines[0]);
-    assert_eq!("Decrypting...done", stderr_lines[1]);
-
+    assert_eq!("Decrypting...done", stderr_lines[0]);
     assert_eq!("Success. File from: alice", stdout_lines[0]);
 }
 
@@ -261,22 +237,19 @@ fn test_pass_encrypt() {
     ciphertext_loc.push("tests");
     ciphertext_loc.push("tmp_pdata.txt.ktl");
 
-    let mut app = Command::new(EXE_LOC)
+    let app = Command::new(EXE_LOC)
         .arg("password")
         .arg("encrypt")
         .arg(plaintext_loc.as_os_str())
         .arg("-o")
         .arg(ciphertext_loc.as_os_str())
-        .stdin(Stdio::piped())
+        .arg("--env-pass")
+        .env("KESTREL_PASSWORD", "pass123")
+        .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-
-    let mut stdin = app.stdin.take().unwrap();
-    std::thread::spawn(move || {
-        stdin.write_all("pass123\npass123\n".as_bytes()).unwrap();
-    });
 
     let output = app.wait_with_output().unwrap();
 
@@ -290,11 +263,9 @@ fn test_pass_encrypt() {
         .map(|l| l.to_string())
         .collect::<Vec<String>>();
 
-    assert_eq!(stderr_lines.len(), 3);
+    assert_eq!(stderr_lines.len(), 1);
 
-    assert_eq!("Use password: ", stderr_lines[0]);
-    assert_eq!("Confirm password: ", stderr_lines[1]);
-    assert_eq!("Encrypting...done", stderr_lines[2]);
+    assert_eq!("Encrypting...done", stderr_lines[0]);
 }
 
 #[test]
@@ -307,22 +278,19 @@ fn test_pass_decrypt() {
     plaintext_loc.push("tests");
     plaintext_loc.push("tmp_pdata.out");
 
-    let mut app = Command::new(EXE_LOC)
+    let app = Command::new(EXE_LOC)
         .arg("pass")
         .arg("dec")
         .arg(ciphertext_loc.as_os_str())
         .arg("-o")
         .arg(plaintext_loc.as_os_str())
+        .arg("--env-pass")
+        .env("KESTREL_PASSWORD", "pass123")
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-
-    let mut stdin = app.stdin.take().unwrap();
-    std::thread::spawn(move || {
-        stdin.write_all("pass123\n".as_bytes()).unwrap();
-    });
 
     let output = app.wait_with_output().unwrap();
 
@@ -336,8 +304,7 @@ fn test_pass_decrypt() {
         .map(|l| l.to_string())
         .collect::<Vec<String>>();
 
-    assert_eq!(stderr_lines.len(), 2);
+    assert_eq!(stderr_lines.len(), 1);
 
-    assert_eq!("Password: ", stderr_lines[0]);
-    assert_eq!("Decrypting...done", stderr_lines[1]);
+    assert_eq!("Decrypting...done", stderr_lines[0]);
 }

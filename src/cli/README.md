@@ -97,17 +97,17 @@ PrivateKey = AAHr9qFFlOx1ujtQg8bQ8I5GTzwWmBjRU8Cf0VAK2CuRKNNlsW4XWCu2GEzFQuqNb1U
 
 Encrypt a file
 ```
-$ kestrel encrypt example.txt --to alice --from alice -k keyring.txt
+$ kestrel encrypt example.txt --to alice --from alice -o example.txt.ktl -k keyring.txt
 ```
 
 Decrypt a file
 ```
-$ kestrel decrypt example.txt.ktl -t alice -k keyring.txt
+$ kestrel decrypt example.txt.ktl -t alice -o example.txt -k keyring.txt
 ```
 
 Encrypt a file using a password
 ```
-$ kestrel pass enc example.txt
+$ kestrel pass enc example.txt -o example.txt.ktl
 ```
 
 Set the environment variable `KESTREL_KEYRING` to use a default keyring file.
@@ -116,12 +116,12 @@ Set the environment variable `KESTREL_KEYRING` to use a default keyring file.
 
 ```
 USAGE:
-    kestrel encrypt FILE -t NAME -f NAME [-o FILE] [-k KEYRING]
-    kestrel decrypt FILE -t NAME [-o FILE] [-k KEYRING]
-    kestrel key generate -o FILE
+    kestrel encrypt [FILE] -t NAME -f NAME [-o FILE] [-k KEYRING]
+    kestrel decrypt [FILE] -t NAME [-o FILE] [-k KEYRING]
+    kestrel key generate [-o FILE]
     kestrel key change-pass PRIVATE-KEY
     kestrel key extract-pub PRIVATE-KEY
-    kestrel password encrypt|decrypt FILE [-o FILE]
+    kestrel password encrypt|decrypt [FILE] [-o FILE]
 
     Aliases enc, dec, pass, and gen can be used as encrypt, decrypt,
     password, and generate respectively.
@@ -134,6 +134,7 @@ OPTIONS:
     -k, --keyring KEYRING Location of a keyring file.
     -h, --help            Print help information.
     -v, --version         Print version information.
+    --env-pass            Read password from KESTREL_PASSWORD env var
 ```
 
 ## Documentation
