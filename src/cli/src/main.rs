@@ -108,7 +108,7 @@ fn main() -> Result<(), anyhow::Error> {
             }
         }
         _ => {
-            return Err(anyhow!("{}", USAGE));
+            print_error("Invalid command")?;
         }
     }
 
@@ -130,8 +130,8 @@ fn convert_args<T: AsRef<std::ffi::OsStr>>(args: &[T]) -> Result<Vec<String>, an
 }
 
 /// Return the remainder of the slice after the given index or the empty slice otherwise
-fn slice_args<'a, 'b: 'a>(args: &'a [&'b str], idx: usize) -> &'a [&'b str] {
-    let args: &'a [&'b str] = if args.len() > idx { &args[idx..] } else { &[] };
+fn slice_args<'a>(args: &'a [&'a str], idx: usize) -> &'a [&'a str] {
+    let args: &'a [&'a str] = if args.len() > idx { &args[idx..] } else { &[] };
 
     args
 }
@@ -234,7 +234,7 @@ fn parse_key(args: &[&str]) -> Result<KeyCommand, String> {
         "gen" | "generate" => {
             let mut gen_opts = Options::new();
             gen_opts.long_only(true);
-            gen_opts.reqopt("o", "output", "Output file", "FILE");
+            gen_opts.optopt("o", "output", "Output file", "FILE");
             gen_opts.optflag("", "env-pass", "read KESTREL_PASSWORD env var");
 
             let args = slice_args(args, 1);
@@ -293,7 +293,7 @@ fn parse_key(args: &[&str]) -> Result<KeyCommand, String> {
 
             Ok(KeyCommand::ExtractPub(private_key, env_pass))
         }
-        _ => Err("Invalid argument".to_string()),
+        _ => Err("Invalid command".to_string()),
     }
 }
 
@@ -317,7 +317,7 @@ fn parse_password(args: &[&str]) -> Result<PasswordCommand, String> {
                 Err(e) => Err(e),
             }
         }
-        _ => Err("Invalid argument".to_string()),
+        _ => Err("Invalid command".to_string()),
     }
 }
 

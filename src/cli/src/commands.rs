@@ -54,8 +54,9 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     #[cfg(target_os = "windows")]
     win32_console_compat(outfile.is_some())?;
 
+    let is_text = false;
     let mut plaintext: Box<dyn Read> = open_input(infile.as_deref())?;
-    let mut ciphertext: Box<dyn Write> = open_output(outfile.as_deref())?;
+    let mut ciphertext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
     let keyring = open_keyring(keyring).context("Failed to open keyring.")?;
     let recipient_key = keyring.get_key(&to);
@@ -126,8 +127,9 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
     #[cfg(target_os = "windows")]
     win32_console_compat(outfile.is_some())?;
 
+    let is_text = false;
     let mut ciphertext: Box<dyn Read> = open_input(infile.as_deref())?;
-    let mut plaintext: Box<dyn Write> = open_output(outfile.as_deref())?;
+    let mut plaintext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
     // TODO: We lost the magic header file format check
 
@@ -197,16 +199,20 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
 #[cfg(target_os = "windows")]
 fn win32_console_compat(output_file: bool) -> Result<(), anyhow::Error> {
     if !output_file {
-        return Err(anyhow!("Output file is required"));
+        return Err(anyhow!("Please specify an output file"));
     }
     return Ok(());
 }
 
 pub(crate) fn gen_key(outfile: Option<String>, env_pass: bool) -> Result<(), anyhow::Error> {
+    let is_text = true;
+    let mut keyring = open_output(outfile.as_deref(), is_text)?;
+
     let name = ask_user_stderr("Key name: ")?;
     if !Keyring::valid_key_name(&name) {
-        return Err(anyhow!("Name must be at least 1 and 128 characters."));
+        return Err(anyhow!("Name must be between 1 and 128 characters."));
     }
+
     let mut pass = confirm_password("New password: ", env_pass)?;
     let private_key = PrivateKey::generate();
     let public_key = private_key.to_public();
@@ -220,22 +226,17 @@ pub(crate) fn gen_key(outfile: Option<String>, env_pass: bool) -> Result<(), any
     let key_config =
         Keyring::serialize_key(name.as_str(), &encoded_public_key, &encoded_private_key);
 
-    let (mut keyring, key_output): (Box<dyn Write>, String) = if let Some(out) = outfile {
-        // If the file already exits, write the keys beginning with a newline
-        // If not, start at the beginning of the file
-        let key_output = if Path::new(&out).exists() {
+    let key_output = if let Some(ref outfile) = outfile {
+        // If the file already exists, write additional keys beginning with a newline.
+        if Path::new(outfile).exists() {
             format!("\n{}", key_config)
         } else {
             key_config
-        };
-
-        (Box::new(File::create(out)?), key_output)
-    } else {
-        if isatty(Stream::Stdout) {
-            return Err(anyhow!("Specify an output file"));
-        } else {
-            (Box::new(std::io::stdout()), key_config)
         }
+    } else if isatty(Stream::Stdout) {
+        format!("\n{}", key_config)
+    } else {
+        key_config
     };
 
     keyring.write_all(key_output.as_bytes())?;
@@ -260,7 +261,13 @@ pub(crate) fn change_pass(private_key: String, env_pass: bool) -> Result<(), any
     old_pass.zeroize();
     new_pass.zeroize();
 
-    println!("PrivateKey = {}", new_sk.as_str());
+    let key_output = if isatty(Stream::Stdout) {
+        format!("\nPrivateKey = {}", new_sk.as_str())
+    } else {
+        format!("PrivateKey = {}", new_sk.as_str())
+    };
+
+    println!("{}", key_output);
 
     Ok(())
 }
@@ -291,8 +298,9 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let outfile = opts.outfile;
     let env_pass = opts.env_pass;
 
+    let is_text = false;
     let mut plaintext: Box<dyn Read> = open_input(infile.as_deref())?;
-    let mut ciphertext: Box<dyn Write> = open_output(outfile.as_deref())?;
+    let mut ciphertext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
     let mut pass = confirm_password("Use password: ", env_pass)?;
 
@@ -323,8 +331,9 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let outfile = opts.outfile;
     let env_pass = opts.env_pass;
 
+    let is_text = false;
     let mut ciphertext: Box<dyn Read> = open_input(infile.as_deref())?;
-    let mut plaintext: Box<dyn Write> = open_output(outfile.as_deref())?;
+    let mut plaintext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
     let mut pass = ask_pass("Password: ", env_pass)?;
 
@@ -370,13 +379,13 @@ fn open_input(path: Option<&str>) -> Result<Box<dyn Read>, anyhow::Error> {
     }
 }
 
-fn open_output(path: Option<&str>) -> Result<Box<dyn Write>, anyhow::Error> {
+fn open_output(path: Option<&str>, is_text: bool) -> Result<Box<dyn Write>, anyhow::Error> {
     if let Some(p) = path {
         Ok(Box::new(
             File::create(p).context("Could not create output file.")?,
         ))
     } else {
-        if isatty(Stream::Stdout) {
+        if isatty(Stream::Stdout) && !is_text {
             // Refuse to output to the terminal unless it is redirected to
             // a file or another program
             return Err(anyhow!("Please specify an outfile file."));
