@@ -8,11 +8,14 @@ use kestrel_crypto::{PrivateKey, PublicKey};
 use base64ct::{Base64, Encoding};
 use zeroize::Zeroize;
 
-const PRIVATE_KEY_VERSION: [u8; 2] = [0x00, 0x01];
+const PRIVATE_KEY_VERSION: [u8; 4] = [0x65, 0x67, 0x6b, 0x30];
 const MAX_NAME_SIZE: usize = 128;
 const SCRYPT_N: u32 = 32768;
 const SCRYPT_R: u32 = 8;
 const SCRYPT_P: u32 = 1;
+
+const PRIVATE_KEY_CT_LEN: usize = 84;
+const PUBLIC_KEY_LEN: usize = 32;
 
 #[derive(Debug, Clone)]
 pub(crate) struct EncodedPk(String);
@@ -65,7 +68,7 @@ impl TryFrom<&str> for EncodedSk {
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         match Base64::decode_vec(s) {
             Ok(s) => {
-                if s.len() != 66 {
+                if s.len() != PRIVATE_KEY_CT_LEN {
                     return Err("Invalid Private Key length");
                 }
             }
@@ -114,7 +117,7 @@ impl Keyring {
     pub(crate) fn lock_private_key(
         private_key: &PrivateKey,
         password: &[u8],
-        salt: [u8; 16],
+        salt: [u8; 32],
     ) -> EncodedSk {
         let mut encoded_bytes = Vec::<u8>::new();
 
@@ -146,9 +149,12 @@ impl Keyring {
     ) -> Result<PrivateKey, KeyringError> {
         let key_bytes = locked_sk.as_bytes();
         let key_bytes = key_bytes.as_slice();
-        let version_aad = &key_bytes[..2];
-        let salt = &key_bytes[2..18];
-        let ciphertext = &key_bytes[18..66];
+        if key_bytes.len() != PRIVATE_KEY_CT_LEN {
+            return Err(KeyringError::PrivateKeyLength);
+        }
+        let version_aad = &key_bytes[..4];
+        let salt = &key_bytes[4..36];
+        let ciphertext = &key_bytes[36..84];
         let mut key = kestrel_crypto::scrypt(password, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
 
         let nonce = [0u8; 12];
@@ -180,6 +186,9 @@ impl Keyring {
         let enc_pk =
             Base64::decode_vec(encoded_pk.as_str()).expect("Public key hex decode failed.");
         let enc_pk_bytes = enc_pk.as_slice();
+        if enc_pk_bytes.len() < PUBLIC_KEY_LEN {
+            return Err(KeyringError::PublicKeyLength);
+        }
         let pk = &enc_pk_bytes[..32];
         let checksum = &enc_pk_bytes[32..];
 
@@ -402,12 +411,12 @@ mod tests {
 [Key]
 # comment lines are fine.
 Name = alice
-PublicKey = Ws+jIx2H5x5UG4ZK+MFiJtq+/0zoujaEsutphJKt+QD7vTmV
-PrivateKey = AAGoWKlYNGTcXPf8+hMdVCONSBZ8tk9sWg0E4IFmTCMkrxB1anR2OkYGmkU5p2alGjDjZ+1aJvupjb9vsY2Qk9du
+PublicKey = D7ZZstGYF6okKKEV2rwoUza/tK3iUa8IMY+l5tuirmzzkEog
+PrivateKey = ZWdrMPEp09tKN3rAutCDQTshrNqoh0MLPnEERRCm5KFxvXcTo+s/Sf2ze0fKebVsQilImvLzfIHRcJuX8kGetyAQL1VchvzHR28vFhdKeq+NY2KT
 
 [Key]
 Name = Bobby Bobertson
-PublicKey = OtU9wlWBsYr1Q6Hoz07cK05OSD31p+DVraU+fku4Y3R62CZl
+PublicKey = CT/e0R9tbBjTYUhDNnNxltT3LLWZLHwW4DCY/WHxBA8am9vP
 ";
     #[test]
     fn test_keyring_config() {
@@ -421,13 +430,13 @@ PublicKey = OtU9wlWBsYr1Q6Hoz07cK05OSD31p+DVraU+fku4Y3R62CZl
             hex::decode("42d010ed1797fb3187351423f164caee1ce15eb5a462cf6194457b7a736938f5")
                 .unwrap();
 
-        let locked_sk = "AAHAHs+1SPTMfglwA2Zm9sOpqtg5BaQpJL3U3aa6yjALeWv+lWsiEGFHz9ANwz8u2VALpkqrecl58zQnIrGfeKop";
+        let locked_sk = "ZWdrMHMp/2yenV64rOfAJmMGWRVGbJuUAVhzOeRYRwNPqndu4Pfkg4YXzIna9Eg58JwreHA37o49xCS0x8CWd3yRe+D2ytRXFLb67WNIwxqHJ9Fw";
 
         let sk = PrivateKey::from(sk_bytes.as_slice());
 
         let password = b"alice";
-        let salt = hex::decode("c01ecfb548f4cc7e0970036666f6c3a9").unwrap();
-        let salt: [u8; 16] = salt.as_slice().try_into().unwrap();
+        let salt = hex::decode("7329ff6c9e9d5eb8ace7c02663065915466c9b9401587339e45847034faa776e").unwrap();
+        let salt: [u8; 32] = salt.as_slice().try_into().unwrap();
 
         let enc_sk = Keyring::lock_private_key(&sk, password, salt);
 
@@ -436,15 +445,17 @@ PublicKey = OtU9wlWBsYr1Q6Hoz07cK05OSD31p+DVraU+fku4Y3R62CZl
 
     #[test]
     fn test_unlock_private_key() {
-        let sk = "AAHAHs+1SPTMfglwA2Zm9sOpqtg5BaQpJL3U3aa6yjALeWv+lWsiEGFHz9ANwz8u2VALpkqrecl58zQnIrGfeKop";
+        let sk = "ZWdrMPEp09tKN3rAutCDQTshrNqoh0MLPnEERRCm5KFxvXcTo+s/Sf2ze0fKebVsQilImvLzfIHRcJuX8kGetyAQL1VchvzHR28vFhdKeq+NY2KT";
         let encoded_sk = EncodedSk(String::from(sk));
 
         assert!(Keyring::unlock_private_key(&encoded_sk, b"alice").is_ok());
         assert!(Keyring::unlock_private_key(&encoded_sk, b"badpass").is_err());
 
-        let bad_sk = "BAHAHs+1SPTMfglwA2Zm9sOpqtg5BaQpJL3U3aa6yjALeWv+lWsiEGFHz9ANwz8u2VALpkqrecl58zQnIrGfeKop";
-        let bad_encoded_sk = EncodedSk(String::from(bad_sk));
-        assert!(Keyring::unlock_private_key(&bad_encoded_sk, b"hackme").is_err());
+        let bad_sk = "ZWdrMPEtKN3rAutCDQTshrNqoh0MLPnEERRCm5KFxvXcTo+s/Sf2ze0fKebVsQilImvLzfIHRcJuX8kGetyAQL1VchvzHR28vFhdKeq+NY2KT";
+        let bad_sk2 = "ZWdrMPEp18tKN3rAutCDQTshrNqoh0MLPnEERRCm5KFxvXcTo+s/Sf2ze0fKebVsQilImvLzfIHRcJuX8kGetyAQL1VchvzHR28vFhdKeq+NY2KT";
+        assert!(EncodedSk::try_from(bad_sk).is_err());
+        let bad_encoded_sk = bad_sk2.try_into().unwrap();
+        assert!(Keyring::unlock_private_key(&bad_encoded_sk, b"alice").is_err());
     }
 
     #[test]

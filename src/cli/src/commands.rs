@@ -216,7 +216,7 @@ pub(crate) fn gen_key(outfile: Option<String>, env_pass: bool) -> Result<(), any
     let mut pass = confirm_password("New password: ", env_pass)?;
     let private_key = PrivateKey::generate();
     let public_key = private_key.to_public();
-    let salt: [u8; 16] = kestrel_crypto::secure_random(16).try_into().unwrap();
+    let salt: [u8; 32] = kestrel_crypto::secure_random(32).try_into().unwrap();
 
     let encoded_private_key = Keyring::lock_private_key(&private_key, pass.as_bytes(), salt);
     pass.zeroize();
@@ -255,7 +255,7 @@ pub(crate) fn change_pass(private_key: String, env_pass: bool) -> Result<(), any
         .map_err(|e| anyhow!("{}", e))?;
     let sk = Keyring::unlock_private_key(&old_sk, old_pass.as_bytes())?;
 
-    let salt: [u8; 16] = kestrel_crypto::secure_random(16).try_into().unwrap();
+    let salt: [u8; 32] = kestrel_crypto::secure_random(32).try_into().unwrap();
     let new_sk = Keyring::lock_private_key(&sk, new_pass.as_bytes(), salt);
 
     old_pass.zeroize();

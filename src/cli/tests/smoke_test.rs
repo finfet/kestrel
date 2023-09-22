@@ -50,14 +50,14 @@ fn test_key_gen() {
 #[test]
 fn test_key_change_pass() {
     let alice_private =
-        "AAG0rhkawzo/HQgNkV0TVJcK+p4WMgXy/KPNDpASrmiRXoCqG6yJvzOAv0zyxcaQQe7nYG2GtRxcWuo15u1Q69k+";
+        "ZWdrMPEp09tKN3rAutCDQTshrNqoh0MLPnEERRCm5KFxvXcTo+s/Sf2ze0fKebVsQilImvLzfIHRcJuX8kGetyAQL1VchvzHR28vFhdKeq+NY2KT";
 
     let app = Command::new(EXE_LOC)
         .arg("key")
         .arg("change-pass")
         .arg(alice_private)
         .arg("--env-pass")
-        .env("KESTREL_PASSWORD", "alicepass")
+        .env("KESTREL_PASSWORD", "alice")
         .env("KESTREL_NEW_PASSWORD", "alicenew")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -82,21 +82,21 @@ fn test_key_change_pass() {
 
     assert_eq!(stderr_lines.len(), 0);
     assert_eq!(stdout_lines.len(), 1);
-    assert_eq!(stdout_lines[0].len(), 101);
+    assert_eq!(stdout_lines[0].len(), 125);
 }
 
 #[test]
 fn test_key_extract_pub() {
     let alice_private =
-        "AAG0rhkawzo/HQgNkV0TVJcK+p4WMgXy/KPNDpASrmiRXoCqG6yJvzOAv0zyxcaQQe7nYG2GtRxcWuo15u1Q69k+";
-    let expected_stdout = "PublicKey = bJMx+URyEwCKSYYPDyVwRrVhiAu2MJSSxG/NC8l570DojWkm";
+        "ZWdrMPEp09tKN3rAutCDQTshrNqoh0MLPnEERRCm5KFxvXcTo+s/Sf2ze0fKebVsQilImvLzfIHRcJuX8kGetyAQL1VchvzHR28vFhdKeq+NY2KT";
+    let expected_stdout = "PublicKey = D7ZZstGYF6okKKEV2rwoUza/tK3iUa8IMY+l5tuirmzzkEog";
 
     let app = Command::new(EXE_LOC)
         .arg("key")
         .arg("extract-pub")
         .arg(alice_private)
         .arg("--env-pass")
-        .env("KESTREL_PASSWORD", "alicepass")
+        .env("KESTREL_PASSWORD", "alice")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -149,7 +149,7 @@ fn test_encrypt() {
         .arg("--keyring")
         .arg(keyring_loc.as_os_str())
         .arg("--env-pass")
-        .env("KESTREL_PASSWORD", "alicepass")
+        .env("KESTREL_PASSWORD", "alice")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -196,7 +196,7 @@ fn test_decrypt() {
         .arg("-k")
         .arg(keyring_loc.as_os_str())
         .arg("--env-pass")
-        .env("KESTREL_PASSWORD", "bobpass")
+        .env("KESTREL_PASSWORD", "bob")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

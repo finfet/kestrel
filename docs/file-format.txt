@@ -43,15 +43,15 @@ and last chunk indicator in the additional authenticated data.
 
 ## Encrypted Private Key Format
 
-[HEADER] - 18 bytes
-2  bytes : Version 1 (00 01)
-16 bytes : salt
+[HEADER] - 36 bytes
+4  bytes : 101, 103, 107 + Version 0x30 (65 67 6B 30)
+32 bytes : salt
 
 [Encrypted Plaintext] - (Overhead of 16)
 32 bytes : ciphertext of private key
 16 bytes : ciphertext tag
 
-The 2 byte version header is included as additional authenticated data.
+The 4 byte version header is included as additional authenticated data.
 Salt is not included as AAD because it gets included as part of key
 derivation. The chapoly nonce is fixed at zero because the scrypt salt is
 random, resulting in a fresh key each time.

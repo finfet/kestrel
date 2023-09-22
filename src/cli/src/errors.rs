@@ -7,7 +7,9 @@ use std::error::Error;
 pub(crate) enum KeyringError {
     ParseConfig(String),
     PublicKeyChecksum,
+    PublicKeyLength,
     PrivateKeyDecrypt,
+    PrivateKeyLength,
 }
 
 impl std::fmt::Display for KeyringError {
@@ -15,10 +17,12 @@ impl std::fmt::Display for KeyringError {
         match self {
             KeyringError::ParseConfig(s) => write!(f, "Failed to parse list of keys: {}", s),
             KeyringError::PublicKeyChecksum => write!(f, "Public key checksum did not match."),
+            KeyringError::PublicKeyLength => write!(f, "Invalid public key length."),
             KeyringError::PrivateKeyDecrypt => write!(
                 f,
                 "Failed to unlock the private key.\nMake sure the password provided is correct."
             ),
+            KeyringError::PrivateKeyLength => write!(f, "Invalid private key length.")
         }
     }
 }

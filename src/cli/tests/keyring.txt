@@ -1,10 +1,10 @@
 
 [Key]
 Name = alice
-PublicKey = bJMx+URyEwCKSYYPDyVwRrVhiAu2MJSSxG/NC8l570DojWkm
-PrivateKey = AAG0rhkawzo/HQgNkV0TVJcK+p4WMgXy/KPNDpASrmiRXoCqG6yJvzOAv0zyxcaQQe7nYG2GtRxcWuo15u1Q69k+
+PublicKey = IFi4oklOSLMCfUhqstD6YYlG9XcaVkREIqyDwCMY0SykFyD8
+PrivateKey = ZWdrMNgYZk3ECRscuyfyjc0qaMuv2h6/AnTIOKXhvusYrp8gRkbevOql6RfkZUcUTAeZIS9mDDI0p1c03jihe4tHUdYdLaYX0lplA6iTEG88h78n
 
 [Key]
 Name = bob
-PublicKey = u19LSsmoNtCIZu9/s7fKYe8dWBg9MlD8oW62KlHJj2y7pW7A
-PrivateKey = AAE0PIIAmhv4NT7rMxyBwtuiHOl6/NQtlIR0oHoWSXnWbN/4jXphlwSqTldJoFhFF3IvA3893GF9OojbA5MlyPPv
+PublicKey = dFVloYnLHUHvrAYWgjIprzCSXD8V1M0Xrt5a1GHYdmjkJB5Z
+PrivateKey = ZWdrMDJgXksGfgKQ8A9wTo/1PhQ8YCXDYSGCTb737pxrQ7pJtGH79RZWjOIlSSWApiEQEsryBh/oOY9jLVWlgEXEuKNFhIiUEhFLPsIkMG984lMP
