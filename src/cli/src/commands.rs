@@ -183,10 +183,10 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
 
     let encoded_public = Keyring::encode_public_key(&sender_public);
     match keyring.get_name_from_key(&encoded_public) {
-        Some(name) => println!("Success. File from: {}", name),
+        Some(name) => eprintln!("Success. File from: {}", name),
         None => {
-            println!("Caution. File is from an unknown key.");
-            println!("Unknown key: {}", encoded_public.as_str());
+            eprintln!("Caution. File is from an unknown key.");
+            eprintln!("Unknown key: {}", encoded_public.as_str());
         }
     }
 
