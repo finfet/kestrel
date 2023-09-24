@@ -7,7 +7,9 @@ use crate::errors::EncryptError;
 
 use std::io::{Read, Write};
 
-use crate::{chapoly_encrypt_noise, noise_encrypt, scrypt, secure_random, PrivateKey, PublicKey};
+use crate::{
+    chapoly_encrypt_noise, hkdf_sha256, noise_encrypt, scrypt, secure_random, PrivateKey, PublicKey,
+};
 use crate::{AsymFileFormat, PassFileFormat};
 use crate::{CHUNK_SIZE, SCRYPT_N, SCRYPT_P, SCRYPT_R};
 
@@ -35,9 +37,12 @@ pub fn key_encrypt<T: Read, U: Write>(
     let noise_message = noise_encrypt(sender, recipient, ephemeral, &PROLOGUE, &payload_key);
 
     ciphertext.write_all(&PROLOGUE)?;
-    ciphertext.write_all(&noise_message)?;
+    ciphertext.write_all(&noise_message.ciphertext)?;
 
-    encrypt_chunks(plaintext, ciphertext, payload_key, None, CHUNK_SIZE)?;
+    let file_encryption_key = hkdf_sha256(&[], &payload_key, &noise_message.handshake_hash, 32);
+    let file_encryption_key: [u8; 32] = file_encryption_key.as_slice().try_into().unwrap();
+
+    encrypt_chunks(plaintext, ciphertext, file_encryption_key, None, CHUNK_SIZE)?;
 
     ciphertext.flush()?;
 
@@ -176,7 +181,7 @@ pub(crate) mod tests {
         let ciphertext = encrypt_small();
 
         let expected_hash =
-            hex::decode("54fa99e9850f4c3ecb7243b95ba107bbf1d2162e0dc8ead43b09d8416207296f")
+            hex::decode("3f3b97112e768a8fa7cce7ce90c166b6ea2de51d8868a037dfd57094ea6e77f1")
                 .unwrap();
         let got_hash = sha256(ciphertext.as_slice());
 
@@ -222,7 +227,7 @@ pub(crate) mod tests {
         let ciphertext = encrypt_one_chunk();
 
         let expected_hash =
-            hex::decode("3486aaf3d15c03a7a1edac2804b7806b857602ac635608cfdb21606c2481657d")
+            hex::decode("3bce88bcc4d71526cd3f6567213f360a4abb138c3dffa02dc2d6f2c47a339393")
                 .unwrap();
         let got_hash = sha256(ciphertext.as_slice());
 
@@ -265,7 +270,7 @@ pub(crate) mod tests {
         let ciphertext = encrypt_two_chunks();
 
         let expected_hash =
-            hex::decode("45c8d872c26c6cea338994c1f09a31812df7413277854637a67f14bb5dfd5abb")
+            hex::decode("c88c1e5cc207fa2fdbac41c8f748a9072d31e786f6d729a0982f15fb24429079")
                 .unwrap();
         let got_hash = sha256(ciphertext.as_slice());
 

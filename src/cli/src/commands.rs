@@ -369,13 +369,11 @@ fn open_input(path: Option<&str>) -> Result<Box<dyn Read>, anyhow::Error> {
         Ok(Box::new(
             File::open(p).context("Could not open input file.")?,
         ))
+    } else if isatty(Stream::Stdin) {
+        // Stdin must be piped in if we are going to read it
+        Err(anyhow!("Please specify an input file."))
     } else {
-        if isatty(Stream::Stdin) {
-            // Stdin must be piped in if we are going to read it
-            return Err(anyhow!("Please specify an input file."));
-        } else {
-            Ok(Box::new(std::io::stdin()))
-        }
+        Ok(Box::new(std::io::stdin()))
     }
 }
 
@@ -384,20 +382,18 @@ fn open_output(path: Option<&str>, is_text: bool) -> Result<Box<dyn Write>, anyh
         Ok(Box::new(
             File::create(p).context("Could not create output file.")?,
         ))
+    } else if isatty(Stream::Stdout) && !is_text {
+        // Refuse to output to the terminal unless it is redirected to
+        // a file or another program
+        Err(anyhow!("Please specify an outfile file."))
     } else {
-        if isatty(Stream::Stdout) && !is_text {
-            // Refuse to output to the terminal unless it is redirected to
-            // a file or another program
-            return Err(anyhow!("Please specify an outfile file."));
-        } else {
-            Ok(Box::new(std::io::stdout()))
-        }
+        Ok(Box::new(std::io::stdout()))
     }
 }
 
 fn confirm_password(prompt: &str, env_pass: bool) -> Result<String, anyhow::Error> {
     if env_pass {
-        return Ok(read_env_pass()?);
+        return read_env_pass();
     }
 
     let password = loop {
@@ -421,7 +417,7 @@ fn confirm_password(prompt: &str, env_pass: bool) -> Result<String, anyhow::Erro
 
 fn ask_pass(prompt: &str, env_pass: bool) -> Result<String, anyhow::Error> {
     if env_pass {
-        return Ok(read_env_pass()?);
+        return read_env_pass();
     }
 
     let pass = passterm::prompt_password_tty(Some(prompt))?;
@@ -431,7 +427,7 @@ fn ask_pass(prompt: &str, env_pass: bool) -> Result<String, anyhow::Error> {
 
 fn ask_new_pass(prompt: &str, env_pass: bool) -> Result<String, anyhow::Error> {
     if env_pass {
-        return Ok(read_env_new_pass()?);
+        return read_env_new_pass();
     }
 
     let pass = passterm::prompt_password_tty(Some(prompt))?;

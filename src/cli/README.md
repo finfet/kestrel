@@ -155,6 +155,10 @@ you may have.
 
 BSD 3 Clause
 
+Unless you explicitly state otherwise, any contribution intentionally
+submitted for inclusion in this project by you, shall be licensed as
+BSD-3-Clause, without any additonal terms or conditions.
+
 
 ## Security Warning
 

@@ -7,7 +7,7 @@ use crate::errors::DecryptError;
 
 use std::io::{Read, Write};
 
-use crate::{chapoly_decrypt_noise, noise_decrypt, scrypt, PrivateKey, PublicKey};
+use crate::{chapoly_decrypt_noise, hkdf_sha256, noise_decrypt, scrypt, PrivateKey, PublicKey};
 use crate::{AsymFileFormat, PassFileFormat};
 use crate::{CHUNK_SIZE, SCRYPT_N, SCRYPT_P, SCRYPT_R};
 
@@ -26,13 +26,22 @@ pub fn key_decrypt<T: Read, U: Write>(
 
     let mut handshake_message = [0u8; 128];
     ciphertext.read_exact(&mut handshake_message)?;
-    let (payload_key, sender_public) = noise_decrypt(recipient, &prologue, &handshake_message)?;
 
-    decrypt_chunks(ciphertext, plaintext, payload_key, None, CHUNK_SIZE)?;
+    let noise_message = noise_decrypt(recipient, &prologue, &handshake_message)?;
+
+    let file_encryption_key = hkdf_sha256(
+        &[],
+        &noise_message.payload_key,
+        &noise_message.handshake_hash,
+        32,
+    );
+    let file_encryption_key: [u8; 32] = file_encryption_key.as_slice().try_into().unwrap();
+
+    decrypt_chunks(ciphertext, plaintext, file_encryption_key, None, CHUNK_SIZE)?;
 
     plaintext.flush()?;
 
-    Ok(sender_public)
+    Ok(noise_message.public_key)
 }
 
 /// Decrypt encrypted data from [`crate::encrypt::pass_encrypt`]

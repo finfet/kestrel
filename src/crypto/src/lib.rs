@@ -21,6 +21,7 @@ use chacha20poly1305::ChaCha20Poly1305;
 
 use curve25519_dalek::montgomery::MontgomeryPoint;
 
+use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
 
@@ -135,6 +136,12 @@ pub fn x25519_derive_public(private_key: &[u8]) -> [u8; 32] {
     MontgomeryPoint::mul_base_clamped(sk).to_bytes()
 }
 
+/// A struct containing the result of a[`noise_encrypt()`]
+pub struct NoiseEncryptMsg {
+    pub ciphertext: Vec<u8>,
+    pub handshake_hash: [u8; 32],
+}
+
 /// Encrypt the payload key using the noise X protocol.
 /// Passing None to ephemeral generates a new key pair. This is almost
 /// certainly what you want.
@@ -145,14 +152,26 @@ pub fn noise_encrypt(
     ephemeral: Option<&PrivateKey>,
     prologue: &[u8],
     payload_key: &PayloadKey,
-) -> Vec<u8> {
+) -> NoiseEncryptMsg {
     let mut handshake_state =
         HandshakeState::init_x(true, prologue, sender, ephemeral, Some(recipient.clone()));
 
-    // Encrypt the payload key
-    let (ciphertext, _) = handshake_state.write_message(payload_key);
+    let noise_handshake = handshake_state.write_message(payload_key);
+    let handshake_hash = noise_handshake.handshake_hash;
+    let ciphertext = noise_handshake.message;
 
-    ciphertext
+    NoiseEncryptMsg {
+        ciphertext,
+        handshake_hash,
+    }
+}
+
+/// A struct containing the result of a [`noise_decrypt()`]
+/// PublicKey is the sender's public key
+pub struct NoiseDecryptMsg {
+    pub payload_key: PayloadKey,
+    pub public_key: PublicKey,
+    pub handshake_hash: [u8; 32],
 }
 
 /// Decrypt the payload key using the noise protocol.
@@ -161,20 +180,28 @@ pub fn noise_decrypt(
     recipient: &PrivateKey,
     prologue: &[u8],
     handshake_message: &[u8],
-) -> Result<(PayloadKey, PublicKey), ChaPolyDecryptError> {
+) -> Result<NoiseDecryptMsg, ChaPolyDecryptError> {
     let initiator = false;
     let mut handshake_state =
         noise::HandshakeState::init_x(initiator, prologue, recipient, None, None);
 
     // Decrypt the payload key
-    let (payload_key, _) = handshake_state.read_message(handshake_message)?;
-    let payload_key: [u8; 32] = payload_key.try_into().unwrap();
+    let noise_handshake = handshake_state.read_message(handshake_message)?;
+    let handshake_hash = noise_handshake.handshake_hash;
+    let payload_key: [u8; 32] = noise_handshake
+        .message
+        .try_into()
+        .expect("Expected the decrypted payload key to be 32 bytes");
 
     let sender_pubkey = handshake_state
         .get_pubkey()
-        .expect("Expected to send the sender's public key");
+        .expect("Expected to get the sender's public key");
 
-    Ok((payload_key, sender_pubkey))
+    Ok(NoiseDecryptMsg {
+        payload_key,
+        public_key: sender_pubkey,
+        handshake_hash,
+    })
 }
 
 /// ChaCha20-Poly1305 encrypt function as specified by the noise protocol.
@@ -285,6 +312,17 @@ fn hkdf_noise(chaining_key: &[u8], ikm: &[u8]) -> ([u8; 32], [u8; 32]) {
     (output1, output2)
 }
 
+/// HKDF-SHA256
+/// If no info or salt is required, use the empty slice
+pub fn hkdf_sha256(salt: &[u8], ikm: &[u8], info: &[u8], len: usize) -> Vec<u8> {
+    let hk: Hkdf<Sha256> = Hkdf::new(Some(salt), ikm);
+    let mut okm = vec![0u8; len];
+    hk.expand(info, okm.as_mut_slice())
+        .expect("Unexpected HKDF length");
+
+    okm
+}
+
 /// Derives a secret key from a password and a salt using scrypt.
 /// Recommended parameters are n = 32768, r = 8, p = 1
 /// Parameter n must be larger than 1 and a power of 2
@@ -317,7 +355,7 @@ pub fn secure_random(len: usize) -> Vec<u8> {
 mod tests {
     use super::{
         chapoly_decrypt_ietf, chapoly_decrypt_noise, chapoly_encrypt_ietf, chapoly_encrypt_noise,
-        hmac_sha256, scrypt, sha256, x25519,
+        hkdf_sha256, hmac_sha256, scrypt, sha256, x25519,
     };
     use super::{PrivateKey, PublicKey};
 
@@ -392,6 +430,50 @@ mod tests {
     }
 
     #[test]
+    fn test_hmac_sha256() {
+        let key = b"yellowsubmarine.yellowsubmarine.";
+        let message = b"Hello, world!";
+        let expected =
+            hex::decode("3cb82dc71c26dfe8be75805f6438027d5170f3fdcd8057f0a55d1c7c1743224c")
+                .unwrap();
+        let result = hmac_sha256(key, message);
+
+        assert_eq!(&expected, &result);
+    }
+
+    #[test]
+    fn test_hkdf_sha256() {
+        // RFC-5869 Test Case 1
+        let ikm = hex::decode("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b").unwrap();
+        let salt = hex::decode("000102030405060708090a0b0c").unwrap();
+        let info = hex::decode("f0f1f2f3f4f5f6f7f8f9").unwrap();
+        let length = 42;
+
+        let expected_okm = hex::decode(
+            "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865",
+        )
+        .unwrap();
+
+        let result_okm = hkdf_sha256(&salt, &ikm, &info, length);
+
+        assert_eq!(&expected_okm, &result_okm);
+
+        // RFC-5869 Test Case 3
+        let ikm = hex::decode("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b").unwrap();
+        let salt = &[];
+        let info = &[];
+        let length = 42;
+
+        let expected_okm = hex::decode(
+            "8da4e775a563c18f715f802a063c5a31b8a11f5c5ee1879ec3454e5f3c738d2d9d201395faa4b61a96c8",
+        )
+        .unwrap();
+
+        let result_okm = hkdf_sha256(salt, &ikm, info, length);
+        assert_eq!(&expected_okm, &result_okm);
+    }
+
+    #[test]
     fn test_scrypt() {
         let password = b"hackme";
         let salt = b"yellowsubmarine.";
@@ -409,18 +491,6 @@ mod tests {
         let expected3 = hex::decode("87b33dba57a7633a3df7741eabee3de0").unwrap();
         let result3 = scrypt(password, salt, 1024, 8, 1, 16);
         assert_eq!(&expected3, &result3);
-    }
-
-    #[test]
-    fn test_hmac_sha256() {
-        let key = b"yellowsubmarine.yellowsubmarine.";
-        let message = b"Hello, world!";
-        let expected =
-            hex::decode("3cb82dc71c26dfe8be75805f6438027d5170f3fdcd8057f0a55d1c7c1743224c")
-                .unwrap();
-        let result = hmac_sha256(key, message);
-
-        assert_eq!(&expected, &result);
     }
 
     #[test]

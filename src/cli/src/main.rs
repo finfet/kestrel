@@ -10,7 +10,7 @@ use commands::{DecryptOptions, EncryptOptions, PasswordOptions};
 use anyhow::anyhow;
 use getopts::Options;
 
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const USAGE: &str = "USAGE:
     kestrel encrypt [FILE] -t NAME -f NAME [-o FILE] [-k KEYRING]
@@ -226,7 +226,7 @@ fn parse_decrypt(args: &[&str]) -> Result<DecryptOptions, String> {
 }
 
 fn parse_key(args: &[&str]) -> Result<KeyCommand, String> {
-    if args.len() < 1 {
+    if args.is_empty() {
         return Err("Invalid usage".to_string());
     }
 
@@ -298,7 +298,7 @@ fn parse_key(args: &[&str]) -> Result<KeyCommand, String> {
 }
 
 fn parse_password(args: &[&str]) -> Result<PasswordCommand, String> {
-    if args.len() < 1 {
+    if args.is_empty() {
         return Err("Invalid usage".to_string());
     }
 

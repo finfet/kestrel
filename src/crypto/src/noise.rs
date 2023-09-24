@@ -62,6 +62,12 @@ pub struct HandshakeState {
     message_patterns: VecDeque<Vec<Token>>,
 }
 
+pub struct NoiseHandshake {
+    pub message: Vec<u8>,
+    pub cipher_state: CipherState,
+    pub handshake_hash: [u8; 32],
+}
+
 impl CipherState {
     pub fn new() -> Self {
         Self {
@@ -156,9 +162,11 @@ impl SymmetricState {
         self.hash_output = sha256(h.as_slice());
     }
 
-    // MixKeyAndHash() function not needed by this application
-
     #[allow(dead_code)]
+    fn mix_key_and_hash() {
+        unimplemented!("MixKeyAndHash() is not needed by this application");
+    }
+
     pub fn get_handshake_hash(&self) -> [u8; 32] {
         self.hash_output
     }
@@ -245,7 +253,7 @@ impl HandshakeState {
         None
     }
 
-    pub fn write_message(&mut self, payload: &[u8]) -> (Vec<u8>, CipherState) {
+    pub fn write_message(&mut self, payload: &[u8]) -> NoiseHandshake {
         let mut message_buffer = Vec::<u8>::new();
         let message_pattern = self
             .message_patterns
@@ -303,16 +311,19 @@ impl HandshakeState {
         let enc_payload = self.symmetric_state.encrypt_and_hash(payload);
         message_buffer.extend_from_slice(enc_payload.as_slice());
 
+        let handshake_hash = self.symmetric_state.get_handshake_hash();
+
         // X pattern is one way so we don't need the second cipher state
         let (cipher_state, _) = self.symmetric_state.split();
 
-        (message_buffer, cipher_state)
+        NoiseHandshake {
+            message: message_buffer,
+            cipher_state,
+            handshake_hash,
+        }
     }
 
-    pub fn read_message(
-        &mut self,
-        message: &[u8],
-    ) -> Result<(Vec<u8>, CipherState), ChaPolyDecryptError> {
+    pub fn read_message(&mut self, message: &[u8]) -> Result<NoiseHandshake, ChaPolyDecryptError> {
         let message_pattern = self
             .message_patterns
             .pop_front()
@@ -370,10 +381,16 @@ impl HandshakeState {
 
         let dec_payload_buffer = self.symmetric_state.decrypt_and_hash(&message[msgidx..])?;
 
+        let handshake_hash = self.symmetric_state.get_handshake_hash();
+
         // X pattern is one way so we don't need the second cipher state
         let (cipher_state, _) = self.symmetric_state.split();
 
-        Ok((dec_payload_buffer, cipher_state))
+        Ok(NoiseHandshake {
+            message: dec_payload_buffer,
+            cipher_state,
+            handshake_hash,
+        })
     }
 }
 
@@ -425,18 +442,22 @@ mod tests {
         );
 
         // handshake message
-        let (handshake_buffer, mut cipherstate) = handshake_state.write_message(&payload);
-        assert_eq!(&handshake_buffer, &expected_ciphertext);
+        let mut noise_data = handshake_state.write_message(&payload);
+        assert_eq!(&noise_data.message, &expected_ciphertext);
 
         let handshake_hash = handshake_state.symmetric_state.get_handshake_hash();
         assert_eq!(&handshake_hash, exp_handshake_hash.as_slice());
 
         // transport message 1
-        let got_transport_ct1 = cipherstate.encrypt_with_ad(&[], &transport_payload1);
+        let got_transport_ct1 = noise_data
+            .cipher_state
+            .encrypt_with_ad(&[], &transport_payload1);
         assert_eq!(&exp_transport_ct1, &got_transport_ct1);
 
         // transport message 2
-        let got_transport_ct2 = cipherstate.encrypt_with_ad(&[], &trasnport_payload2);
+        let got_transport_ct2 = noise_data
+            .cipher_state
+            .encrypt_with_ad(&[], &trasnport_payload2);
         assert_eq!(&exp_transport_ct2, &got_transport_ct2);
     }
 
@@ -471,31 +492,25 @@ mod tests {
         );
 
         // Hanshake message
-        let (got_handshake_payload, mut cipherstate) = handshake_state
-            .read_message(&handshake_message[..])
-            .unwrap();
+        let mut noise_data = handshake_state.read_message(&handshake_message).unwrap();
 
-        assert_eq!(&expected_handshake_payload[..], &got_handshake_payload[..]);
+        assert_eq!(&expected_handshake_payload, &noise_data.message);
         // Check that we know what the sender's public key is
         let sender_pub = handshake_state.rs.unwrap();
-        assert_eq!(&expected_public_key[..], sender_pub.as_bytes());
+        assert_eq!(&expected_public_key, sender_pub.as_bytes());
 
         // Transport message 1
-        let got_transport_payload1 = cipherstate
-            .decrypt_with_ad(&[], &transport_ciphertext1[..])
+        let got_transport_payload1 = noise_data
+            .cipher_state
+            .decrypt_with_ad(&[], &transport_ciphertext1)
             .unwrap();
-        assert_eq!(
-            &expected_transport_payload1[..],
-            &got_transport_payload1[..]
-        );
+        assert_eq!(&expected_transport_payload1, &got_transport_payload1);
 
         // Transport message 2
-        let got_transport_payload2 = cipherstate
-            .decrypt_with_ad(&[], &transport_ciphertext2[..])
+        let got_transport_payload2 = noise_data
+            .cipher_state
+            .decrypt_with_ad(&[], &transport_ciphertext2)
             .unwrap();
-        assert_eq!(
-            &expected_transport_payload2[..],
-            &got_transport_payload2[..]
-        );
+        assert_eq!(&expected_transport_payload2, &got_transport_payload2);
     }
 }

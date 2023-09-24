@@ -435,7 +435,8 @@ PublicKey = CT/e0R9tbBjTYUhDNnNxltT3LLWZLHwW4DCY/WHxBA8am9vP
         let sk = PrivateKey::from(sk_bytes.as_slice());
 
         let password = b"alice";
-        let salt = hex::decode("7329ff6c9e9d5eb8ace7c02663065915466c9b9401587339e45847034faa776e").unwrap();
+        let salt = hex::decode("7329ff6c9e9d5eb8ace7c02663065915466c9b9401587339e45847034faa776e")
+            .unwrap();
         let salt: [u8; 32] = salt.as_slice().try_into().unwrap();
 
         let enc_sk = Keyring::lock_private_key(&sk, password, salt);

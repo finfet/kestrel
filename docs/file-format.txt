@@ -20,7 +20,8 @@ increases sequentially. Chunk number is used to form the nonce and is
 authenticated because it is part of the nonce. The last chunk indicator
 is set to 1 for the last chunk in the message. Ciphertext length and
 last chunk indicator are included in the additional authenticated data.
-The payload key must be unique for each message.
+A file encryption key is derived from the payload key by using HKDF with the
+noise handshake hash as the info parameter.
 
 
 ## Password Derived Symmetric Encryption

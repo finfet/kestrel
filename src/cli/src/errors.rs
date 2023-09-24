@@ -22,7 +22,7 @@ impl std::fmt::Display for KeyringError {
                 f,
                 "Failed to unlock the private key.\nMake sure the password provided is correct."
             ),
-            KeyringError::PrivateKeyLength => write!(f, "Invalid private key length.")
+            KeyringError::PrivateKeyLength => write!(f, "Invalid private key length."),
         }
     }
 }
