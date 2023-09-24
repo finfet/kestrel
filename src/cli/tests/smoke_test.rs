@@ -217,11 +217,11 @@ fn test_decrypt() {
         .map(|l| l.to_string())
         .collect::<Vec<String>>();
 
-    assert_eq!(stdout_lines.len(), 1);
-    assert_eq!(stderr_lines.len(), 1);
+    assert_eq!(stdout_lines.len(), 0);
+    assert_eq!(stderr_lines.len(), 2);
 
     assert_eq!("Decrypting...done", stderr_lines[0]);
-    assert_eq!("Success. File from: alice", stdout_lines[0]);
+    assert_eq!("Success. File from: alice", stderr_lines[1]);
 }
 
 #[test]
