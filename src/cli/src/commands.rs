@@ -364,9 +364,9 @@ fn open_input(path: Option<&str>) -> Result<Box<dyn Read>, anyhow::Error> {
                 extract_filename(infile_path.file_name())
             ));
         }
-        Ok(Box::new(
-            File::open(p).map_err(|e| anyhow!("Could not open input file: {}", e))?,
-        ))
+        Ok(Box::new(File::open(p).map_err(|e| {
+            anyhow!("Could not open input file: {}", e)
+        })?))
     } else if isatty(Stream::Stdin) {
         // Stdin must be piped in if we are going to read it
         Err(anyhow!("Please specify an input file."))
@@ -377,9 +377,9 @@ fn open_input(path: Option<&str>) -> Result<Box<dyn Read>, anyhow::Error> {
 
 fn open_output(path: Option<&str>, is_text: bool) -> Result<Box<dyn Write>, anyhow::Error> {
     if let Some(p) = path {
-        Ok(Box::new(
-            File::create(p).map_err(|e| anyhow!("Could not create output file: {}", e))?,
-        ))
+        Ok(Box::new(File::create(p).map_err(|e| {
+            anyhow!("Could not create output file: {}", e)
+        })?))
     } else if isatty(Stream::Stdout) && !is_text {
         // Refuse to output to the terminal unless it is redirected to
         // a file or another program
@@ -505,8 +505,9 @@ fn open_keyring(keyring_loc: Option<String>) -> Result<Keyring, anyhow::Error> {
         }
     };
 
-    let keyring_data = std::fs::read(&path).map_err(|e| anyhow!("Could not open keyring: {}", e))?;
-    let keyring_data = String::from_utf8(keyring_data).map_err(|_| anyhow!("Invalid keyinrg encoding. Expected UTF-8"))?;
+    let keyring_data = std::fs::read(path).map_err(|e| anyhow!("Could not open keyring: {}", e))?;
+    let keyring_data = String::from_utf8(keyring_data)
+        .map_err(|_| anyhow!("Invalid keyinrg encoding. Expected UTF-8"))?;
 
     Ok(Keyring::new(&keyring_data)?)
 }

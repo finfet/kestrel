@@ -11,6 +11,7 @@ API Includes
 - Noise X protocol
 - SHA256
 - Scrypt
+- HKDF-SHA256
 - Random key generation
 - Public Key authenticated encryption of data
 - Password bassed authenticated encryption
