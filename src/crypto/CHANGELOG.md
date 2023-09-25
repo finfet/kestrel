@@ -2,7 +2,9 @@
 
 ## Version 0.11.0
 
-- Unreleased
+- Add HKDF-SHA256 API
+- Derive a symmetric key from the payload key and noise handshake hash set
+  as the info parameter to hkdf-sha256
 
 ## Version 0.10.1
 

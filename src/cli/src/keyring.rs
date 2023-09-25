@@ -182,6 +182,8 @@ impl Keyring {
         EncodedPk(Base64::encode_string(&encoded))
     }
 
+    /// Decode a PublicKey
+    /// Public keys are base64 encoded with a 4 byte SHA-256 checksum appended
     pub(crate) fn decode_public_key(encoded_pk: &EncodedPk) -> Result<PublicKey, KeyringError> {
         let enc_pk =
             Base64::decode_vec(encoded_pk.as_str()).expect("Public key hex decode failed.");
