@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
 use passterm::{isatty, Stream};
 use zeroize::Zeroize;
 
@@ -58,7 +58,7 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     let mut plaintext: Box<dyn Read> = open_input(infile.as_deref())?;
     let mut ciphertext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
-    let keyring = open_keyring(keyring).context("Failed to open keyring.")?;
+    let keyring = open_keyring(keyring)?;
     let recipient_key = keyring.get_key(&to);
     if recipient_key.is_none() {
         return Err(anyhow!("Recipient key '{}' not found.", &to));
@@ -131,9 +131,7 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
     let mut ciphertext: Box<dyn Read> = open_input(infile.as_deref())?;
     let mut plaintext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
-    // TODO: We lost the magic header file format check
-
-    let keyring = open_keyring(keyring).context("Failed to open keyring.")?;
+    let keyring = open_keyring(keyring)?;
 
     let recipient_key = keyring.get_key(&to);
     let recipient_key = match recipient_key {
@@ -367,7 +365,7 @@ fn open_input(path: Option<&str>) -> Result<Box<dyn Read>, anyhow::Error> {
             ));
         }
         Ok(Box::new(
-            File::open(p).context("Could not open input file.")?,
+            File::open(p).map_err(|e| anyhow!("Could not open input file: {}", e))?,
         ))
     } else if isatty(Stream::Stdin) {
         // Stdin must be piped in if we are going to read it
@@ -380,7 +378,7 @@ fn open_input(path: Option<&str>) -> Result<Box<dyn Read>, anyhow::Error> {
 fn open_output(path: Option<&str>, is_text: bool) -> Result<Box<dyn Write>, anyhow::Error> {
     if let Some(p) = path {
         Ok(Box::new(
-            File::create(p).context("Could not create output file.")?,
+            File::create(p).map_err(|e| anyhow!("Could not create output file: {}", e))?,
         ))
     } else if isatty(Stream::Stdout) && !is_text {
         // Refuse to output to the terminal unless it is redirected to
@@ -507,19 +505,8 @@ fn open_keyring(keyring_loc: Option<String>) -> Result<Keyring, anyhow::Error> {
         }
     };
 
-    let keyring_data = match std::fs::read(&path) {
-        Ok(k) => k,
-        Err(e) => match e.kind() {
-            std::io::ErrorKind::NotFound => {
-                let filename = extract_filename(path.file_name());
-                return Err(e).context(format!("Keyring file '{}' does not exist.", &filename));
-            }
-            _ => {
-                return Err(anyhow!(e));
-            }
-        },
-    };
-    let keyring_data = String::from_utf8(keyring_data).context("Invalid Keyring encoding")?;
+    let keyring_data = std::fs::read(&path).map_err(|e| anyhow!("Could not open keyring: {}", e))?;
+    let keyring_data = String::from_utf8(keyring_data).map_err(|_| anyhow!("Invalid keyinrg encoding. Expected UTF-8"))?;
 
     Ok(Keyring::new(&keyring_data)?)
 }
