@@ -382,8 +382,8 @@ fn open_output(path: Option<&str>, is_text: bool) -> Result<Box<dyn Write>, anyh
         })?))
     } else if isatty(Stream::Stdout) && !is_text {
         // Refuse to output to the terminal unless it is redirected to
-        // a file or another program
-        Err(anyhow!("Please specify an outfile file."))
+        // a file or another program.
+        Err(anyhow!("Please specify an output file."))
     } else {
         Ok(Box::new(std::io::stdout()))
     }

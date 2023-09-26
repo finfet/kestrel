@@ -1,5 +1,13 @@
 # Changelog
 
+## Version 1.0.0
+
+**Date**: 2023-09-25
+
+**Changes**
+
+- Unreleased
+
 ## Version 0.11.0
 
 **Date**: 2023-09-25

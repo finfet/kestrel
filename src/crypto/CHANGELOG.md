@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 1.0.0
+
+Date: 2023-09-25
+
+- Unreleased
+
 ## Version 0.11.0
 
 - Add HKDF-SHA256 API
