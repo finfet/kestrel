@@ -1,16 +1,16 @@
 # Maintainer: Kyle Schreiber <kyle@80x24.net>
 
 pkgname=kestrel
-pkgver=0.10.1
-pkgrel=2
+pkgver=0.11.0
+pkgrel=5
 pkgdesc="File encryption done right"
 arch=("x86_64")
-url=https://github.com/finfet/kestrel
+url=https://getkestrel.com
 license=("BSD")
 depends=("gcc-libs")
 makedepends=("rust")
-source=("kestrel-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-sha256sums=("1f69fb546bb87431ea3cde80accee1909f40dab2cd2b82f2f1bbf11eb5baf21c")
+source=("kestrel-$pkgver.tar.gz::$url/releases/v$pkgver/kestrel-$pkgver.tar.gz")
+sha256sums=("115b1516b488ce569ee2a4a6c60bbb9077b97c78b311320288934ad101361aee")
 
 build() {
     cd kestrel-$pkgver
