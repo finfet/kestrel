@@ -54,10 +54,12 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     #[cfg(target_os = "windows")]
     win32_console_compat(outfile.is_some())?;
 
-    let is_text = false;
+    // Try to open our plaintext early to not make the user input a keyring
+    // password for a plaintext file that doesn't exist.
     let mut plaintext: Box<dyn Read> = open_input(infile.as_deref())?;
-    let mut ciphertext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
+    // Read from the keyring
+    // TODO: Refactor this out into a separate function.
     let keyring = open_keyring(keyring)?;
     let recipient_key = keyring.get_key(&to);
     if recipient_key.is_none() {
@@ -96,6 +98,11 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
 
     pass.zeroize();
 
+    // Finally open the output file. Only when we've gotten here should we
+    // attempt to open/create the output file.
+    let is_text = false;
+    let mut ciphertext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
+
     eprint!("Encrypting...");
 
     if let Err(e) = encrypt::key_encrypt(
@@ -127,12 +134,11 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
     #[cfg(target_os = "windows")]
     win32_console_compat(outfile.is_some())?;
 
-    let is_text = false;
+    // Try to open our ciphertext early to not make the user input a keyring
+    // password for a ciphertext file that doesn't exist.
     let mut ciphertext: Box<dyn Read> = open_input(infile.as_deref())?;
-    let mut plaintext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
     let keyring = open_keyring(keyring)?;
-
     let recipient_key = keyring.get_key(&to);
     let recipient_key = match recipient_key {
         Some(k) => k,
@@ -162,6 +168,10 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
     };
 
     pass.zeroize();
+
+    // Finally attempt to open/create our output file.
+    let is_text = false;
+    let mut plaintext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
     eprint!("Decrypting...");
     let sender_public = match decrypt::key_decrypt(
@@ -296,11 +306,15 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let outfile = opts.outfile;
     let env_pass = opts.env_pass;
 
-    let is_text = false;
     let mut plaintext: Box<dyn Read> = open_input(infile.as_deref())?;
-    let mut ciphertext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
     let mut pass = confirm_password("Use password: ", env_pass)?;
+
+    // Don't open our output file until we've gotten a valid password from
+    // the user. If the user backs out before giving a valid password, we
+    // won't clobber their previous output file until we have to.
+    let is_text = false;
+    let mut ciphertext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
     eprint!("Encrypting...");
     let salt: [u8; 32] = kestrel_crypto::secure_random(32).try_into().unwrap();
@@ -329,11 +343,14 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let outfile = opts.outfile;
     let env_pass = opts.env_pass;
 
-    let is_text = false;
     let mut ciphertext: Box<dyn Read> = open_input(infile.as_deref())?;
-    let mut plaintext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
     let mut pass = ask_pass("Password: ", env_pass)?;
+
+    // Don't open/create the output file until after getting a valid password
+    // from the user.
+    let is_text = false;
+    let mut plaintext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
     eprint!("Decrypting...");
     if let Err(e) = decrypt::pass_decrypt(
@@ -375,6 +392,9 @@ fn open_input(path: Option<&str>) -> Result<Box<dyn Read>, anyhow::Error> {
     }
 }
 
+/// Return a Write output sink. is_text specifies if the output data that
+/// is going to be written to this output sink is plaintext data. Non plaintext
+/// data must have the output stream redirected to a file.
 fn open_output(path: Option<&str>, is_text: bool) -> Result<Box<dyn Write>, anyhow::Error> {
     if let Some(p) = path {
         Ok(Box::new(File::create(p).map_err(|e| {
