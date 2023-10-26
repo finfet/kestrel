@@ -118,7 +118,6 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
         return Err(anyhow!(e));
     }
 
-    ciphertext.flush()?;
     eprintln!("done");
 
     Ok(())
@@ -186,7 +185,6 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
             return Err(anyhow!(e));
         }
     };
-    plaintext.flush()?;
     eprintln!("done");
 
     let encoded_public = Keyring::encode_public_key(&sender_public);
@@ -332,7 +330,6 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
 
     pass.zeroize();
 
-    ciphertext.flush()?;
     eprintln!("done");
 
     Ok(())
@@ -366,7 +363,6 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
 
     pass.zeroize();
 
-    plaintext.flush()?;
     eprintln!("done");
 
     Ok(())

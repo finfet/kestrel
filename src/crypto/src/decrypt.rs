@@ -39,8 +39,6 @@ pub fn key_decrypt<T: Read, U: Write>(
 
     decrypt_chunks(ciphertext, plaintext, file_encryption_key, None, CHUNK_SIZE)?;
 
-    plaintext.flush()?;
-
     Ok(noise_message.public_key)
 }
 
@@ -63,8 +61,6 @@ pub fn pass_decrypt<T: Read, U: Write>(
     let aad = Some(&pass_magic_num[..]);
 
     decrypt_chunks(ciphertext, plaintext, key, aad, CHUNK_SIZE)?;
-
-    plaintext.flush()?;
 
     Ok(())
 }
@@ -138,6 +134,7 @@ pub fn decrypt_chunks<T: Read, U: Write>(
         }
 
         plaintext.write_all(pt_chunk.as_slice())?;
+        plaintext.flush()?;
 
         if done {
             break;

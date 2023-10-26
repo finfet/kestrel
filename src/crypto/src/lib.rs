@@ -35,11 +35,13 @@ const SCRYPT_N: u32 = 32768;
 const SCRYPT_R: u32 = 8;
 const SCRYPT_P: u32 = 1;
 
+/// Key file format
 #[non_exhaustive]
 pub enum AsymFileFormat {
     V1,
 }
 
+/// Password file format
 #[non_exhaustive]
 pub enum PassFileFormat {
     V1,

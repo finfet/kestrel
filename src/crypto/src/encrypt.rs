@@ -38,13 +38,12 @@ pub fn key_encrypt<T: Read, U: Write>(
 
     ciphertext.write_all(&PROLOGUE)?;
     ciphertext.write_all(&noise_message.ciphertext)?;
+    ciphertext.flush()?;
 
     let file_encryption_key = hkdf_sha256(&[], &payload_key, &noise_message.handshake_hash, 32);
     let file_encryption_key: [u8; 32] = file_encryption_key.as_slice().try_into().unwrap();
 
     encrypt_chunks(plaintext, ciphertext, file_encryption_key, None, CHUNK_SIZE)?;
-
-    ciphertext.flush()?;
 
     Ok(())
 }
@@ -65,10 +64,9 @@ pub fn pass_encrypt<T: Read, U: Write>(
 
     ciphertext.write_all(&PASS_FILE_MAGIC)?;
     ciphertext.write_all(&salt)?;
+    ciphertext.flush()?;
 
     encrypt_chunks(plaintext, ciphertext, key, aad, CHUNK_SIZE)?;
-
-    ciphertext.flush()?;
 
     Ok(())
 }
@@ -141,6 +139,7 @@ pub fn encrypt_chunks<T: Read, U: Write>(
 
         ciphertext.write_all(&chunk_header)?;
         ciphertext.write_all(ct.as_slice())?;
+        ciphertext.flush()?;
 
         if done {
             break;
