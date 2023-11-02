@@ -5,13 +5,19 @@
 
 use crate::errors::DecryptError;
 
+use std::fs::File;
 use std::io::{Read, Write};
+use std::path::Path;
 
 use crate::{chapoly_decrypt_noise, hkdf_sha256, noise_decrypt, scrypt, PrivateKey, PublicKey};
 use crate::{AsymFileFormat, PassFileFormat};
 use crate::{CHUNK_SIZE, SCRYPT_N, SCRYPT_P, SCRYPT_R};
 
 const TAG_SIZE: usize = 16;
+
+// @@MAINTAINABILITY:
+// There is a ton of duplication in this module, due to issues
+// I had with type inference on traits. A macro could probably help here.
 
 /// Decrypt asymmetric encrypted data from [`crate::encrypt::key_encrypt`]
 pub fn key_decrypt<T: Read, U: Write>(
@@ -42,6 +48,36 @@ pub fn key_decrypt<T: Read, U: Write>(
     Ok(noise_message.public_key)
 }
 
+/// Decrypt asymmetric encrypted data from [`crate::encrypt::key_encrypt`]
+/// A file will be created at the specified plaintext path.
+pub fn key_decrypt_file<T: Read, U: AsRef<Path>>(
+    ciphertext: &mut T,
+    plaintext: U,
+    recipient: &PrivateKey,
+    file_format: AsymFileFormat,
+) -> Result<PublicKey, DecryptError> {
+    let _file_format = file_format;
+    let mut prologue = [0u8; 4];
+    ciphertext.read_exact(&mut prologue)?;
+
+    let mut handshake_message = [0u8; 128];
+    ciphertext.read_exact(&mut handshake_message)?;
+
+    let noise_message = noise_decrypt(recipient, &prologue, &handshake_message)?;
+
+    let file_encryption_key = hkdf_sha256(
+        &[],
+        &noise_message.payload_key,
+        &noise_message.handshake_hash,
+        32,
+    );
+    let file_encryption_key: [u8; 32] = file_encryption_key.as_slice().try_into().unwrap();
+
+    decrypt_chunks_file(ciphertext, plaintext, file_encryption_key, None, CHUNK_SIZE)?;
+
+    Ok(noise_message.public_key)
+}
+
 /// Decrypt encrypted data from [`crate::encrypt::pass_encrypt`]
 pub fn pass_decrypt<T: Read, U: Write>(
     ciphertext: &mut T,
@@ -61,6 +97,29 @@ pub fn pass_decrypt<T: Read, U: Write>(
     let aad = Some(&pass_magic_num[..]);
 
     decrypt_chunks(ciphertext, plaintext, key, aad, CHUNK_SIZE)?;
+
+    Ok(())
+}
+
+/// Decrypt encrypted data from [`crate::encrypt::pass_encrypt`]
+pub fn pass_decrypt_file<T: Read, U: AsRef<Path>>(
+    ciphertext: &mut T,
+    plaintext: U,
+    password: &[u8],
+    file_format: PassFileFormat,
+) -> Result<(), DecryptError> {
+    let _file_format = file_format;
+    let mut pass_magic_num = [0u8; 4];
+    ciphertext.read_exact(&mut pass_magic_num)?;
+
+    let mut salt = [0u8; 32];
+    ciphertext.read_exact(&mut salt)?;
+
+    let key = scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
+    let key: [u8; 32] = key.as_slice().try_into().unwrap();
+    let aad = Some(&pass_magic_num[..]);
+
+    decrypt_chunks_file(ciphertext, plaintext, key, aad, CHUNK_SIZE)?;
 
     Ok(())
 }
@@ -135,6 +194,98 @@ pub fn decrypt_chunks<T: Read, U: Write>(
 
         plaintext.write_all(pt_chunk.as_slice())?;
         plaintext.flush()?;
+
+        if done {
+            break;
+        }
+
+        // @@SECURITY: It is extremely important that the chunk number increase
+        // sequentially by one here. If it does not chunks can be duplicated
+        // and/or reordered.
+        chunk_number += 1;
+    }
+
+    Ok(())
+}
+
+/// Chunked file decryption of data from [`crate::encrypt::encrypt_chunks`]
+/// Chunk size must be less than (2^32 - 16) bytes on 32bit systems.
+/// 64KiB is a good choice.
+/// A file will be created at the specified plaintext path.
+pub fn decrypt_chunks_file<T: Read, U: AsRef<Path>>(
+    ciphertext: &mut T,
+    plaintext: U,
+    key: [u8; 32],
+    aad: Option<&[u8]>,
+    chunk_size: u32,
+) -> Result<(), DecryptError> {
+    let mut chunk_number: u64 = 0;
+    let mut done = false;
+    let cs: usize = chunk_size.try_into().unwrap();
+    let mut buffer = vec![0; cs + TAG_SIZE];
+    let mut auth_data = match aad {
+        Some(aad) => vec![0; aad.len() + 8],
+        None => vec![0; 8],
+    };
+
+    let mut plaintext_file: Option<File> = None;
+
+    loop {
+        let mut chunk_header = [0u8; 16];
+        ciphertext.read_exact(&mut chunk_header)?;
+        let last_chunk_indicator_bytes: [u8; 4] = chunk_header[8..12].try_into().unwrap();
+        let ciphertext_length_bytes: [u8; 4] = chunk_header[12..].try_into().unwrap();
+        let last_chunk_indicator = u32::from_be_bytes(last_chunk_indicator_bytes);
+        let ciphertext_length = u32::from_be_bytes(ciphertext_length_bytes);
+        if ciphertext_length > chunk_size {
+            return Err(DecryptError::ChunkLen);
+        }
+
+        let ct_len: usize = ciphertext_length.try_into().unwrap();
+        ciphertext.read_exact(&mut buffer[..ct_len + TAG_SIZE])?;
+
+        match aad {
+            Some(aad) => {
+                let aad_len = aad.len();
+                auth_data[..aad_len].copy_from_slice(aad);
+                auth_data[aad_len..aad_len + 4].copy_from_slice(&last_chunk_indicator_bytes);
+                auth_data[aad_len + 4..].copy_from_slice(&ciphertext_length_bytes);
+            }
+            None => {
+                auth_data[..4].copy_from_slice(&last_chunk_indicator_bytes);
+                auth_data[4..].copy_from_slice(&ciphertext_length_bytes);
+            }
+        }
+
+        let ct = &buffer[..ct_len + TAG_SIZE];
+        let pt_chunk = chapoly_decrypt_noise(&key, chunk_number, auth_data.as_slice(), ct)?;
+
+        // Here we know that our chunk is valid because we have successfully
+        // decrypted. We also know that the chunk has not been duplicated or
+        // reordered because we used the sequentially increasing chunk_number
+        // that we we're expecting the chunk to have.
+        if last_chunk_indicator == 1 {
+            done = true;
+            // Make sure that we're actually at the end of the file.
+            // Note that this doesn't have any security implications. If this
+            // check wasn't done the plaintext would still be correct. However,
+            // the user should know if there is extra data appended to the
+            // file.
+            let check = ciphertext.read(&mut [0u8; 1])?;
+            if check != 0 {
+                // We're supposed to be at the end of the file but we found
+                // extra data.
+                return Err(DecryptError::UnexpectedData);
+            }
+        }
+
+        if plaintext_file.is_none() {
+            plaintext_file = Some(File::create(plaintext.as_ref())?);
+        }
+
+        let pt = plaintext_file.as_mut().unwrap();
+        pt.write_all(pt_chunk.as_slice())?;
+        pt.flush()?;
 
         if done {
             break;

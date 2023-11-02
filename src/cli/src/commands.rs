@@ -43,6 +43,12 @@ pub(crate) struct PasswordOptions {
     pub env_pass: bool,
 }
 
+#[derive(Debug)]
+enum OutputType {
+    Path(PathBuf),
+    Stdout,
+}
+
 pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     let infile = opts.infile;
     let to = opts.to;
@@ -101,7 +107,8 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     // Finally open the output file. Only when we've gotten here should we
     // attempt to open/create the output file.
     let is_text = false;
-    let mut ciphertext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
+    let output_type = open_output(outfile.as_deref(), is_text)?;
+    let mut ciphertext: Box<dyn Write> = create_output(output_type)?;
 
     eprint!("Encrypting...");
 
@@ -156,6 +163,7 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
             Ok(sk) => break sk,
             Err(_) => {
                 if !passterm::isatty(Stream::Stdin) {
+                    pass.zeroize();
                     return Err(anyhow!("Key unlock failed."));
                 } else {
                     eprintln!("Key unlock failed.");
@@ -170,19 +178,31 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
 
     // Finally attempt to open/create our output file.
     let is_text = false;
-    let mut plaintext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
+    let output_type = open_output(outfile.as_deref(), is_text)?;
 
     eprint!("Decrypting...");
-    let sender_public = match decrypt::key_decrypt(
-        &mut ciphertext,
-        &mut plaintext,
-        &recipient_private,
-        AsymFileFormat::V1,
-    ) {
-        Ok(pk) => pk,
-        Err(e) => {
-            eprintln!("failed.");
-            return Err(anyhow!(e));
+    let sender_public = if let OutputType::Path(p) = output_type {
+        match decrypt::key_decrypt_file(&mut ciphertext, p, &recipient_private, AsymFileFormat::V1)
+        {
+            Ok(pk) => pk,
+            Err(e) => {
+                eprintln!("failed.");
+                return Err(anyhow!(e));
+            }
+        }
+    } else {
+        let mut plaintext = std::io::stdout();
+        match decrypt::key_decrypt(
+            &mut ciphertext,
+            &mut plaintext,
+            &recipient_private,
+            AsymFileFormat::V1,
+        ) {
+            Ok(pk) => pk,
+            Err(e) => {
+                eprintln!("failed.");
+                return Err(anyhow!(e));
+            }
         }
     };
     eprintln!("done");
@@ -212,7 +232,8 @@ fn win32_console_compat(output_file: bool) -> Result<(), anyhow::Error> {
 
 pub(crate) fn gen_key(outfile: Option<String>, env_pass: bool) -> Result<(), anyhow::Error> {
     let is_text = true;
-    let mut keyring = open_output(outfile.as_deref(), is_text)?;
+    let output_type = open_output(outfile.as_deref(), is_text)?;
+    let mut keyring = create_output(output_type)?;
 
     let name = ask_user_stderr("Key name: ")?;
     if !Keyring::valid_key_name(&name) {
@@ -312,7 +333,8 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     // the user. If the user backs out before giving a valid password, we
     // won't clobber their previous output file until we have to.
     let is_text = false;
-    let mut ciphertext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
+    let output_type = open_output(outfile.as_deref(), is_text)?;
+    let mut ciphertext: Box<dyn Write> = create_output(output_type)?;
 
     eprint!("Encrypting...");
     let salt: [u8; 32] = kestrel_crypto::secure_random(32).try_into().unwrap();
@@ -324,7 +346,7 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
         PassFileFormat::V1,
     ) {
         pass.zeroize();
-        eprintln!("failed");
+        eprintln!("failed.");
         return Err(anyhow!(e));
     }
 
@@ -333,6 +355,16 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     eprintln!("done");
 
     Ok(())
+}
+
+fn create_output(output_type: OutputType) -> Result<Box<dyn Write>, anyhow::Error> {
+    if let OutputType::Path(p) = output_type {
+        Ok(Box::new(File::create(p).map_err(|e| {
+            anyhow!("Could not create output file: {}", e)
+        })?))
+    } else {
+        Ok(Box::new(std::io::stdout()))
+    }
 }
 
 pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
@@ -347,18 +379,32 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     // Don't open/create the output file until after getting a valid password
     // from the user.
     let is_text = false;
-    let mut plaintext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
+    let output_type = open_output(outfile.as_deref(), is_text)?;
 
     eprint!("Decrypting...");
-    if let Err(e) = decrypt::pass_decrypt(
-        &mut ciphertext,
-        &mut plaintext,
-        pass.as_bytes(),
-        PassFileFormat::V1,
-    ) {
-        pass.zeroize();
-        eprintln!("failed");
-        return Err(anyhow!(e));
+    if let OutputType::Path(p) = output_type {
+        if let Err(e) = decrypt::pass_decrypt_file(
+            &mut ciphertext,
+            p.as_path(),
+            pass.as_bytes(),
+            PassFileFormat::V1,
+        ) {
+            pass.zeroize();
+            eprintln!("failed.");
+            return Err(anyhow!(e));
+        }
+    } else {
+        let mut plaintext = std::io::stdout();
+        if let Err(e) = decrypt::pass_decrypt(
+            &mut ciphertext,
+            &mut plaintext,
+            pass.as_bytes(),
+            PassFileFormat::V1,
+        ) {
+            pass.zeroize();
+            eprintln!("failed.");
+            return Err(anyhow!(e));
+        }
     }
 
     pass.zeroize();
@@ -388,20 +434,19 @@ fn open_input(path: Option<&str>) -> Result<Box<dyn Read>, anyhow::Error> {
     }
 }
 
-/// Return a Write output sink. is_text specifies if the output data that
-/// is going to be written to this output sink is plaintext data. Non plaintext
-/// data must have the output stream redirected to a file.
-fn open_output(path: Option<&str>, is_text: bool) -> Result<Box<dyn Write>, anyhow::Error> {
+/// Return the type of output that the user is requesting.
+/// is_text specifies if the output data that is going to be written
+/// to this output is plaintext. Non plaintext data must have the
+/// output stream redirected to a file.
+fn open_output(path: Option<&str>, is_text: bool) -> Result<OutputType, anyhow::Error> {
     if let Some(p) = path {
-        Ok(Box::new(File::create(p).map_err(|e| {
-            anyhow!("Could not create output file: {}", e)
-        })?))
+        Ok(OutputType::Path(p.into()))
     } else if isatty(Stream::Stdout) && !is_text {
         // Refuse to output to the terminal unless it is redirected to
         // a file or another program.
         Err(anyhow!("Please specify an output file."))
     } else {
-        Ok(Box::new(std::io::stdout()))
+        Ok(OutputType::Stdout)
     }
 }
 
