@@ -15,10 +15,6 @@ use crate::{CHUNK_SIZE, SCRYPT_N, SCRYPT_P, SCRYPT_R};
 
 const TAG_SIZE: usize = 16;
 
-// @@MAINTAINABILITY:
-// There is a ton of duplication in this module, due to issues
-// I had with type inference on traits. A macro could probably help here.
-
 /// Decrypt asymmetric encrypted data from [`crate::encrypt::key_encrypt`]
 pub fn key_decrypt<T: Read, U: Write>(
     ciphertext: &mut T,
@@ -127,7 +123,7 @@ pub fn pass_decrypt_file<T: Read, U: AsRef<Path>>(
 /// Chunked file decryption of data from [`crate::encrypt::encrypt_chunks`]
 /// Chunk size must be less than (2^32 - 16) bytes on 32bit systems.
 /// 64KiB is a good choice.
-pub fn decrypt_chunks<T: Read, U: Write>(
+fn decrypt_chunks<T: Read, U: Write>(
     ciphertext: &mut T,
     plaintext: &mut U,
     key: [u8; 32],
@@ -212,7 +208,7 @@ pub fn decrypt_chunks<T: Read, U: Write>(
 /// Chunk size must be less than (2^32 - 16) bytes on 32bit systems.
 /// 64KiB is a good choice.
 /// A file will be created at the specified plaintext path.
-pub fn decrypt_chunks_file<T: Read, U: AsRef<Path>>(
+fn decrypt_chunks_file<T: Read, U: AsRef<Path>>(
     ciphertext: &mut T,
     plaintext: U,
     key: [u8; 32],

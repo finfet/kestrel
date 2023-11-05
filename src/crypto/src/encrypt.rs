@@ -84,7 +84,7 @@ pub fn pass_encrypt<T: Read, U: Write>(
 /// This is a "low level" function. You are likely better served by
 /// [`crate::encrypt::key_encrypt`] or [`crate::encrypt::pass_encrypt`] which
 /// use this function internally.
-pub fn encrypt_chunks<T: Read, U: Write>(
+fn encrypt_chunks<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,
     key: [u8; 32],
