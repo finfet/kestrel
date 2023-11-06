@@ -39,7 +39,14 @@ pub fn key_decrypt<T: Read, U: Write>(
     );
     let file_encryption_key: [u8; 32] = file_encryption_key.as_slice().try_into().unwrap();
 
-    decrypt_chunks(ciphertext, plaintext, file_encryption_key, None, CHUNK_SIZE)?;
+    decrypt_chunks(
+        ciphertext,
+        Some(plaintext),
+        None::<&str>,
+        file_encryption_key,
+        None,
+        CHUNK_SIZE,
+    )?;
 
     Ok(noise_message.public_key)
 }
@@ -69,7 +76,14 @@ pub fn key_decrypt_file<T: Read, U: AsRef<Path>>(
     );
     let file_encryption_key: [u8; 32] = file_encryption_key.as_slice().try_into().unwrap();
 
-    decrypt_chunks_file(ciphertext, plaintext, file_encryption_key, None, CHUNK_SIZE)?;
+    decrypt_chunks(
+        ciphertext,
+        None::<&mut std::io::Sink>,
+        Some(plaintext),
+        file_encryption_key,
+        None,
+        CHUNK_SIZE,
+    )?;
 
     Ok(noise_message.public_key)
 }
@@ -92,7 +106,14 @@ pub fn pass_decrypt<T: Read, U: Write>(
     let key: [u8; 32] = key.as_slice().try_into().unwrap();
     let aad = Some(&pass_magic_num[..]);
 
-    decrypt_chunks(ciphertext, plaintext, key, aad, CHUNK_SIZE)?;
+    decrypt_chunks(
+        ciphertext,
+        Some(plaintext),
+        None::<&str>,
+        key,
+        aad,
+        CHUNK_SIZE,
+    )?;
 
     Ok(())
 }
@@ -115,91 +136,14 @@ pub fn pass_decrypt_file<T: Read, U: AsRef<Path>>(
     let key: [u8; 32] = key.as_slice().try_into().unwrap();
     let aad = Some(&pass_magic_num[..]);
 
-    decrypt_chunks_file(ciphertext, plaintext, key, aad, CHUNK_SIZE)?;
-
-    Ok(())
-}
-
-/// Chunked file decryption of data from [`crate::encrypt::encrypt_chunks`]
-/// Chunk size must be less than (2^32 - 16) bytes on 32bit systems.
-/// 64KiB is a good choice.
-fn decrypt_chunks<T: Read, U: Write>(
-    ciphertext: &mut T,
-    plaintext: &mut U,
-    key: [u8; 32],
-    aad: Option<&[u8]>,
-    chunk_size: u32,
-) -> Result<(), DecryptError> {
-    let mut chunk_number: u64 = 0;
-    let mut done = false;
-    let cs: usize = chunk_size.try_into().unwrap();
-    let mut buffer = vec![0; cs + TAG_SIZE];
-    let mut auth_data = match aad {
-        Some(aad) => vec![0; aad.len() + 8],
-        None => vec![0; 8],
-    };
-
-    loop {
-        let mut chunk_header = [0u8; 16];
-        ciphertext.read_exact(&mut chunk_header)?;
-        let last_chunk_indicator_bytes: [u8; 4] = chunk_header[8..12].try_into().unwrap();
-        let ciphertext_length_bytes: [u8; 4] = chunk_header[12..].try_into().unwrap();
-        let last_chunk_indicator = u32::from_be_bytes(last_chunk_indicator_bytes);
-        let ciphertext_length = u32::from_be_bytes(ciphertext_length_bytes);
-        if ciphertext_length > chunk_size {
-            return Err(DecryptError::ChunkLen);
-        }
-
-        let ct_len: usize = ciphertext_length.try_into().unwrap();
-        ciphertext.read_exact(&mut buffer[..ct_len + TAG_SIZE])?;
-
-        match aad {
-            Some(aad) => {
-                let aad_len = aad.len();
-                auth_data[..aad_len].copy_from_slice(aad);
-                auth_data[aad_len..aad_len + 4].copy_from_slice(&last_chunk_indicator_bytes);
-                auth_data[aad_len + 4..].copy_from_slice(&ciphertext_length_bytes);
-            }
-            None => {
-                auth_data[..4].copy_from_slice(&last_chunk_indicator_bytes);
-                auth_data[4..].copy_from_slice(&ciphertext_length_bytes);
-            }
-        }
-
-        let ct = &buffer[..ct_len + TAG_SIZE];
-        let pt_chunk = chapoly_decrypt_noise(&key, chunk_number, auth_data.as_slice(), ct)?;
-
-        // Here we know that our chunk is valid because we have successfully
-        // decrypted. We also know that the chunk has not been duplicated or
-        // reordered because we used the sequentially increasing chunk_number
-        // that we we're expecting the chunk to have.
-        if last_chunk_indicator == 1 {
-            done = true;
-            // Make sure that we're actually at the end of the file.
-            // Note that this doesn't have any security implications. If this
-            // check wasn't done the plaintext would still be correct. However,
-            // the user should know if there is extra data appended to the
-            // file.
-            let check = ciphertext.read(&mut [0u8; 1])?;
-            if check != 0 {
-                // We're supposed to be at the end of the file but we found
-                // extra data.
-                return Err(DecryptError::UnexpectedData);
-            }
-        }
-
-        plaintext.write_all(pt_chunk.as_slice())?;
-        plaintext.flush()?;
-
-        if done {
-            break;
-        }
-
-        // @@SECURITY: It is extremely important that the chunk number increase
-        // sequentially by one here. If it does not chunks can be duplicated
-        // and/or reordered.
-        chunk_number += 1;
-    }
+    decrypt_chunks(
+        ciphertext,
+        None::<&mut std::io::Sink>,
+        Some(plaintext),
+        key,
+        aad,
+        CHUNK_SIZE,
+    )?;
 
     Ok(())
 }
@@ -208,13 +152,23 @@ fn decrypt_chunks<T: Read, U: Write>(
 /// Chunk size must be less than (2^32 - 16) bytes on 32bit systems.
 /// 64KiB is a good choice.
 /// A file will be created at the specified plaintext path.
-fn decrypt_chunks_file<T: Read, U: AsRef<Path>>(
+fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
     ciphertext: &mut T,
-    plaintext: U,
+    mut plaintext_sink: Option<&mut U>,
+    plaintext_path: Option<V>,
     key: [u8; 32],
     aad: Option<&[u8]>,
     chunk_size: u32,
 ) -> Result<(), DecryptError> {
+    let is_sink = plaintext_path.is_some();
+    let is_path = plaintext_path.is_some();
+    if (!is_sink && is_path) || (is_sink && !is_path) {
+        return Err(DecryptError::IOError(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Invalid plaintext specified",
+        )));
+    }
+
     let mut chunk_number: u64 = 0;
     let mut done = false;
     let cs: usize = chunk_size.try_into().unwrap();
@@ -275,13 +229,20 @@ fn decrypt_chunks_file<T: Read, U: AsRef<Path>>(
             }
         }
 
-        if plaintext_file.is_none() {
-            plaintext_file = Some(File::create(plaintext.as_ref())?);
-        }
+        if is_path {
+            if plaintext_file.is_none() {
+                let path = plaintext_path.as_ref().unwrap();
+                plaintext_file = Some(File::create(path.as_ref())?);
+            }
 
-        let pt = plaintext_file.as_mut().unwrap();
-        pt.write_all(pt_chunk.as_slice())?;
-        pt.flush()?;
+            let pt = plaintext_file.as_mut().unwrap();
+            pt.write_all(pt_chunk.as_slice())?;
+            pt.flush()?;
+        } else {
+            let pt = plaintext_sink.as_mut().unwrap();
+            pt.write_all(pt_chunk.as_slice())?;
+            pt.flush()?;
+        }
 
         if done {
             break;
