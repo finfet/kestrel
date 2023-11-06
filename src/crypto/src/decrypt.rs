@@ -260,7 +260,7 @@ fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
 #[cfg(test)]
 mod tests {
     use super::CHUNK_SIZE;
-    use super::{key_decrypt, pass_decrypt};
+    use super::{key_decrypt, key_decrypt_file, pass_decrypt, pass_decrypt_file};
     use super::{PrivateKey, PublicKey};
     use crate::encrypt::{key_encrypt, pass_encrypt};
     use crate::sha256;
@@ -281,7 +281,7 @@ mod tests {
         let key_data = get_key_data();
         let expected_sender = key_data.alice_public;
         let recipient = key_data.bob_private;
-        let ciphertext = encrypt_small();
+        let ciphertext = encrypt_small_util();
         let mut plaintext = Vec::new();
         let sender_public = key_decrypt(
             &mut ciphertext.as_slice(),
@@ -295,7 +295,29 @@ mod tests {
         assert_eq!(expected_sender.as_bytes(), sender_public.as_bytes());
     }
 
-    fn encrypt_small() -> Vec<u8> {
+    #[test]
+    fn test_decrypt_small_file() {
+        let expected_plaintext = b"Hello, world!";
+        let key_data = get_key_data();
+        let expected_sender = key_data.alice_public;
+        let recipient = key_data.bob_private;
+        let ciphertext = encrypt_small_util();
+        let plaintext_file = tempfile::NamedTempFile::new().unwrap();
+        let sender_public = key_decrypt_file(
+            &mut ciphertext.as_slice(),
+            &plaintext_file,
+            &recipient,
+            AsymFileFormat::V1,
+        )
+        .unwrap();
+
+        let plaintext = std::fs::read(&plaintext_file).unwrap();
+
+        assert_eq!(&expected_plaintext[..], plaintext.as_slice());
+        assert_eq!(expected_sender.as_bytes(), sender_public.as_bytes());
+    }
+
+    fn encrypt_small_util() -> Vec<u8> {
         let ephemeral_private =
             hex::decode("fdbc28d8f4c2a97013e460836cece7a4bdf59df0cb4b3a185146d13615884f38")
                 .unwrap();
@@ -449,6 +471,26 @@ mod tests {
             PassFileFormat::V1,
         )
         .unwrap();
+
+        assert_eq!(&expected_pt[..], plaintext.as_slice());
+    }
+
+    #[test]
+    fn test_pass_decrypt_file() {
+        let expected_pt = b"Be sure to drink your Ovaltine";
+        let pass = b"hackme";
+
+        let ciphertext = pass_encrypt_util();
+        let plaintext_file = tempfile::NamedTempFile::new().unwrap();
+        pass_decrypt_file(
+            &mut ciphertext.as_slice(),
+            &plaintext_file,
+            pass,
+            PassFileFormat::V1,
+        )
+        .unwrap();
+
+        let plaintext = std::fs::read(&plaintext_file).unwrap();
 
         assert_eq!(&expected_pt[..], plaintext.as_slice());
     }

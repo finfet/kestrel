@@ -1,42 +1,21 @@
 // Copyright 2022 Kyle Schreiber
 // SPDX-License-Identifier: BSD-3-Clause
 
-use std::ffi::OsStr;
 use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
 static EXE_LOC: &'static str = env!("CARGO_BIN_EXE_kestrel");
 
-struct TempFile<'a> {
-    f: &'a Path,
-}
-
-impl<'a> TempFile<'a> {
-    fn new<P: AsRef<OsStr> + ?Sized>(p: &'a P) -> Self {
-        Self { f: Path::new(p) }
-    }
-
-    fn as_os_str(&self) -> &OsStr {
-        self.f.as_os_str()
-    }
-}
-
-impl<'a> Drop for TempFile<'a> {
-    fn drop(&mut self) {
-        std::fs::remove_file(&self.f).unwrap_or(());
-    }
-}
-
 #[test]
 fn test_key_gen() {
-    let keyfile = TempFile::new("tests/tmp_keys.txt");
+    let keyfile = tempfile::NamedTempFile::new().unwrap();
 
     let mut app = Command::new(EXE_LOC)
         .arg("key")
         .arg("generate")
         .arg("-o")
-        .arg(keyfile.as_os_str())
+        .arg(keyfile.as_ref())
         .arg("--env-pass")
         .env("KESTREL_PASSWORD", "joepass")
         .stdin(Stdio::piped())
@@ -144,7 +123,7 @@ fn test_key_extract_pub() {
 fn test_encrypt() {
     let plaintext = Path::new("tests/data.txt");
     let keyring = Path::new("tests/keyring.txt");
-    let ciphertext = TempFile::new("tests/tmp_data.txt.ktl");
+    let ciphertext = tempfile::NamedTempFile::new().unwrap();
 
     let app = Command::new(EXE_LOC)
         .arg("encrypt")
@@ -154,7 +133,7 @@ fn test_encrypt() {
         .arg("--from")
         .arg("alice")
         .arg("--output")
-        .arg(ciphertext.as_os_str())
+        .arg(ciphertext.as_ref())
         .arg("--keyring")
         .arg(keyring.as_os_str())
         .arg("--env-pass")
@@ -183,7 +162,7 @@ fn test_encrypt() {
 fn test_decrypt() {
     let keyring = Path::new("tests/keyring.txt");
     let ciphertext = Path::new("tests/data.txt.ktl");
-    let plaintext = TempFile::new("tests/tmp_data.out");
+    let plaintext = tempfile::NamedTempFile::new().unwrap();
 
     let app = Command::new(EXE_LOC)
         .arg("decrypt")
@@ -191,7 +170,7 @@ fn test_decrypt() {
         .arg("-t")
         .arg("bob")
         .arg("-o")
-        .arg(plaintext.as_os_str())
+        .arg(plaintext.as_ref())
         .arg("-k")
         .arg(keyring.as_os_str())
         .arg("--env-pass")
@@ -227,14 +206,14 @@ fn test_decrypt() {
 #[test]
 fn test_pass_encrypt() {
     let plaintext = Path::new("tests/data.txt");
-    let ciphertext = TempFile::new("tests/tmp_pdata.txt.ktl");
+    let ciphertext = tempfile::NamedTempFile::new().unwrap();
 
     let app = Command::new(EXE_LOC)
         .arg("password")
         .arg("encrypt")
         .arg(plaintext.as_os_str())
         .arg("-o")
-        .arg(ciphertext.as_os_str())
+        .arg(ciphertext.as_ref())
         .arg("--env-pass")
         .env("KESTREL_PASSWORD", "pass123")
         .stdin(Stdio::null())
@@ -261,14 +240,14 @@ fn test_pass_encrypt() {
 #[test]
 fn test_pass_decrypt() {
     let ciphertext = Path::new("tests/pdata.txt.ktl");
-    let plaintext = TempFile::new("tests/tmp_pdata.out");
+    let plaintext = tempfile::NamedTempFile::new().unwrap();
 
     let app = Command::new(EXE_LOC)
         .arg("pass")
         .arg("dec")
         .arg(ciphertext.as_os_str())
         .arg("-o")
-        .arg(plaintext.as_os_str())
+        .arg(plaintext.as_ref())
         .arg("--env-pass")
         .env("KESTREL_PASSWORD", "pass123")
         .stdin(Stdio::piped())
