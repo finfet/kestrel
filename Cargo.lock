@@ -255,7 +255,6 @@ dependencies = [
  "hex",
  "kestrel-crypto 1.0.0",
  "passterm",
- "tempfile",
  "zeroize",
 ]
 

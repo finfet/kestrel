@@ -1,21 +1,62 @@
 // Copyright 2022 Kyle Schreiber
 // SPDX-License-Identifier: BSD-3-Clause
 
+use kestrel_crypto::secure_random;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 static EXE_LOC: &'static str = env!("CARGO_BIN_EXE_kestrel");
 
+struct TempFile(PathBuf);
+
+#[allow(dead_code)]
+impl TempFile {
+    /// Generate a random filename in the specified directory.
+    /// Defaults to the system temporary directory if not providied.
+    fn new() -> Self {
+        TempFile::gen_tempfile(None::<&str>)
+    }
+
+    fn new_path<T: AsRef<Path>>(tempdir: T) -> Self {
+        TempFile::gen_tempfile(Some(tempdir))
+    }
+
+    fn gen_tempfile<T: AsRef<Path>>(tempdir: Option<T>) -> Self {
+        let suffix = hex::encode(secure_random(12).as_slice());
+        let mut path = PathBuf::new();
+        if let Some(d) = tempdir {
+            path.push(d);
+        } else {
+            path.push(std::env::temp_dir())
+        }
+        path.push(format!("temp-{}.tmp", suffix));
+        Self(path)
+    }
+
+    fn as_path(&self) -> &Path {
+        self.0.as_path()
+    }
+}
+
+impl Drop for TempFile {
+    fn drop(&mut self) {
+        match std::fs::remove_file(self.as_path()) {
+            Ok(_) => {}
+            Err(e) => eprintln!("Could not remove file: {}", e),
+        }
+    }
+}
+
 #[test]
 fn test_key_gen() {
-    let keyfile = tempfile::NamedTempFile::new().unwrap();
+    let keyfile = TempFile::new_path("tests");
 
     let mut app = Command::new(EXE_LOC)
         .arg("key")
         .arg("generate")
         .arg("-o")
-        .arg(keyfile.as_ref())
+        .arg(keyfile.as_path())
         .arg("--env-pass")
         .env("KESTREL_PASSWORD", "joepass")
         .stdin(Stdio::piped())
@@ -123,7 +164,7 @@ fn test_key_extract_pub() {
 fn test_encrypt() {
     let plaintext = Path::new("tests/data.txt");
     let keyring = Path::new("tests/keyring.txt");
-    let ciphertext = tempfile::NamedTempFile::new().unwrap();
+    let ciphertext = TempFile::new_path("tests");
 
     let app = Command::new(EXE_LOC)
         .arg("encrypt")
@@ -133,7 +174,7 @@ fn test_encrypt() {
         .arg("--from")
         .arg("alice")
         .arg("--output")
-        .arg(ciphertext.as_ref())
+        .arg(ciphertext.as_path())
         .arg("--keyring")
         .arg(keyring.as_os_str())
         .arg("--env-pass")
@@ -162,7 +203,7 @@ fn test_encrypt() {
 fn test_decrypt() {
     let keyring = Path::new("tests/keyring.txt");
     let ciphertext = Path::new("tests/data.txt.ktl");
-    let plaintext = tempfile::NamedTempFile::new().unwrap();
+    let plaintext = TempFile::new_path("tests");
 
     let app = Command::new(EXE_LOC)
         .arg("decrypt")
@@ -170,7 +211,7 @@ fn test_decrypt() {
         .arg("-t")
         .arg("bob")
         .arg("-o")
-        .arg(plaintext.as_ref())
+        .arg(plaintext.as_path())
         .arg("-k")
         .arg(keyring.as_os_str())
         .arg("--env-pass")
@@ -206,14 +247,14 @@ fn test_decrypt() {
 #[test]
 fn test_pass_encrypt() {
     let plaintext = Path::new("tests/data.txt");
-    let ciphertext = tempfile::NamedTempFile::new().unwrap();
+    let ciphertext = TempFile::new_path("tests");
 
     let app = Command::new(EXE_LOC)
         .arg("password")
         .arg("encrypt")
         .arg(plaintext.as_os_str())
         .arg("-o")
-        .arg(ciphertext.as_ref())
+        .arg(ciphertext.as_path())
         .arg("--env-pass")
         .env("KESTREL_PASSWORD", "pass123")
         .stdin(Stdio::null())
@@ -240,14 +281,14 @@ fn test_pass_encrypt() {
 #[test]
 fn test_pass_decrypt() {
     let ciphertext = Path::new("tests/pdata.txt.ktl");
-    let plaintext = tempfile::NamedTempFile::new().unwrap();
+    let plaintext = TempFile::new_path("tests");
 
     let app = Command::new(EXE_LOC)
         .arg("pass")
         .arg("dec")
         .arg(ciphertext.as_os_str())
         .arg("-o")
-        .arg(plaintext.as_ref())
+        .arg(plaintext.as_path())
         .arg("--env-pass")
         .env("KESTREL_PASSWORD", "pass123")
         .stdin(Stdio::piped())
