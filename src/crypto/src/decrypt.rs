@@ -10,7 +10,7 @@ use std::io::{Read, Write};
 use std::path::Path;
 
 use crate::{chapoly_decrypt_noise, hkdf_sha256, noise_decrypt, scrypt, PrivateKey, PublicKey};
-use crate::{AsymFileFormat, PassFileFormat};
+use crate::{AsymFileFormat, FileFormat, PassFileFormat};
 use crate::{CHUNK_SIZE, SCRYPT_N, SCRYPT_P, SCRYPT_R};
 
 const TAG_SIZE: usize = 16;
@@ -22,9 +22,20 @@ pub fn key_decrypt<T: Read, U: Write>(
     recipient: &PrivateKey,
     file_format: AsymFileFormat,
 ) -> Result<PublicKey, DecryptError> {
-    let _file_format = file_format;
+    if file_format != AsymFileFormat::V1 {
+        return Err(DecryptError::Other(
+            "File format not supported. This may be your plaintext.".into(),
+        ));
+    }
     let mut prologue = [0u8; 4];
     ciphertext.read_exact(&mut prologue)?;
+    let file_format = valid_file_format(&prologue)
+        .map_err(|_| DecryptError::Other("Invalid file format.".into()))?;
+    if file_format == FileFormat::PassV1 {
+        return Err(DecryptError::Other(
+            "This is a password encrypted file. Try password decrypt instread.".into(),
+        ));
+    }
 
     let mut handshake_message = [0u8; 128];
     ciphertext.read_exact(&mut handshake_message)?;
@@ -44,7 +55,7 @@ pub fn key_decrypt<T: Read, U: Write>(
         Some(plaintext),
         None::<&str>,
         file_encryption_key,
-        None,
+        &[],
         CHUNK_SIZE,
     )?;
 
@@ -59,9 +70,20 @@ pub fn key_decrypt_file<T: Read, U: AsRef<Path>>(
     recipient: &PrivateKey,
     file_format: AsymFileFormat,
 ) -> Result<PublicKey, DecryptError> {
-    let _file_format = file_format;
+    if file_format != AsymFileFormat::V1 {
+        return Err(DecryptError::Other(
+            "File format not supported. This may be your plaintext.".into(),
+        ));
+    }
     let mut prologue = [0u8; 4];
     ciphertext.read_exact(&mut prologue)?;
+    let file_format = valid_file_format(&prologue)
+        .map_err(|_| DecryptError::Other("Invalid file format.".into()))?;
+    if file_format == FileFormat::PassV1 {
+        return Err(DecryptError::Other(
+            "This is a password encrypted file. Try password decrypt instread.".into(),
+        ));
+    }
 
     let mut handshake_message = [0u8; 128];
     ciphertext.read_exact(&mut handshake_message)?;
@@ -81,7 +103,7 @@ pub fn key_decrypt_file<T: Read, U: AsRef<Path>>(
         None::<&mut std::io::Sink>,
         Some(plaintext),
         file_encryption_key,
-        None,
+        &[],
         CHUNK_SIZE,
     )?;
 
@@ -95,16 +117,27 @@ pub fn pass_decrypt<T: Read, U: Write>(
     password: &[u8],
     file_format: PassFileFormat,
 ) -> Result<(), DecryptError> {
-    let _file_format = file_format;
+    if file_format != PassFileFormat::V1 {
+        return Err(DecryptError::Other(
+            "File format not supported. This may be your plaintext.".into(),
+        ));
+    }
     let mut pass_magic_num = [0u8; 4];
     ciphertext.read_exact(&mut pass_magic_num)?;
+    let file_format = valid_file_format(&pass_magic_num)
+        .map_err(|_| DecryptError::Other("Invalid file format.".into()))?;
+    if file_format == FileFormat::AsymV1 {
+        return Err(DecryptError::Other(
+            "This is a key encrypted file. Try decrypt instread.".into(),
+        ));
+    }
 
     let mut salt = [0u8; 32];
     ciphertext.read_exact(&mut salt)?;
 
     let key = scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
     let key: [u8; 32] = key.as_slice().try_into().unwrap();
-    let aad = Some(&pass_magic_num[..]);
+    let aad = &pass_magic_num[..];
 
     decrypt_chunks(
         ciphertext,
@@ -125,16 +158,27 @@ pub fn pass_decrypt_file<T: Read, U: AsRef<Path>>(
     password: &[u8],
     file_format: PassFileFormat,
 ) -> Result<(), DecryptError> {
-    let _file_format = file_format;
+    if file_format != PassFileFormat::V1 {
+        return Err(DecryptError::Other(
+            "File format not supported. This may be your plaintext.".into(),
+        ));
+    }
     let mut pass_magic_num = [0u8; 4];
     ciphertext.read_exact(&mut pass_magic_num)?;
+    let file_format = valid_file_format(&pass_magic_num)
+        .map_err(|_| DecryptError::Other("Invalid file format.".into()))?;
+    if file_format == FileFormat::AsymV1 {
+        return Err(DecryptError::Other(
+            "This is a key encrypted file. Try decrypt instread.".into(),
+        ));
+    }
 
     let mut salt = [0u8; 32];
     ciphertext.read_exact(&mut salt)?;
 
     let key = scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
     let key: [u8; 32] = key.as_slice().try_into().unwrap();
-    let aad = Some(&pass_magic_num[..]);
+    let aad = &pass_magic_num[..];
 
     decrypt_chunks(
         ciphertext,
@@ -157,7 +201,7 @@ fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
     mut plaintext_sink: Option<&mut U>,
     plaintext_path: Option<V>,
     key: [u8; 32],
-    aad: Option<&[u8]>,
+    aad: &[u8],
     chunk_size: u32,
 ) -> Result<(), DecryptError> {
     let is_sink = plaintext_path.is_some();
@@ -165,7 +209,7 @@ fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
     if (!is_sink && is_path) || (is_sink && !is_path) {
         return Err(DecryptError::IOError(std::io::Error::new(
             std::io::ErrorKind::Other,
-            "Invalid plaintext specified",
+            "Invalid plaintext specified.",
         )));
     }
 
@@ -173,10 +217,7 @@ fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
     let mut done = false;
     let cs: usize = chunk_size.try_into().unwrap();
     let mut buffer = vec![0; cs + TAG_SIZE];
-    let mut auth_data = match aad {
-        Some(aad) => vec![0; aad.len() + 8],
-        None => vec![0; 8],
-    };
+    let mut auth_data = vec![0u8; aad.len() + 8];
 
     let mut plaintext_file: Option<File> = None;
 
@@ -194,18 +235,10 @@ fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
         let ct_len: usize = ciphertext_length.try_into().unwrap();
         ciphertext.read_exact(&mut buffer[..ct_len + TAG_SIZE])?;
 
-        match aad {
-            Some(aad) => {
-                let aad_len = aad.len();
-                auth_data[..aad_len].copy_from_slice(aad);
-                auth_data[aad_len..aad_len + 4].copy_from_slice(&last_chunk_indicator_bytes);
-                auth_data[aad_len + 4..].copy_from_slice(&ciphertext_length_bytes);
-            }
-            None => {
-                auth_data[..4].copy_from_slice(&last_chunk_indicator_bytes);
-                auth_data[4..].copy_from_slice(&ciphertext_length_bytes);
-            }
-        }
+        let aad_len = aad.len();
+        auth_data[..aad_len].copy_from_slice(aad);
+        auth_data[aad_len..aad_len + 4].copy_from_slice(&last_chunk_indicator_bytes);
+        auth_data[aad_len + 4..].copy_from_slice(&ciphertext_length_bytes);
 
         let ct = &buffer[..ct_len + TAG_SIZE];
         let pt_chunk = chapoly_decrypt_noise(&key, chunk_number, auth_data.as_slice(), ct)?;
@@ -255,6 +288,19 @@ fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
     }
 
     Ok(())
+}
+
+pub fn valid_file_format(header: &[u8]) -> Result<FileFormat, ()> {
+    let asym_v1 = [0x65, 0x67, 0x6b, 0x10];
+    let pass_v1 = [0x65, 0x67, 0x6b, 0x20];
+
+    if header == asym_v1 {
+        return Ok(FileFormat::AsymV1);
+    } else if header == pass_v1 {
+        return Ok(FileFormat::PassV1);
+    } else {
+        return Err(());
+    }
 }
 
 #[cfg(test)]

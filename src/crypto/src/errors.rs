@@ -52,6 +52,7 @@ pub enum DecryptError {
     ChaPolyDecrypt,
     UnexpectedData,
     IOError(std::io::Error),
+    Other(String),
 }
 
 impl std::fmt::Display for DecryptError {
@@ -64,6 +65,7 @@ impl std::fmt::Display for DecryptError {
             ),
             DecryptError::UnexpectedData => write!(f, "Expected end of stream. Found extra data."),
             DecryptError::IOError(e) => e.fmt(f),
+            DecryptError::Other(msg) => write!(f, "{}", msg),
         }
     }
 }
@@ -87,6 +89,7 @@ impl Error for DecryptError {
             DecryptError::ChaPolyDecrypt => None,
             DecryptError::UnexpectedData => None,
             DecryptError::IOError(e) => Some(e),
+            DecryptError::Other(_) => None,
         }
     }
 }

@@ -36,15 +36,24 @@ const SCRYPT_R: u32 = 8;
 const SCRYPT_P: u32 = 1;
 
 /// Key file format
+#[derive(PartialEq)]
 #[non_exhaustive]
 pub enum AsymFileFormat {
     V1,
 }
 
 /// Password file format
+#[derive(PartialEq)]
 #[non_exhaustive]
 pub enum PassFileFormat {
     V1,
+}
+
+#[derive(PartialEq)]
+#[non_exhaustive]
+pub enum FileFormat {
+    AsymV1,
+    PassV1,
 }
 
 /// Noise Payload Key

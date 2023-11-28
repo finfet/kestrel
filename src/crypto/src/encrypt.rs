@@ -43,7 +43,7 @@ pub fn key_encrypt<T: Read, U: Write>(
     let file_encryption_key = hkdf_sha256(&[], &payload_key, &noise_message.handshake_hash, 32);
     let file_encryption_key: [u8; 32] = file_encryption_key.as_slice().try_into().unwrap();
 
-    encrypt_chunks(plaintext, ciphertext, file_encryption_key, None, CHUNK_SIZE)?;
+    encrypt_chunks(plaintext, ciphertext, file_encryption_key, &[], CHUNK_SIZE)?;
 
     Ok(())
 }
@@ -60,7 +60,7 @@ pub fn pass_encrypt<T: Read, U: Write>(
     let _file_format = file_format;
     let key = scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
     let key: [u8; 32] = key.as_slice().try_into().unwrap();
-    let aad = Some(&PASS_FILE_MAGIC[..]);
+    let aad = &PASS_FILE_MAGIC[..];
 
     ciphertext.write_all(&PASS_FILE_MAGIC)?;
     ciphertext.write_all(&salt)?;
@@ -88,17 +88,14 @@ fn encrypt_chunks<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,
     key: [u8; 32],
-    aad: Option<&[u8]>,
+    aad: &[u8],
     chunk_size: u32,
 ) -> Result<(), EncryptError> {
     let chunk_size: usize = chunk_size.try_into().unwrap();
-    let mut buff = vec![0; chunk_size];
-    let mut auth_data = match aad {
-        Some(aad) => vec![0; aad.len() + 8],
-        None => vec![0; 8],
-    };
-    let mut done = false;
     let mut chunk_number: u64 = 0;
+    let mut done = false;
+    let mut buff = vec![0; chunk_size];
+    let mut auth_data = vec![0u8; aad.len() + 8];
 
     let mut prev_read = plaintext.read(&mut buff)?;
     if prev_read == 0 {
@@ -117,18 +114,10 @@ fn encrypt_chunks<T: Read, U: Write>(
         let last_chunk_indicator_bytes = last_chunk_indicator.to_be_bytes();
         let ciphertext_length: u32 = prev_read as u32;
         let ciphertext_length_bytes = ciphertext_length.to_be_bytes();
-        match aad {
-            Some(aad) => {
-                let aad_len = aad.len();
-                auth_data[..aad_len].copy_from_slice(aad);
-                auth_data[aad_len..aad_len + 4].copy_from_slice(&last_chunk_indicator_bytes);
-                auth_data[aad_len + 4..].copy_from_slice(&ciphertext_length_bytes);
-            }
-            None => {
-                auth_data[..4].copy_from_slice(&last_chunk_indicator_bytes);
-                auth_data[4..].copy_from_slice(&ciphertext_length_bytes);
-            }
-        }
+        let aad_len = aad.len();
+        auth_data[..aad_len].copy_from_slice(aad);
+        auth_data[aad_len..aad_len + 4].copy_from_slice(&last_chunk_indicator_bytes);
+        auth_data[aad_len + 4..].copy_from_slice(&ciphertext_length_bytes);
 
         let ct = chapoly_encrypt_noise(&key, chunk_number, &auth_data, &prev[..prev_read]);
 

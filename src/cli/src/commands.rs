@@ -60,12 +60,19 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     #[cfg(target_os = "windows")]
     win32_console_compat(outfile.is_some())?;
 
+    if infile.is_some() && outfile.is_some() {
+        let infile = infile.as_deref().unwrap();
+        let outfile = outfile.as_deref().unwrap();
+        if infile == outfile {
+            return Err(anyhow!("Input and output files must be different."));
+        }
+    }
+
     // Try to open our plaintext early to not make the user input a keyring
     // password for a plaintext file that doesn't exist.
     let mut plaintext: Box<dyn Read> = open_input(infile.as_deref())?;
 
     // Read from the keyring
-    // TODO: Refactor this out into a separate function.
     let keyring = open_keyring(keyring)?;
     let recipient_key = keyring.get_key(&to);
     if recipient_key.is_none() {
@@ -139,6 +146,16 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
 
     #[cfg(target_os = "windows")]
     win32_console_compat(outfile.is_some())?;
+
+    // Input and output files must differ. This warns against a common
+    // user typo.
+    if infile.is_some() && outfile.is_some() {
+        let infile = infile.as_deref().unwrap();
+        let outfile = outfile.as_deref().unwrap();
+        if infile == outfile {
+            return Err(anyhow!("Input and output files must be different."));
+        }
+    }
 
     // Try to open our ciphertext early to not make the user input a keyring
     // password for a ciphertext file that doesn't exist.
@@ -325,6 +342,14 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let outfile = opts.outfile;
     let env_pass = opts.env_pass;
 
+    if infile.is_some() && outfile.is_some() {
+        let infile = infile.as_deref().unwrap();
+        let outfile = outfile.as_deref().unwrap();
+        if infile == outfile {
+            return Err(anyhow!("Input and output files must be different."));
+        }
+    }
+
     let mut plaintext: Box<dyn Read> = open_input(infile.as_deref())?;
 
     let mut pass = confirm_password("Use password: ", env_pass)?;
@@ -371,6 +396,14 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     let infile = opts.infile;
     let outfile = opts.outfile;
     let env_pass = opts.env_pass;
+
+    if infile.is_some() && outfile.is_some() {
+        let infile = infile.as_deref().unwrap();
+        let outfile = outfile.as_deref().unwrap();
+        if infile == outfile {
+            return Err(anyhow!("Input and output files must be different."));
+        }
+    }
 
     let mut ciphertext: Box<dyn Read> = open_input(infile.as_deref())?;
 

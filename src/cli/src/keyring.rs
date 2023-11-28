@@ -73,7 +73,7 @@ impl TryFrom<&str> for EncodedSk {
                 }
             }
             Err(_) => {
-                return Err("Invalid Private Key format");
+                return Err("Could not decode private key");
             }
         }
 
@@ -153,6 +153,9 @@ impl Keyring {
             return Err(KeyringError::PrivateKeyLength);
         }
         let version_aad = &key_bytes[..4];
+        if version_aad != &PRIVATE_KEY_VERSION {
+            return Err(KeyringError::PrivateKeyFormat);
+        }
         let salt = &key_bytes[4..36];
         let ciphertext = &key_bytes[36..84];
         let mut key = kestrel_crypto::scrypt(password, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);

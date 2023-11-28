@@ -10,6 +10,7 @@ pub(crate) enum KeyringError {
     PublicKeyLength,
     PrivateKeyDecrypt,
     PrivateKeyLength,
+    PrivateKeyFormat,
 }
 
 impl std::fmt::Display for KeyringError {
@@ -23,6 +24,7 @@ impl std::fmt::Display for KeyringError {
                 "Failed to unlock the private key.\nMake sure the password provided is correct."
             ),
             KeyringError::PrivateKeyLength => write!(f, "Invalid private key length."),
+            KeyringError::PrivateKeyFormat => write!(f, "Unsupported private key file format."),
         }
     }
 }
