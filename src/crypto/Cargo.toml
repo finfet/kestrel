@@ -1,6 +1,6 @@
 [package]
 name = "kestrel-crypto"
-version = "1.0.0-rc1"
+version = "1.0.0"
 edition = "2021"
 authors = [
     "Kyle Schreiber <kyle@80x24.net>",

@@ -10,7 +10,7 @@
 %endif
 
 Name: kestrel
-Version: 1.0.0-rc1
+Version: 1.0.0
 Release: 1
 Summary: File encryption done right
 

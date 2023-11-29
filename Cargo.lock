@@ -219,13 +219,13 @@ dependencies = [
 
 [[package]]
 name = "kestrel-cli"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "base64ct",
  "getopts",
  "hex",
- "kestrel-crypto 1.0.0-rc1",
+ "kestrel-crypto 1.0.0",
  "passterm",
  "zeroize",
 ]
@@ -248,7 +248,7 @@ dependencies = [
 
 [[package]]
 name = "kestrel-crypto"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "chacha20poly1305",
  "curve25519-dalek",

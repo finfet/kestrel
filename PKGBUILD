@@ -1,7 +1,7 @@
 # Maintainer: Kyle Schreiber <kyle@80x24.net>
 
 pkgname=kestrel
-pkgver=1.0.0-rc1
+pkgver=1.0.0
 pkgrel=1
 pkgdesc="File encryption done right"
 arch=("x86_64")
