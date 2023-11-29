@@ -1,8 +1,8 @@
 # Changelog
 
-## Version 1.0.0
+## Version 1.0.0-rc1
 
-**Date**: 2023-09-25
+**Date**: 2023-11-29
 
 **Changes**
 
