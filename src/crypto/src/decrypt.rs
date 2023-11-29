@@ -309,9 +309,50 @@ mod tests {
     use super::{key_decrypt, key_decrypt_file, pass_decrypt, pass_decrypt_file};
     use super::{PrivateKey, PublicKey};
     use crate::encrypt::{key_encrypt, pass_encrypt};
-    use crate::sha256;
+    use crate::{secure_random, sha256};
     use crate::{AsymFileFormat, PassFileFormat};
     use std::io::Read;
+    use std::path::{Path, PathBuf};
+
+    struct TempFile(PathBuf);
+
+    #[allow(dead_code)]
+    impl TempFile {
+        /// Generate a random filename in the specified directory.
+        /// Defaults to the system temporary directory if not providied.
+        fn new() -> Self {
+            TempFile::gen_tempfile(None::<&str>)
+        }
+
+        fn new_path<T: AsRef<Path>>(tempdir: T) -> Self {
+            TempFile::gen_tempfile(Some(tempdir))
+        }
+
+        fn gen_tempfile<T: AsRef<Path>>(tempdir: Option<T>) -> Self {
+            let suffix = hex::encode(secure_random(12).as_slice());
+            let mut path = PathBuf::new();
+            if let Some(d) = tempdir {
+                path.push(d);
+            } else {
+                path.push(std::env::temp_dir())
+            }
+            path.push(format!("temp-{}.tmp", suffix));
+            Self(path)
+        }
+
+        fn as_path(&self) -> &Path {
+            self.0.as_path()
+        }
+    }
+
+    impl Drop for TempFile {
+        fn drop(&mut self) {
+            match std::fs::remove_file(self.as_path()) {
+                Ok(_) => {}
+                Err(e) => eprintln!("Could not remove file: {}", e),
+            }
+        }
+    }
 
     #[allow(dead_code)]
     struct KeyData {
@@ -348,16 +389,16 @@ mod tests {
         let expected_sender = key_data.alice_public;
         let recipient = key_data.bob_private;
         let ciphertext = encrypt_small_util();
-        let plaintext_file = tempfile::NamedTempFile::new().unwrap();
+        let plaintext_file = TempFile::new();
         let sender_public = key_decrypt_file(
             &mut ciphertext.as_slice(),
-            &plaintext_file,
+            plaintext_file.as_path(),
             &recipient,
             AsymFileFormat::V1,
         )
         .unwrap();
 
-        let plaintext = std::fs::read(&plaintext_file).unwrap();
+        let plaintext = std::fs::read(plaintext_file.as_path()).unwrap();
 
         assert_eq!(&expected_plaintext[..], plaintext.as_slice());
         assert_eq!(expected_sender.as_bytes(), sender_public.as_bytes());
@@ -527,16 +568,16 @@ mod tests {
         let pass = b"hackme";
 
         let ciphertext = pass_encrypt_util();
-        let plaintext_file = tempfile::NamedTempFile::new().unwrap();
+        let plaintext_file = TempFile::new();
         pass_decrypt_file(
             &mut ciphertext.as_slice(),
-            &plaintext_file,
+            plaintext_file.as_path(),
             pass,
             PassFileFormat::V1,
         )
         .unwrap();
 
-        let plaintext = std::fs::read(&plaintext_file).unwrap();
+        let plaintext = std::fs::read(plaintext_file.as_path()).unwrap();
 
         assert_eq!(&expected_pt[..], plaintext.as_slice());
     }

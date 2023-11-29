@@ -46,7 +46,14 @@ pub(crate) enum PasswordCommand {
     Decrypt(PasswordOptions),
 }
 
-fn main() -> Result<(), anyhow::Error> {
+fn main() {
+    if let Err(e) = try_main() {
+        eprintln!("Error: {:#}", e);
+        std::process::exit(1);
+    }
+}
+
+fn try_main() -> Result<(), anyhow::Error> {
     let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
     let args = convert_args(args.as_slice())?;
     let args: Vec<&str> = args.iter().map(|arg| arg.as_str()).collect();
@@ -70,14 +77,14 @@ fn main() -> Result<(), anyhow::Error> {
             let args = slice_args(&args, 2);
             match parse_encrypt(args) {
                 Ok(opts) => commands::encrypt(opts)?,
-                Err(e) => print_error(&e)?,
+                Err(e) => print_usage_error(&e)?,
             }
         }
         "dec" | "decrypt" => {
             let args = slice_args(&args, 2);
             match parse_decrypt(args) {
                 Ok(opts) => commands::decrypt(opts)?,
-                Err(e) => print_error(&e)?,
+                Err(e) => print_usage_error(&e)?,
             }
         }
         "key" => {
@@ -94,7 +101,7 @@ fn main() -> Result<(), anyhow::Error> {
                         commands::extract_pub(priv_key, env_pass)?
                     }
                 },
-                Err(e) => print_error(&e)?,
+                Err(e) => print_usage_error(&e)?,
             }
         }
         "pass" | "password" => {
@@ -104,11 +111,11 @@ fn main() -> Result<(), anyhow::Error> {
                     PasswordCommand::Encrypt(pass_opts) => commands::pass_encrypt(pass_opts)?,
                     PasswordCommand::Decrypt(pass_opts) => commands::pass_decrypt(pass_opts)?,
                 },
-                Err(e) => print_error(&e)?,
+                Err(e) => print_usage_error(&e)?,
             }
         }
         _ => {
-            print_error("Invalid command")?;
+            print_usage_error("Invalid command")?;
         }
     }
 
@@ -144,7 +151,7 @@ fn print_version() {
     println!("v{}", VERSION);
 }
 
-fn print_error(msg: &str) -> Result<(), anyhow::Error> {
+fn print_usage_error(msg: &str) -> Result<(), anyhow::Error> {
     Err(anyhow!("{}\n{}", msg, "For more info use '--help'"))
 }
 

@@ -26,7 +26,7 @@ impl std::fmt::Display for EncryptError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             EncryptError::UnexpectedData => write!(f, "Expected end of stream. Found extra data."),
-            EncryptError::IOError(e) => e.fmt(f),
+            EncryptError::IOError(_) => write!(f, "IO Error"),
         }
     }
 }
@@ -64,7 +64,7 @@ impl std::fmt::Display for DecryptError {
                 "Decrypt failed. Check key used. File may have been modified."
             ),
             DecryptError::UnexpectedData => write!(f, "Expected end of stream. Found extra data."),
-            DecryptError::IOError(e) => e.fmt(f),
+            DecryptError::IOError(_) => write!(f, "Read/Write failed"),
             DecryptError::Other(msg) => write!(f, "{}", msg),
         }
     }
