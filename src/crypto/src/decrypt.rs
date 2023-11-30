@@ -28,7 +28,7 @@ pub fn key_decrypt<T: Read, U: Write>(
         ));
     }
     let mut prologue = [0u8; 4];
-    ciphertext.read_exact(&mut prologue)?;
+    ciphertext.read_exact(&mut prologue).map_err(read_err)?;
     let file_format = valid_file_format(&prologue)
         .map_err(|_| DecryptError::Other("Invalid file format.".into()))?;
     if file_format == FileFormat::PassV1 {
@@ -38,7 +38,9 @@ pub fn key_decrypt<T: Read, U: Write>(
     }
 
     let mut handshake_message = [0u8; 128];
-    ciphertext.read_exact(&mut handshake_message)?;
+    ciphertext
+        .read_exact(&mut handshake_message)
+        .map_err(read_err)?;
 
     let noise_message = noise_decrypt(recipient, &prologue, &handshake_message)?;
 
@@ -76,7 +78,7 @@ pub fn key_decrypt_file<T: Read, U: AsRef<Path>>(
         ));
     }
     let mut prologue = [0u8; 4];
-    ciphertext.read_exact(&mut prologue)?;
+    ciphertext.read_exact(&mut prologue).map_err(read_err)?;
     let file_format = valid_file_format(&prologue)
         .map_err(|_| DecryptError::Other("Invalid file format.".into()))?;
     if file_format == FileFormat::PassV1 {
@@ -86,7 +88,9 @@ pub fn key_decrypt_file<T: Read, U: AsRef<Path>>(
     }
 
     let mut handshake_message = [0u8; 128];
-    ciphertext.read_exact(&mut handshake_message)?;
+    ciphertext
+        .read_exact(&mut handshake_message)
+        .map_err(read_err)?;
 
     let noise_message = noise_decrypt(recipient, &prologue, &handshake_message)?;
 
@@ -123,7 +127,9 @@ pub fn pass_decrypt<T: Read, U: Write>(
         ));
     }
     let mut pass_magic_num = [0u8; 4];
-    ciphertext.read_exact(&mut pass_magic_num)?;
+    ciphertext
+        .read_exact(&mut pass_magic_num)
+        .map_err(read_err)?;
     let file_format = valid_file_format(&pass_magic_num)
         .map_err(|_| DecryptError::Other("Invalid file format.".into()))?;
     if file_format == FileFormat::AsymV1 {
@@ -133,7 +139,7 @@ pub fn pass_decrypt<T: Read, U: Write>(
     }
 
     let mut salt = [0u8; 32];
-    ciphertext.read_exact(&mut salt)?;
+    ciphertext.read_exact(&mut salt).map_err(read_err)?;
 
     let key = scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
     let key: [u8; 32] = key.as_slice().try_into().unwrap();
@@ -164,7 +170,9 @@ pub fn pass_decrypt_file<T: Read, U: AsRef<Path>>(
         ));
     }
     let mut pass_magic_num = [0u8; 4];
-    ciphertext.read_exact(&mut pass_magic_num)?;
+    ciphertext
+        .read_exact(&mut pass_magic_num)
+        .map_err(read_err)?;
     let file_format = valid_file_format(&pass_magic_num)
         .map_err(|_| DecryptError::Other("Invalid file format.".into()))?;
     if file_format == FileFormat::AsymV1 {
@@ -174,7 +182,7 @@ pub fn pass_decrypt_file<T: Read, U: AsRef<Path>>(
     }
 
     let mut salt = [0u8; 32];
-    ciphertext.read_exact(&mut salt)?;
+    ciphertext.read_exact(&mut salt).map_err(read_err)?;
 
     let key = scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
     let key: [u8; 32] = key.as_slice().try_into().unwrap();
@@ -207,10 +215,7 @@ fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
     let is_sink = plaintext_path.is_some();
     let is_path = plaintext_path.is_some();
     if (!is_sink && is_path) || (is_sink && !is_path) {
-        return Err(DecryptError::IOError(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Invalid plaintext specified.",
-        )));
+        return Err(DecryptError::Other("Invalid plaintext specified.".into()));
     }
 
     let mut chunk_number: u64 = 0;
@@ -223,7 +228,7 @@ fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
 
     loop {
         let mut chunk_header = [0u8; 16];
-        ciphertext.read_exact(&mut chunk_header)?;
+        ciphertext.read_exact(&mut chunk_header).map_err(read_err)?;
         let last_chunk_indicator_bytes: [u8; 4] = chunk_header[8..12].try_into().unwrap();
         let ciphertext_length_bytes: [u8; 4] = chunk_header[12..].try_into().unwrap();
         let last_chunk_indicator = u32::from_be_bytes(last_chunk_indicator_bytes);
@@ -233,7 +238,9 @@ fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
         }
 
         let ct_len: usize = ciphertext_length.try_into().unwrap();
-        ciphertext.read_exact(&mut buffer[..ct_len + TAG_SIZE])?;
+        ciphertext
+            .read_exact(&mut buffer[..ct_len + TAG_SIZE])
+            .map_err(read_err)?;
 
         let aad_len = aad.len();
         auth_data[..aad_len].copy_from_slice(aad);
@@ -254,7 +261,7 @@ fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
             // check wasn't done the plaintext would still be correct. However,
             // the user should know if there is extra data appended to the
             // file.
-            let check = ciphertext.read(&mut [0u8; 1])?;
+            let check = ciphertext.read(&mut [0u8; 1]).map_err(read_err)?;
             if check != 0 {
                 // We're supposed to be at the end of the file but we found
                 // extra data.
@@ -265,16 +272,16 @@ fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
         if is_path {
             if plaintext_file.is_none() {
                 let path = plaintext_path.as_ref().unwrap();
-                plaintext_file = Some(File::create(path.as_ref())?);
+                plaintext_file = Some(File::create(path.as_ref()).map_err(write_err)?);
             }
 
             let pt = plaintext_file.as_mut().unwrap();
-            pt.write_all(pt_chunk.as_slice())?;
-            pt.flush()?;
+            pt.write_all(pt_chunk.as_slice()).map_err(write_err)?;
+            pt.flush().map_err(write_err)?;
         } else {
             let pt = plaintext_sink.as_mut().unwrap();
-            pt.write_all(pt_chunk.as_slice())?;
-            pt.flush()?;
+            pt.write_all(pt_chunk.as_slice()).map_err(write_err)?;
+            pt.flush().map_err(write_err)?;
         }
 
         if done {
@@ -301,6 +308,22 @@ pub fn valid_file_format(header: &[u8]) -> Result<FileFormat, ()> {
     } else {
         return Err(());
     }
+}
+
+fn read_err(err: std::io::Error) -> DecryptError {
+    use std::io::ErrorKind;
+
+    match err.kind() {
+        ErrorKind::UnexpectedEof => DecryptError::IORead(std::io::Error::new(
+            ErrorKind::Other,
+            "Did not read enough data.",
+        )),
+        _ => DecryptError::IORead(err),
+    }
+}
+
+fn write_err(err: std::io::Error) -> DecryptError {
+    DecryptError::IOWrite(err)
 }
 
 #[cfg(test)]

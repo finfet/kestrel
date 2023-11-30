@@ -19,21 +19,17 @@ impl Error for ChaPolyDecryptError {}
 #[derive(Debug)]
 pub enum EncryptError {
     UnexpectedData,
-    IOError(std::io::Error),
+    IORead(std::io::Error),
+    IOWrite(std::io::Error),
 }
 
 impl std::fmt::Display for EncryptError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             EncryptError::UnexpectedData => write!(f, "Expected end of stream. Found extra data."),
-            EncryptError::IOError(_) => write!(f, "IO Error"),
+            EncryptError::IORead(_) => write!(f, "Plaintext read failed"),
+            EncryptError::IOWrite(_) => write!(f, "Ciphertext write failed"),
         }
-    }
-}
-
-impl From<std::io::Error> for EncryptError {
-    fn from(e: std::io::Error) -> EncryptError {
-        EncryptError::IOError(e)
     }
 }
 
@@ -41,7 +37,8 @@ impl Error for EncryptError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             EncryptError::UnexpectedData => None,
-            EncryptError::IOError(e) => Some(e),
+            EncryptError::IORead(e) => Some(e),
+            EncryptError::IOWrite(e) => Some(e),
         }
     }
 }
@@ -51,7 +48,8 @@ pub enum DecryptError {
     ChunkLen,
     ChaPolyDecrypt,
     UnexpectedData,
-    IOError(std::io::Error),
+    IORead(std::io::Error),
+    IOWrite(std::io::Error),
     Other(String),
 }
 
@@ -64,15 +62,10 @@ impl std::fmt::Display for DecryptError {
                 "Decrypt failed. Check key used. File may have been modified."
             ),
             DecryptError::UnexpectedData => write!(f, "Expected end of stream. Found extra data."),
-            DecryptError::IOError(_) => write!(f, "Read/Write failed"),
+            DecryptError::IORead(_) => write!(f, "Ciphertext read failed"),
+            DecryptError::IOWrite(_) => write!(f, "Plaintext write failed"),
             DecryptError::Other(msg) => write!(f, "{}", msg),
         }
-    }
-}
-
-impl From<std::io::Error> for DecryptError {
-    fn from(e: std::io::Error) -> DecryptError {
-        DecryptError::IOError(e)
     }
 }
 
@@ -88,7 +81,8 @@ impl Error for DecryptError {
             DecryptError::ChunkLen => None,
             DecryptError::ChaPolyDecrypt => None,
             DecryptError::UnexpectedData => None,
-            DecryptError::IOError(e) => Some(e),
+            DecryptError::IORead(e) => Some(e),
+            DecryptError::IOWrite(e) => Some(e),
             DecryptError::Other(_) => None,
         }
     }

@@ -36,9 +36,11 @@ pub fn key_encrypt<T: Read, U: Write>(
     };
     let noise_message = noise_encrypt(sender, recipient, ephemeral, &PROLOGUE, &payload_key);
 
-    ciphertext.write_all(&PROLOGUE)?;
-    ciphertext.write_all(&noise_message.ciphertext)?;
-    ciphertext.flush()?;
+    ciphertext.write_all(&PROLOGUE).map_err(write_err)?;
+    ciphertext
+        .write_all(&noise_message.ciphertext)
+        .map_err(write_err)?;
+    ciphertext.flush().map_err(write_err)?;
 
     let file_encryption_key = hkdf_sha256(&[], &payload_key, &noise_message.handshake_hash, 32);
     let file_encryption_key: [u8; 32] = file_encryption_key.as_slice().try_into().unwrap();
@@ -62,9 +64,9 @@ pub fn pass_encrypt<T: Read, U: Write>(
     let key: [u8; 32] = key.as_slice().try_into().unwrap();
     let aad = &PASS_FILE_MAGIC[..];
 
-    ciphertext.write_all(&PASS_FILE_MAGIC)?;
-    ciphertext.write_all(&salt)?;
-    ciphertext.flush()?;
+    ciphertext.write_all(&PASS_FILE_MAGIC).map_err(write_err)?;
+    ciphertext.write_all(&salt).map_err(write_err)?;
+    ciphertext.flush().map_err(write_err)?;
 
     encrypt_chunks(plaintext, ciphertext, key, aad, CHUNK_SIZE)?;
 
@@ -97,13 +99,13 @@ fn encrypt_chunks<T: Read, U: Write>(
     let mut buff = vec![0; chunk_size];
     let mut auth_data = vec![0u8; aad.len() + 8];
 
-    let mut prev_read = plaintext.read(&mut buff)?;
+    let mut prev_read = plaintext.read(&mut buff).map_err(read_err)?;
     if prev_read == 0 {
         done = true;
     }
     let mut prev = buff.clone();
     loop {
-        let num_read = plaintext.read(&mut buff)?;
+        let num_read = plaintext.read(&mut buff).map_err(read_err)?;
         if num_read != 0 && done {
             return Err(EncryptError::UnexpectedData);
         } else if num_read == 0 {
@@ -126,9 +128,9 @@ fn encrypt_chunks<T: Read, U: Write>(
         chunk_header[8..12].copy_from_slice(&last_chunk_indicator_bytes);
         chunk_header[12..].copy_from_slice(&ciphertext_length_bytes);
 
-        ciphertext.write_all(&chunk_header)?;
-        ciphertext.write_all(ct.as_slice())?;
-        ciphertext.flush()?;
+        ciphertext.write_all(&chunk_header).map_err(write_err)?;
+        ciphertext.write_all(ct.as_slice()).map_err(write_err)?;
+        ciphertext.flush().map_err(write_err)?;
 
         if done {
             break;
@@ -144,6 +146,14 @@ fn encrypt_chunks<T: Read, U: Write>(
     }
 
     Ok(())
+}
+
+fn read_err(err: std::io::Error) -> EncryptError {
+    EncryptError::IORead(err)
+}
+
+fn write_err(err: std::io::Error) -> EncryptError {
+    EncryptError::IOWrite(err)
 }
 
 #[cfg(test)]
