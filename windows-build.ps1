@@ -1,10 +1,11 @@
 $version = "1.0.0-rc1"
+$altVersion = "1.0.0"
 
 $buildTarget = "x86_64-pc-windows-msvc"
 $packageDir = "kestrel-windows-v$version-x64"
 $releaseDir = "release-windows-v$version"
 $sourceDir = "kestrel-$version"
-$installerName = "kestrel-cli-setup-v$version-x64.exe"
+$installerName = "kestrel-cli-setup-v$altVersion-x64.exe"
 
 function main($cliArgs) {
     $subcommand = $cliArgs[0]
