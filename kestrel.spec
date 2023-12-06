@@ -9,14 +9,16 @@
 %define bin_arch arm64
 %endif
 
+%define alt_ver 1.0.0-rc1
+
 Name: kestrel
-Version: 1.0.0
+Version: 1.0.0~rc1
 Release: 1
 Summary: File encryption done right
 
 License: BSD-3-Clause
 URL: https://getkestrel.com
-Source0: %{name}-linux-v%{version}-%{bin_arch}.tar.gz
+Source0: %{name}-linux-v%{alt_ver}-%{bin_arch}.tar.gz
 
 # libc6 deps are picked up automatically by rpmbuild analyzing the binary
 
@@ -25,7 +27,7 @@ Kestrel is a file encryption utility that lets you encrypt files to
 anyone with a public key.
 
 %prep
-%autosetup -n %{name}-linux-v%{version}-%{bin_arch}
+%autosetup -n %{name}-linux-v%{alt_ver}-%{bin_arch}
 
 %build
 gzip -k man/kestrel.1
