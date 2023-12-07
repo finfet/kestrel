@@ -1,11 +1,10 @@
 $version = "1.0.0-rc1"
-$altVersion = "1.0.0"
 
 $buildTarget = "x86_64-pc-windows-msvc"
 $packageDir = "kestrel-windows-v$version-x64"
 $releaseDir = "release-windows-v$version"
 $sourceDir = "kestrel-$version"
-$installerName = "kestrel-cli-setup-v$altVersion-x64.exe"
+$installerName = "kestrel-cli-setup-v$version-x64.exe"
 
 function main($cliArgs) {
     $subcommand = $cliArgs[0]
@@ -36,7 +35,7 @@ function package {
     Copy-Item "LICENSE.txt" -Destination "build\$packageDir"
     Copy-Item "THIRD-PARTY-LICENSE.txt" -Destination "build\$packageDir"
     Copy-Item "target\$buildTarget\release\kestrel.exe" -Destination "build\$packageDir\kestrel.exe"
-    Compress-Archive -Path "build\$packageDir" -DestinationPath "build\$packageDir.zip"
+    Compress-Archive -Path "build\$packageDir" -DestinationPath "build\$packageDir.zip" -Force
 }
 
 function source {
@@ -59,7 +58,7 @@ function all {
     create-dir("build\$releaseDir")
     Copy-Item "build\$packageDir.zip" -Destination "build\$releaseDir"
     Copy-Item "build\wininstaller\$installerName" -Destination "build\$releaseDir"
-    Compress-Archive -Path "build\$releaseDir" -DestinationPath "build\$releaseDir.zip"
+    Compress-Archive -Path "build\$releaseDir" -DestinationPath "build\$releaseDir.zip" -Force
 }
 
 function create-dir($d) {
@@ -70,7 +69,7 @@ function create-dir($d) {
 
 function delete-dir($d) {
     if (Test-Path $d) {
-        Remove-Item -Force $d
+        Remove-Item -Recurse -Force $d
     }
 }
 
