@@ -57,9 +57,6 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     let keyring = opts.keyring;
     let env_pass = opts.env_pass;
 
-    #[cfg(target_os = "windows")]
-    win32_console_compat(outfile.is_some())?;
-
     if infile.is_some() && outfile.is_some() {
         let infile = infile.as_deref().unwrap();
         let outfile = outfile.as_deref().unwrap();
@@ -144,9 +141,6 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
     let outfile = opts.outfile;
     let keyring = opts.keyring;
     let env_pass = opts.env_pass;
-
-    #[cfg(target_os = "windows")]
-    win32_console_compat(outfile.is_some())?;
 
     // Input and output files must differ. This warns against a common
     // user typo.
@@ -236,21 +230,9 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-/// Require that output be written to a file on windows because windows
-/// can't write non utf-8 byte sequences in a console
-/// https://doc.rust-lang.org/stable/std/io/fn.stdout.html#note-windows-portability-considerations
-#[cfg(target_os = "windows")]
-fn win32_console_compat(output_file: bool) -> Result<(), anyhow::Error> {
-    if !output_file {
-        return Err(anyhow!("Please specify an output file"));
-    }
-    return Ok(());
-}
-
 pub(crate) fn gen_key(outfile: Option<String>, env_pass: bool) -> Result<(), anyhow::Error> {
     let is_text = true;
     let output_type = get_output_type(outfile.as_deref(), is_text)?;
-    let mut keyring = create_output(output_type)?;
 
     let name = ask_user_stderr("Key name: ")?;
     if !Keyring::valid_key_name(&name) {
@@ -283,6 +265,7 @@ pub(crate) fn gen_key(outfile: Option<String>, env_pass: bool) -> Result<(), any
         key_config
     };
 
+    let mut keyring = create_output(output_type)?;
     keyring.write_all(key_output.as_bytes())?;
     keyring.flush()?;
 
@@ -291,7 +274,7 @@ pub(crate) fn gen_key(outfile: Option<String>, env_pass: bool) -> Result<(), any
 
 pub(crate) fn change_pass(private_key: String, env_pass: bool) -> Result<(), anyhow::Error> {
     let mut old_pass = ask_pass("Old password: ", env_pass)?;
-    let mut new_pass = ask_new_pass("New password: ", env_pass)?;
+    let mut new_pass = confirm_new_pass("New password: ", env_pass)?;
 
     let old_sk: EncodedSk = private_key
         .as_str()
@@ -471,6 +454,13 @@ fn open_input(path: Option<&str>) -> Result<Box<dyn Read>, anyhow::Error> {
 /// to this output is plaintext. Non plaintext data must have the
 /// output stream redirected to a file.
 fn get_output_type(path: Option<&str>, is_text: bool) -> Result<OutputType, anyhow::Error> {
+    // Require that output be written to a file on windows because windows
+    // can't write non utf-8 byte sequences in a console
+    // https://doc.rust-lang.org/stable/std/io/fn.stdout.html#note-windows-portability-considerations
+    if cfg!(target_os = "windows") && path.is_none() {
+        return Err(anyhow!("Please specify an output file."));
+    }
+
     if let Some(p) = path {
         Ok(OutputType::Path(p.into()))
     } else if isatty(Stream::Stdout) && !is_text {
@@ -487,6 +477,12 @@ fn confirm_password(prompt: &str, env_pass: bool) -> Result<String, anyhow::Erro
         return read_env_pass();
     }
 
+    let password = confirm_loop(prompt)?;
+
+    Ok(password)
+}
+
+fn confirm_loop(prompt: &str) -> Result<String, anyhow::Error> {
     let password = loop {
         let pass = passterm::prompt_password_tty(Some(prompt))?;
         let confirm_pass = passterm::prompt_password_tty(Some("Confirm password: "))?;
@@ -516,14 +512,14 @@ fn ask_pass(prompt: &str, env_pass: bool) -> Result<String, anyhow::Error> {
     Ok(pass)
 }
 
-fn ask_new_pass(prompt: &str, env_pass: bool) -> Result<String, anyhow::Error> {
+fn confirm_new_pass(prompt: &str, env_pass: bool) -> Result<String, anyhow::Error> {
     if env_pass {
         return read_env_new_pass();
     }
 
-    let pass = passterm::prompt_password_tty(Some(prompt))?;
+    let password = confirm_loop(prompt)?;
 
-    Ok(pass)
+    Ok(password)
 }
 
 /// Read the password from the KESTREL_PASSWORD environment variable
