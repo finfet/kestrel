@@ -19,8 +19,6 @@ use getrandom::getrandom;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::ChaCha20Poly1305;
 
-use curve25519_dalek::montgomery::MontgomeryPoint;
-
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
@@ -134,7 +132,7 @@ pub fn x25519(k: &[u8], u: &[u8]) -> [u8; 32] {
     let sk: [u8; 32] = k.try_into().expect("Private key must be 32 bytes");
     let pk: [u8; 32] = u.try_into().expect("Public key must be 32 bytes");
 
-    MontgomeryPoint(pk).mul_clamped(sk).to_bytes()
+    x25519_dalek::x25519(sk, pk)
 }
 
 /// Derive an X25519 public key from a private key.
@@ -144,7 +142,7 @@ pub fn x25519_derive_public(private_key: &[u8]) -> [u8; 32] {
         .try_into()
         .expect("Private key must be 32 bytes");
 
-    MontgomeryPoint::mul_base_clamped(sk).to_bytes()
+    x25519(&sk, &x25519_dalek::X25519_BASEPOINT_BYTES)
 }
 
 /// A struct containing the result of a[`noise_encrypt()`]
