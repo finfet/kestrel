@@ -58,7 +58,7 @@ fn try_main() -> Result<(), anyhow::Error> {
     let args = convert_args(args.as_slice())?;
     let args: Vec<&str> = args.iter().map(|arg| arg.as_str()).collect();
 
-    if args.len() <= 1 {
+    if args.len() <= 1 || args.contains(&"--help") || args.contains(&"-h") {
         print_help();
 
         return Ok(());
@@ -205,7 +205,7 @@ fn parse_decrypt(args: &[&str]) -> Result<DecryptOptions, String> {
 
     let matches = match decrypt_opts.parse(args) {
         Ok(m) => m,
-        Err(e) => return Err(e.to_string()),
+        Err(e) => return Err(format_parse_decrypt_error(e)),
     };
 
     if matches.free.len() > 1 {
@@ -230,6 +230,21 @@ fn parse_decrypt(args: &[&str]) -> Result<DecryptOptions, String> {
         keyring,
         env_pass,
     })
+}
+
+fn format_parse_decrypt_error(err: getopts::Fail) -> String {
+    match err {
+        getopts::Fail::UnrecognizedOption(ref o) => {
+            // Tell users that the --from option isn't required while
+            // decrypting.
+            if o.as_str() == "f" || o.as_str() == "from" {
+                format!("{}. '--from' is not required for decryption.", err)
+            } else {
+                err.to_string()
+            }
+        }
+        _ => err.to_string(),
+    }
 }
 
 fn parse_key(args: &[&str]) -> Result<KeyCommand, String> {
