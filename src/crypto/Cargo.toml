@@ -27,5 +27,6 @@ zeroize = "1.7"
 hex = "0.4.3"
 
 [features]
-default = []
+default = [ "std" ]
+std = []
 wasm = [ "getrandom/js" ]

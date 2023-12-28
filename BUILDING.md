@@ -4,7 +4,7 @@ This application is built with cargo. rustc 1.70+ is required.
 
 **Cargo**
 
-`cargo build --release` is sufficient.
+`cargo build --release --locked` is sufficient.
 
 **Makefile**
 

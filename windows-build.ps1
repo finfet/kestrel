@@ -24,7 +24,7 @@ function main($cliArgs) {
 }
 
 function build {
-    cargo build --release --target $buildTarget
+    cargo build --release --locked --target $buildTarget
 }
 
 function package {

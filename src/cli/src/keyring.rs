@@ -153,7 +153,7 @@ impl Keyring {
             return Err(KeyringError::PrivateKeyLength);
         }
         let version_aad = &key_bytes[..4];
-        if version_aad != &PRIVATE_KEY_VERSION {
+        if version_aad != PRIVATE_KEY_VERSION {
             return Err(KeyringError::PrivateKeyFormat);
         }
         let salt = &key_bytes[4..36];

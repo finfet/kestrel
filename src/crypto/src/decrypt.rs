@@ -3,7 +3,7 @@
 
 //! Decryption functions
 
-use crate::errors::DecryptError;
+use crate::errors::{DecryptError, FileFormatError};
 
 use std::fs::File;
 use std::io::{Read, Write};
@@ -59,10 +59,6 @@ fn key_decrypt_internal<T: Read, U: Write, V: AsRef<Path>>(
     recipient: &PrivateKey,
     file_format: AsymFileFormat,
 ) -> Result<PublicKey, DecryptError> {
-    let is_sink = plaintext_sink.is_some();
-    let is_path = plaintext_path.is_some();
-    assert!(!((is_sink && is_path) || (!is_sink && !is_path)));
-
     if file_format != AsymFileFormat::V1 {
         return Err(DecryptError::Other(
             "File format not supported. This may be your plaintext.".into(),
@@ -71,8 +67,7 @@ fn key_decrypt_internal<T: Read, U: Write, V: AsRef<Path>>(
 
     let mut prologue = [0u8; 4];
     ciphertext.read_exact(&mut prologue).map_err(read_err)?;
-    let file_format = valid_file_format(&prologue)
-        .map_err(|_| DecryptError::Other("Invalid file format.".into()))?;
+    let file_format = valid_file_format(&prologue)?;
     if file_format == FileFormat::PassV1 {
         return Err(DecryptError::Other(
             "This is a password encrypted file. Try password decrypt instread.".into(),
@@ -149,10 +144,6 @@ fn pass_decrypt_internal<T: Read, U: Write, V: AsRef<Path>>(
     password: &[u8],
     file_format: PassFileFormat,
 ) -> Result<(), DecryptError> {
-    let is_sink = plaintext_sink.is_some();
-    let is_path = plaintext_path.is_some();
-    assert!(!((is_sink && is_path) || (!is_sink && !is_path)));
-
     if file_format != PassFileFormat::V1 {
         return Err(DecryptError::Other(
             "File format not supported. This may be your plaintext.".into(),
@@ -163,8 +154,7 @@ fn pass_decrypt_internal<T: Read, U: Write, V: AsRef<Path>>(
     ciphertext
         .read_exact(&mut pass_magic_num)
         .map_err(read_err)?;
-    let file_format = valid_file_format(&pass_magic_num)
-        .map_err(|_| DecryptError::Other("Invalid file format.".into()))?;
+    let file_format = valid_file_format(&pass_magic_num)?;
     if file_format == FileFormat::AsymV1 {
         return Err(DecryptError::Other(
             "This is a key encrypted file. Try decrypt instread.".into(),
@@ -193,7 +183,10 @@ fn pass_decrypt_internal<T: Read, U: Write, V: AsRef<Path>>(
 /// Chunked file decryption of data from [`crate::encrypt::encrypt_chunks`]
 /// Chunk size must be less than (2^32 - 16) bytes on 32bit systems.
 /// 64KiB is a good choice.
-/// A file will be created at the specified plaintext path.
+///
+/// A file will be created at the specified plaintext path if a path is
+/// specified. plaintext_sink and plaintext_path are mutually exclusive. If
+/// both are supplied, path is used.
 fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
     ciphertext: &mut T,
     mut plaintext_sink: Option<&mut U>,
@@ -202,10 +195,7 @@ fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
     aad: &[u8],
     chunk_size: u32,
 ) -> Result<(), DecryptError> {
-    let is_sink = plaintext_sink.is_some();
     let is_path = plaintext_path.is_some();
-    // sink and path are mutually exclusive
-    assert!(!((is_sink && is_path) || (!is_sink && !is_path)));
 
     let mut chunk_number: u64 = 0;
     let mut done = false;
@@ -286,7 +276,7 @@ fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
     Ok(())
 }
 
-pub fn valid_file_format(header: &[u8]) -> Result<FileFormat, ()> {
+pub fn valid_file_format(header: &[u8]) -> Result<FileFormat, FileFormatError> {
     let asym_v1 = [0x65, 0x67, 0x6b, 0x10];
     let pass_v1 = [0x65, 0x67, 0x6b, 0x20];
 
@@ -294,9 +284,9 @@ pub fn valid_file_format(header: &[u8]) -> Result<FileFormat, ()> {
         return Ok(FileFormat::AsymV1);
     } else if header == pass_v1 {
         return Ok(FileFormat::PassV1);
-    } else {
-        return Err(());
     }
+
+    Err(FileFormatError)
 }
 
 fn read_err(err: std::io::Error) -> DecryptError {

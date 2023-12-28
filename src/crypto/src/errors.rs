@@ -44,6 +44,17 @@ impl Error for EncryptError {
 }
 
 #[derive(Debug)]
+pub struct FileFormatError;
+
+impl std::fmt::Display for FileFormatError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Invalid file format.")
+    }
+}
+
+impl Error for FileFormatError {}
+
+#[derive(Debug)]
 pub enum DecryptError {
     ChunkLen,
     ChaPolyDecrypt,
@@ -72,6 +83,12 @@ impl std::fmt::Display for DecryptError {
 impl From<ChaPolyDecryptError> for DecryptError {
     fn from(_e: ChaPolyDecryptError) -> DecryptError {
         DecryptError::ChaPolyDecrypt
+    }
+}
+
+impl From<FileFormatError> for DecryptError {
+    fn from(e: FileFormatError) -> DecryptError {
+        DecryptError::Other(e.to_string())
     }
 }
 

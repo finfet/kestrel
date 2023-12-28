@@ -63,13 +63,13 @@ all-macos: macos-amd64 macos-arm64
 	tar -C build -czpvf build/$(macos_release_dir).tar.gz $(macos_release_dir)
 
 build:
-	cargo build --release
+	cargo build --release --locked
 
 build-target:
-	cargo build --release --target $(BUILD_TARGET)
+	cargo build --release --locked --target $(BUILD_TARGET)
 
 test:
-	cargo test --workspace --release
+	cargo test --workspace --release --locked
 
 install:
 	mkdir -p $(DESTDIR)$(prefix)/bin/
