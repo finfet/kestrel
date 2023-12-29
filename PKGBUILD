@@ -10,7 +10,7 @@ license=("BSD")
 depends=("gcc-libs")
 makedepends=("rust")
 source=("kestrel-${pkgver//_/-}.tar.gz::$url/releases/v${pkgver//_/-}/kestrel-${pkgver//_/-}.tar.gz")
-sha256sums=("115b1516b488ce569ee2a4a6c60bbb9077b97c78b311320288934ad101361aee")
+sha256sums=("83fc5dc6a487cefc1ef3c9d07b60193c1292b5988afe05d9ed11c98e68a871da")
 
 build() {
     cd kestrel-${pkgver//_/-}
