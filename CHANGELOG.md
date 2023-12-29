@@ -1,12 +1,15 @@
 # Changelog
 
-## Version 1.0.0-rc1
+## Version 1.0.0
 
-**Date**: 2023-12-05
+**Date**: 2023-12-28
 
 **Changes**
 
-- Unreleased
+- Output files will not be overwritten during a failed decryption attempt.
+- Improve error messages when decrypting unsupported files.
+- Added check to make sure that the input and output files differ.
+
 
 ## Version 0.11.0
 

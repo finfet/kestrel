@@ -1,10 +1,10 @@
 # Changelog
 
-## Version 1.0.0-rc1
+## Version 1.0.0
 
-Date: 2023-12-05
+Date: 2023-12-28
 
-- Unreleased
+- Added function for decryption to a specified path
 
 ## Version 0.11.0
 
