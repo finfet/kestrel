@@ -1,4 +1,4 @@
-// Copyright 2021-2023 Kyle Schreiber
+// Copyright The Kestrel Contributors
 // SPDX-License-Identifier: BSD-3-Clause
 
 use crate::keyring::{EncodedSk, Keyring};

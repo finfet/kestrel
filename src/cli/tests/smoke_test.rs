@@ -1,4 +1,4 @@
-// Copyright 2022 Kyle Schreiber
+// Copyright The Kestrel Contributors
 // SPDX-License-Identifier: BSD-3-Clause
 
 use kestrel_crypto::secure_random;
