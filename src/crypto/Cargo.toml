@@ -29,4 +29,3 @@ hex = "0.4.3"
 [features]
 default = [ "std" ]
 std = []
-wasm = [ "getrandom/js" ]

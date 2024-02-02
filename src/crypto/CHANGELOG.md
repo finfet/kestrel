@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 1.0.1
+
+Date: 2024-02-01
+
+- Removed extraneous wasm feature. Use the js feature of your getrandom
+  dependency for wasm support.
+
 ## Version 1.0.0
 
 Date: 2023-12-28
