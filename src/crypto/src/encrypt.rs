@@ -21,6 +21,7 @@ const PASS_FILE_MAGIC: [u8; 4] = [0x65, 0x67, 0x6b, 0x20];
 /// Passing None for ephemeral, ephemeral_public, payload_key will generate
 /// fresh keys. This is almost certainly what you want. Sender and ephemeral
 /// private and public keys must match.
+#[allow(clippy::too_many_arguments)]
 pub fn key_encrypt<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,
@@ -148,7 +149,7 @@ fn encrypt_chunks<T: Read, U: Write>(
             break;
         }
 
-        prev = buff.clone();
+        prev.clone_from(&buff);
         prev_read = num_read;
 
         // @@SECURITY: It is extremely important that chunk number increase

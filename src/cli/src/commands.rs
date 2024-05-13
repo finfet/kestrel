@@ -13,6 +13,7 @@ use anyhow::anyhow;
 use passterm::{isatty, Stream};
 use zeroize::Zeroize;
 
+use kestrel_crypto::errors::DecryptError;
 use kestrel_crypto::PrivateKey;
 use kestrel_crypto::{decrypt, encrypt};
 use kestrel_crypto::{AsymFileFormat, PassFileFormat};
@@ -86,6 +87,7 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
         return Err(anyhow!("Sender key '{}' not found.", &from));
     }
     let sender_key = sender_key.unwrap();
+    let sender_public = Keyring::decode_public_key(&sender_key.public_key)?;
     if sender_key.private_key.is_none() {
         return Err(anyhow!("Sender '{}' needs a private key.", &from));
     }
@@ -121,7 +123,9 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
         &mut plaintext,
         &mut ciphertext,
         &sender_private,
+        &sender_public,
         &recipient_public,
+        None,
         None,
         None,
         AsymFileFormat::V1,
@@ -165,6 +169,7 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
         Some(k) => k,
         None => return Err(anyhow!("Key '{}' not found.", &to)),
     };
+    let recipient_public = Keyring::decode_public_key(&recipient_key.public_key)?;
     let recipient_key = match &recipient_key.private_key {
         Some(k) => k,
         None => return Err(anyhow!("Key '{}' needs a private key.", &to)),
@@ -193,8 +198,13 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
 
     eprint!("Decrypting...");
     let sender_public = if let OutputType::Path(p) = output_type {
-        match decrypt::key_decrypt_file(&mut ciphertext, p, &recipient_private, AsymFileFormat::V1)
-        {
+        match decrypt::key_decrypt_file(
+            &mut ciphertext,
+            p,
+            &recipient_private,
+            &recipient_public,
+            AsymFileFormat::V1,
+        ) {
             Ok(pk) => pk,
             Err(e) => {
                 eprintln!("failed.");
@@ -207,6 +217,7 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
             &mut ciphertext,
             &mut plaintext,
             &recipient_private,
+            &recipient_public,
             AsymFileFormat::V1,
         ) {
             Ok(pk) => pk,
@@ -377,6 +388,13 @@ fn create_output(output_type: OutputType) -> Result<Box<dyn Write>, anyhow::Erro
 }
 
 pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
+    fn fmt_err(e: DecryptError) -> anyhow::Error {
+        if let DecryptError::ChaPolyDecrypt = e {
+            anyhow!("Decrypt failed. Check password used. File may have been modified.")
+        } else {
+            anyhow!(e)
+        }
+    }
     let infile = opts.infile;
     let outfile = opts.outfile;
     let env_pass = opts.env_pass;
@@ -406,7 +424,7 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
         ) {
             pass.zeroize();
             eprintln!("failed.");
-            return Err(anyhow!(e));
+            return Err(fmt_err(e));
         }
     } else {
         let mut plaintext = std::io::stdout();
@@ -418,7 +436,7 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
         ) {
             pass.zeroize();
             eprintln!("failed.");
-            return Err(anyhow!(e));
+            return Err(fmt_err(e));
         }
     }
 

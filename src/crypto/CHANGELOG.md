@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 2.0.1
+
+Date: 2024-05-13
+
+- Performance improvement for buffer copy during encrypt chunks
+
 ## Version 2.0.0
 
 Date: 2024-05-13

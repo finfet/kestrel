@@ -327,7 +327,7 @@ pub fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
     let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(key).unwrap();
     mac.update(data);
     let res = mac.finalize();
-    res.into_bytes().try_into().unwrap()
+    res.into_bytes().into()
 }
 
 fn hkdf_noise(chaining_key: &[u8], ikm: &[u8]) -> ([u8; 32], [u8; 32]) {

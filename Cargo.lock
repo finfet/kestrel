@@ -202,22 +202,22 @@ dependencies = [
 
 [[package]]
 name = "kestrel-cli"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "base64ct",
  "getopts",
  "hex",
- "kestrel-crypto 1.0.1",
+ "kestrel-crypto 2.0.0",
  "passterm",
  "zeroize",
 ]
 
 [[package]]
 name = "kestrel-crypto"
-version = "1.0.1"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbfa7f4d7ac82ef194fcbde5cf37e7cbc177454dd7a1ab794e1e51a8940f0217"
+checksum = "5d44869813bb7b3aea9dd0c8f15d80c2a5d0b9dbd84831d3af68d32237c2c410"
 dependencies = [
  "chacha20poly1305",
  "getrandom",
@@ -231,7 +231,7 @@ dependencies = [
 
 [[package]]
 name = "kestrel-crypto"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "chacha20poly1305",
  "getrandom",
@@ -248,7 +248,7 @@ dependencies = [
 name = "kestrel-ffi"
 version = "0.1.0"
 dependencies = [
- "kestrel-crypto 1.0.1",
+ "kestrel-crypto 2.0.0",
  "libc",
 ]
 
