@@ -47,6 +47,7 @@ pub enum PassFileFormat {
     V1,
 }
 
+/// File format versions
 #[derive(Copy, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum FileFormat {
@@ -145,25 +146,35 @@ pub fn x25519_derive_public(private_key: &[u8]) -> [u8; 32] {
     x25519(&sk, &x25519_dalek::X25519_BASEPOINT_BYTES)
 }
 
-/// A struct containing the result of a[`noise_encrypt()`]
+/// A struct containing the result of a [`noise_encrypt`]
 pub struct NoiseEncryptMsg {
     pub ciphertext: Vec<u8>,
     pub handshake_hash: [u8; 32],
 }
 
 /// Encrypt the payload key using the noise X protocol.
-/// Passing None to ephemeral generates a new key pair. This is almost
-/// certainly what you want.
+/// Passing None for ephemeral, abd ephemeral_public will generate
+/// fresh keys. This is almost certainly what you want.
+/// Sender and ephemeral private and public keys must match.
 /// Returns the handshake message ciphertext.
 pub fn noise_encrypt(
     sender: &PrivateKey,
+    sender_public: &PublicKey,
     recipient: &PublicKey,
     ephemeral: Option<&PrivateKey>,
+    ephemeral_public: Option<&PublicKey>,
     prologue: &[u8],
     payload_key: &PayloadKey,
 ) -> NoiseEncryptMsg {
-    let mut handshake_state =
-        HandshakeState::init_x(true, prologue, sender, ephemeral, Some(recipient.clone()));
+    let mut handshake_state = HandshakeState::init_x(
+        true,
+        prologue,
+        sender.clone(),
+        sender_public.clone(),
+        ephemeral.cloned(),
+        ephemeral_public.cloned(),
+        Some(recipient.clone()),
+    );
 
     let noise_handshake = handshake_state.write_message(payload_key);
     let handshake_hash = noise_handshake.handshake_hash;
@@ -175,7 +186,7 @@ pub fn noise_encrypt(
     }
 }
 
-/// A struct containing the result of a [`noise_decrypt()`]
+/// A struct containing the result of a [`noise_decrypt`]
 /// PublicKey is the sender's public key
 pub struct NoiseDecryptMsg {
     pub payload_key: PayloadKey,
@@ -184,15 +195,24 @@ pub struct NoiseDecryptMsg {
 }
 
 /// Decrypt the payload key using the noise protocol.
+/// The given recipient public key must match the recipient private key.
 /// Returns the payload key, and the sender's [PublicKey]
 pub fn noise_decrypt(
     recipient: &PrivateKey,
+    recipient_public: &PublicKey,
     prologue: &[u8],
     handshake_message: &[u8],
 ) -> Result<NoiseDecryptMsg, ChaPolyDecryptError> {
     let initiator = false;
-    let mut handshake_state =
-        noise::HandshakeState::init_x(initiator, prologue, recipient, None, None);
+    let mut handshake_state = noise::HandshakeState::init_x(
+        initiator,
+        prologue,
+        recipient.clone(),
+        recipient_public.clone(),
+        None,
+        None,
+        None,
+    );
 
     // Decrypt the payload key
     let noise_handshake = handshake_state.read_message(handshake_message)?;
@@ -235,7 +255,7 @@ pub(crate) fn chapoly_encrypt_noise(
 
 /// RFC 8439 ChaCha20-Poly1305 encrypt function.
 /// The key must be 32 bytes and the nonce must be 12 bytes.
-/// Returns the ciphertext
+/// Returns the ciphertext.
 #[allow(clippy::let_and_return, clippy::redundant_field_names)]
 pub fn chapoly_encrypt_ietf(key: &[u8], nonce: &[u8], plaintext: &[u8], aad: &[u8]) -> Vec<u8> {
     let cipher = ChaCha20Poly1305::new_from_slice(key).unwrap();
@@ -273,9 +293,9 @@ pub(crate) fn chapoly_decrypt_noise(
 }
 
 /// RFC 8439 ChaCha20-Poly1305 decrypt function.
-/// The key must be 32 bytes and the nonce must be 12 bytes
-/// The 16 byte poly1305 tag must be appended to the ciphertext
-/// Returns the plaintext
+/// The key must be 32 bytes and the nonce must be 12 bytes.
+/// The 16 byte poly1305 tag must be appended to the ciphertext.
+/// Returns the plaintext.
 #[allow(clippy::redundant_field_names)]
 pub fn chapoly_decrypt_ietf(
     key: &[u8],
@@ -322,7 +342,7 @@ fn hkdf_noise(chaining_key: &[u8], ikm: &[u8]) -> ([u8; 32], [u8; 32]) {
 }
 
 /// HKDF-SHA256
-/// If no info or salt is required, use the empty slice
+/// If no info or salt is required, use the empty slice.
 pub fn hkdf_sha256(salt: &[u8], ikm: &[u8], info: &[u8], len: usize) -> Vec<u8> {
     let hk: Hkdf<Sha256> = Hkdf::new(Some(salt), ikm);
     let mut okm = vec![0u8; len];
@@ -334,7 +354,7 @@ pub fn hkdf_sha256(salt: &[u8], ikm: &[u8], info: &[u8], len: usize) -> Vec<u8> 
 
 /// Derives a secret key from a password and a salt using scrypt.
 /// Recommended parameters are n = 32768, r = 8, p = 1
-/// Parameter n must be larger than 1 and a power of 2
+/// Parameter n must be larger than 1 and a power of 2.
 pub fn scrypt(password: &[u8], salt: &[u8], n: u32, r: u32, p: u32, dk_len: usize) -> Vec<u8> {
     assert!(n > 1, "n must be >1");
     assert!(n.count_ones() == 1, "n must be a power of 2");

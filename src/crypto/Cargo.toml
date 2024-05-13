@@ -1,6 +1,6 @@
 [package]
 name = "kestrel-crypto"
-version = "1.0.1"
+version = "2.0.0"
 edition = "2021"
 authors = [
     "Kyle Schreiber <kyle@80x24.net>",
@@ -14,7 +14,7 @@ documentation = "https://docs.rs/kestrel-crypto/"
 categories = ["cryptography"]
 
 [dependencies]
-getrandom = "0.2.12"
+getrandom = "0.2.15"
 x25519-dalek = { version = "2", default-features = false, features = ["zeroize"] }
 chacha20poly1305 = { version = "0.10.1", default-features = false, features = ["alloc"] }
 sha2 = { version = "0.10.8", default-features = false }

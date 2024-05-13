@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 2.0.0
+
+Date: 2024-05-13
+
+- Require public keys in API surface in order to remove an internal
+  x25519 operation.
+
 ## Version 1.0.1
 
 Date: 2024-02-01

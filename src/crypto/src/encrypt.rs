@@ -16,15 +16,19 @@ use crate::{CHUNK_SIZE, SCRYPT_N, SCRYPT_P, SCRYPT_R};
 const PROLOGUE: [u8; 4] = [0x65, 0x67, 0x6b, 0x10];
 const PASS_FILE_MAGIC: [u8; 4] = [0x65, 0x67, 0x6b, 0x20];
 
-/// Encrypt a file from sender key to recipient key
-/// Passing None for ephemeral_key and payload_key will generate fresh keys.
-/// This is almost certainly what you want.
+/// Encrypt a file from sender key to recipient key.
+///
+/// Passing None for ephemeral, ephemeral_public, payload_key will generate
+/// fresh keys. This is almost certainly what you want. Sender and ephemeral
+/// private and public keys must match.
 pub fn key_encrypt<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,
     sender: &PrivateKey,
+    sender_public: &PublicKey,
     recipient: &PublicKey,
     ephemeral: Option<&PrivateKey>,
+    ephemeral_public: Option<&PublicKey>,
     payload_key: Option<[u8; 32]>,
     file_format: AsymFileFormat,
 ) -> Result<(), EncryptError> {
@@ -34,7 +38,15 @@ pub fn key_encrypt<T: Read, U: Write>(
     } else {
         secure_random(32).try_into().unwrap()
     };
-    let noise_message = noise_encrypt(sender, recipient, ephemeral, &PROLOGUE, &payload_key);
+    let noise_message = noise_encrypt(
+        sender,
+        sender_public,
+        recipient,
+        ephemeral,
+        ephemeral_public,
+        &PROLOGUE,
+        &payload_key,
+    );
 
     ciphertext.write_all(&PROLOGUE).map_err(write_err)?;
     ciphertext
@@ -51,7 +63,7 @@ pub fn key_encrypt<T: Read, U: Write>(
 }
 
 /// Encrypt a file with symmetric encryption using a key derived from a password.
-/// Salt must be a 32 byte nonce
+/// Salt must be a 32 byte nonce.
 pub fn pass_encrypt<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,
@@ -84,7 +96,7 @@ pub fn pass_encrypt<T: Read, U: Write>(
 ///
 /// Make sure to be aware of canonicalization attacks when adding aad data.
 /// This is a "low level" function. You are likely better served by
-/// [`crate::encrypt::key_encrypt`] or [`crate::encrypt::pass_encrypt`] which
+/// [`key_encrypt`] or [`pass_encrypt`] which
 /// use this function internally.
 fn encrypt_chunks<T: Read, U: Write>(
     plaintext: &mut T,
@@ -197,8 +209,10 @@ pub(crate) mod tests {
         let key_data = get_key_data();
 
         let sender = PrivateKey::from(key_data.alice_private.as_bytes());
+        let sender_public = sender.to_public();
         let recipient = PublicKey::from(key_data.bob_public.as_bytes());
         let ephemeral = PrivateKey::from(ephemeral_private.as_slice());
+        let ephemeral_public = ephemeral.to_public();
         let payload_key: [u8; 32] = payload_key.as_slice().try_into().unwrap();
 
         let plaintext_data = b"Hello, world!";
@@ -210,8 +224,10 @@ pub(crate) mod tests {
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &sender,
+            &sender_public,
             &recipient,
             Some(&ephemeral),
+            Some(&ephemeral_public),
             Some(payload_key),
             AsymFileFormat::V1,
         )
@@ -238,6 +254,7 @@ pub(crate) mod tests {
             hex::decode("fdf2b46d965e4bb85d856971d657fdd6dc1fe8993f27587980e4f07f6409927f")
                 .unwrap();
         let ephemeral_private = PrivateKey::from(ephemeral_private.as_slice());
+        let ephemeral_public = ephemeral_private.to_public();
         let payload_key =
             hex::decode("a300f423e416610a5dd87442f4edc21325f2b3211c4c69f0e0c541cf6cf4eca6")
                 .unwrap();
@@ -253,8 +270,10 @@ pub(crate) mod tests {
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &key_data.alice_private,
+            &key_data.alice_public,
             &key_data.bob_public,
             Some(&ephemeral_private),
+            Some(&ephemeral_public),
             Some(payload_key),
             AsymFileFormat::V1,
         )
@@ -282,6 +301,7 @@ pub(crate) mod tests {
             hex::decode("90ecf9d1dca6ed1e6997585228513a73d4db36bd7dd7c758acb55a6d333bb2fb")
                 .unwrap();
         let ephemeral_private = PrivateKey::from(ephemeral_private.as_slice());
+        let ephemeral_public = ephemeral_private.to_public();
         let payload_key =
             hex::decode("d3387376438daeb6f7543e815cbde249810e341c1ccab192025b909b9ea4ebe7")
                 .unwrap();
@@ -297,8 +317,10 @@ pub(crate) mod tests {
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &key_data.alice_private,
+            &key_data.alice_public,
             &key_data.bob_public,
             Some(&ephemeral_private),
+            Some(&ephemeral_public),
             Some(payload_key),
             AsymFileFormat::V1,
         )

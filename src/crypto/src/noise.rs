@@ -20,11 +20,10 @@ struct KeyPair {
     pub public_key: PublicKey,
 }
 
-impl From<&PrivateKey> for KeyPair {
-    fn from(sk: &PrivateKey) -> Self {
-        let pk = sk.to_public();
-        Self {
-            private_key: sk.clone(),
+impl KeyPair {
+    fn new(sk: PrivateKey, pk: PublicKey) -> Self {
+        KeyPair {
+            private_key: sk,
             public_key: pk,
         }
     }
@@ -201,19 +200,30 @@ impl SymmetricState {
 impl HandshakeState {
     /// Implementation of the noise X pattern Noise_X_25519_ChaChaPoly_SHA256
     /// Initialize a handshake state.
-    /// When sending a message (initiator == true): rs is required
+    /// When sending a message (initiator == true): rs is required.
+    /// The sender public and private keys must match. Passing None for the
+    /// ephemeral keys will generate fresh keys.
     pub fn init_x(
         initiator: bool,
         prologue: &[u8],
-        s: &PrivateKey,
-        e: Option<&PrivateKey>,
+        s: PrivateKey,
+        spk: PublicKey,
+        e: Option<PrivateKey>,
+        epk: Option<PublicKey>,
         rs: Option<PublicKey>,
     ) -> Self {
         let mut symmetric_state = SymmetricState::new("Noise_X_25519_ChaChaPoly_SHA256");
         symmetric_state.mix_hash(prologue);
 
-        let s_pair: KeyPair = s.into();
-        let e_pair: Option<KeyPair> = e.map(|epk| epk.into());
+        let s_pair: KeyPair = KeyPair::new(s, spk);
+
+        let e_pair: Option<KeyPair> = if e.is_some() && epk.is_some() {
+            let epriv = e.unwrap();
+            let epub = epk.unwrap();
+            Some(KeyPair::new(epriv, epub))
+        } else {
+            None
+        };
 
         // Public key mixing here is hardcoded for the X pattern.
         if initiator {
@@ -427,8 +437,10 @@ mod tests {
             hex::decode("9fdd2576d757f880de49b32b80abf53afec16ddc86769f0e92daff").unwrap();
 
         let static_priv = PrivateKey::from(initiator_priv_bytes.as_ref());
+        let static_pub = static_priv.to_public();
 
         let ephem_priv = PrivateKey::from(ephem_priv_bytes.as_ref());
+        let ephem_pub = ephem_priv.to_public();
 
         let remote_static_pub = PublicKey::from(remote_static_pub_bytes.as_ref());
 
@@ -436,8 +448,10 @@ mod tests {
         let mut handshake_state = HandshakeState::init_x(
             initiator,
             prologue.as_slice(),
-            &static_priv,
-            Some(&ephem_priv),
+            static_priv,
+            static_pub,
+            Some(ephem_priv),
+            Some(ephem_pub),
             Some(remote_static_pub),
         );
 
@@ -481,12 +495,15 @@ mod tests {
             hex::decode("9fdd2576d757f880de49b32b80abf53afec16ddc86769f0e92daff").unwrap();
 
         let responder_private = PrivateKey::from(responder_static_bytes.as_slice());
+        let responder_public = responder_private.to_public();
 
         let initiator = false;
         let mut handshake_state = HandshakeState::init_x(
             initiator,
             prologue.as_slice(),
-            &responder_private,
+            responder_private,
+            responder_public,
+            None,
             None,
             None,
         );

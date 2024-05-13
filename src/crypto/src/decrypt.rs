@@ -15,11 +15,12 @@ use crate::{CHUNK_SIZE, SCRYPT_N, SCRYPT_P, SCRYPT_R};
 
 const TAG_SIZE: usize = 16;
 
-/// Decrypt asymmetric encrypted data from [`crate::encrypt::key_encrypt`]
+/// Decrypt asymmetric encrypted data from [`key_encrypt`](crate::encrypt::key_encrypt)
 pub fn key_decrypt<T: Read, U: Write>(
     ciphertext: &mut T,
     plaintext: &mut U,
     recipient: &PrivateKey,
+    recipient_public: &PublicKey,
     file_format: AsymFileFormat,
 ) -> Result<PublicKey, DecryptError> {
     let public_key = key_decrypt_internal(
@@ -27,18 +28,20 @@ pub fn key_decrypt<T: Read, U: Write>(
         Some(plaintext),
         None::<&str>,
         recipient,
+        recipient_public,
         file_format,
     )?;
 
     Ok(public_key)
 }
 
-/// Decrypt asymmetric encrypted data from [`crate::encrypt::key_encrypt`]
-/// A file will be created at the specified plaintext path.
+/// Decrypt asymmetric encrypted data from [`key_encrypt`](crate::encrypt::key_encrypt)
+/// A file will be created at the specified plaintext path
 pub fn key_decrypt_file<T: Read, U: AsRef<Path>>(
     ciphertext: &mut T,
     plaintext: U,
     recipient: &PrivateKey,
+    recipient_public: &PublicKey,
     file_format: AsymFileFormat,
 ) -> Result<PublicKey, DecryptError> {
     let public_key = key_decrypt_internal(
@@ -46,6 +49,7 @@ pub fn key_decrypt_file<T: Read, U: AsRef<Path>>(
         None::<&mut std::io::Sink>,
         Some(plaintext),
         recipient,
+        recipient_public,
         file_format,
     )?;
 
@@ -57,6 +61,7 @@ fn key_decrypt_internal<T: Read, U: Write, V: AsRef<Path>>(
     plaintext_sink: Option<&mut U>,
     plaintext_path: Option<V>,
     recipient: &PrivateKey,
+    recipient_public: &PublicKey,
     file_format: AsymFileFormat,
 ) -> Result<PublicKey, DecryptError> {
     if file_format != AsymFileFormat::V1 {
@@ -79,7 +84,7 @@ fn key_decrypt_internal<T: Read, U: Write, V: AsRef<Path>>(
         .read_exact(&mut handshake_message)
         .map_err(read_err)?;
 
-    let noise_message = noise_decrypt(recipient, &prologue, &handshake_message)?;
+    let noise_message = noise_decrypt(recipient, recipient_public, &prologue, &handshake_message)?;
 
     let file_encryption_key = hkdf_sha256(
         &[],
@@ -101,7 +106,7 @@ fn key_decrypt_internal<T: Read, U: Write, V: AsRef<Path>>(
     Ok(noise_message.public_key)
 }
 
-/// Decrypt encrypted data from [`crate::encrypt::pass_encrypt`]
+/// Decrypt encrypted data from [`pass_encrypt`](crate::encrypt::pass_encrypt)
 pub fn pass_decrypt<T: Read, U: Write>(
     ciphertext: &mut T,
     plaintext: &mut U,
@@ -119,7 +124,7 @@ pub fn pass_decrypt<T: Read, U: Write>(
     Ok(())
 }
 
-/// Decrypt encrypted data from [`crate::encrypt::pass_encrypt`]
+/// Decrypt encrypted data from [`pass_encrypt`](crate::encrypt::pass_encrypt)
 pub fn pass_decrypt_file<T: Read, U: AsRef<Path>>(
     ciphertext: &mut T,
     plaintext: U,
@@ -180,7 +185,7 @@ fn pass_decrypt_internal<T: Read, U: Write, V: AsRef<Path>>(
     Ok(())
 }
 
-/// Chunked file decryption of data from [`crate::encrypt::encrypt_chunks`]
+/// Chunked file decryption of data from [`encrypt_chunks`](crate::encrypt::encrypt_chunks)
 /// Chunk size must be less than (2^32 - 16) bytes on 32bit systems.
 /// 64KiB is a good choice.
 ///
@@ -276,6 +281,7 @@ fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
     Ok(())
 }
 
+/// Check if the given data conforms to one of the [`FileFormat`] types.
 pub fn valid_file_format(header: &[u8]) -> Result<FileFormat, FileFormatError> {
     let asym_v1 = [0x65, 0x67, 0x6b, 0x10];
     let pass_v1 = [0x65, 0x67, 0x6b, 0x20];
@@ -370,12 +376,14 @@ mod tests {
         let key_data = get_key_data();
         let expected_sender = key_data.alice_public;
         let recipient = key_data.bob_private;
+        let recipient_public = key_data.bob_public;
         let ciphertext = encrypt_small_util();
         let mut plaintext = Vec::new();
         let sender_public = key_decrypt(
             &mut ciphertext.as_slice(),
             &mut plaintext,
             &recipient,
+            &recipient_public,
             AsymFileFormat::V1,
         )
         .unwrap();
@@ -390,12 +398,14 @@ mod tests {
         let key_data = get_key_data();
         let expected_sender = key_data.alice_public;
         let recipient = key_data.bob_private;
+        let recipient_public = key_data.bob_public;
         let ciphertext = encrypt_small_util();
         let plaintext_file = TempFile::new();
         let sender_public = key_decrypt_file(
             &mut ciphertext.as_slice(),
             plaintext_file.as_path(),
             &recipient,
+            &recipient_public,
             AsymFileFormat::V1,
         )
         .unwrap();
@@ -416,8 +426,10 @@ mod tests {
         let key_data = get_key_data();
 
         let sender = PrivateKey::from(key_data.alice_private.as_bytes());
+        let sender_public = sender.to_public();
         let recipient = PublicKey::from(key_data.bob_public.as_bytes());
         let ephemeral = PrivateKey::from(ephemeral_private.as_slice());
+        let ephemeral_public = ephemeral.to_public();
         let payload_key: [u8; 32] = payload_key.as_slice().try_into().unwrap();
 
         let plaintext_data = b"Hello, world!";
@@ -429,8 +441,10 @@ mod tests {
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &sender,
+            &sender_public,
             &recipient,
             Some(&ephemeral),
+            Some(&ephemeral_public),
             Some(payload_key),
             AsymFileFormat::V1,
         )
@@ -447,12 +461,14 @@ mod tests {
         let key_data = get_key_data();
         let expected_sender = key_data.alice_public;
         let recipient = key_data.bob_private;
+        let recipient_public = key_data.bob_public;
         let ciphertext = encrypt_one_chunk();
         let mut plaintext = Vec::new();
         let sender_public = key_decrypt(
             &mut ciphertext.as_slice(),
             &mut plaintext,
             &recipient,
+            &recipient_public,
             AsymFileFormat::V1,
         )
         .unwrap();
@@ -467,6 +483,7 @@ mod tests {
             hex::decode("fdf2b46d965e4bb85d856971d657fdd6dc1fe8993f27587980e4f07f6409927f")
                 .unwrap();
         let ephemeral_private = PrivateKey::from(ephemeral_private.as_slice());
+        let ephemeral_public = ephemeral_private.to_public();
         let payload_key =
             hex::decode("a300f423e416610a5dd87442f4edc21325f2b3211c4c69f0e0c541cf6cf4eca6")
                 .unwrap();
@@ -482,8 +499,10 @@ mod tests {
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &key_data.alice_private,
+            &key_data.alice_public,
             &key_data.bob_public,
             Some(&ephemeral_private),
+            Some(&ephemeral_public),
             Some(payload_key),
             AsymFileFormat::V1,
         )
@@ -500,12 +519,14 @@ mod tests {
         let key_data = get_key_data();
         let expected_sender = key_data.alice_public;
         let recipient = key_data.bob_private;
+        let recipient_public = key_data.bob_public;
         let ciphertext = encrypt_two_chunks();
         let mut plaintext = Vec::new();
         let sender_public = key_decrypt(
             &mut ciphertext.as_slice(),
             &mut plaintext,
             &recipient,
+            &recipient_public,
             AsymFileFormat::V1,
         )
         .unwrap();
@@ -521,6 +542,7 @@ mod tests {
             hex::decode("90ecf9d1dca6ed1e6997585228513a73d4db36bd7dd7c758acb55a6d333bb2fb")
                 .unwrap();
         let ephemeral_private = PrivateKey::from(ephemeral_private.as_slice());
+        let ephemeral_public = ephemeral_private.to_public();
         let payload_key =
             hex::decode("d3387376438daeb6f7543e815cbde249810e341c1ccab192025b909b9ea4ebe7")
                 .unwrap();
@@ -536,8 +558,10 @@ mod tests {
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &key_data.alice_private,
+            &key_data.alice_public,
             &key_data.bob_public,
             Some(&ephemeral_private),
+            Some(&ephemeral_public),
             Some(payload_key),
             AsymFileFormat::V1,
         )
