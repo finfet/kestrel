@@ -1,5 +1,14 @@
 # Changelog
 
+## Version 1.0.1
+
+**Date**: 2024-05-13
+
+**Changes**
+
+- Speed improvement. Remove extraneous x25519 operation
+
+
 ## Version 1.0.0
 
 **Date**: 2023-12-28
