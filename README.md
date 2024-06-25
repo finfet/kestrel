@@ -160,7 +160,7 @@ submitted for inclusion in this project by you, shall be licensed as
 BSD-3-Clause, without any additonal terms or conditions.
 
 
-## Security Warning
+> [!WARNING]
+> To the best of my knowledge, Kestrel is secure. However, this software has
+> not yet undergone a formal security audit. Swim at your own risk.
 
-To the best of my knowledge, Kestrel is secure. However, this software has
-not yet undergone a formal security audit. Swim at your own risk.
