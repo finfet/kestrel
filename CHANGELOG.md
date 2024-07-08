@@ -6,9 +6,9 @@
 
 **Changes**
 
-- Fall back to using standard input if a tty cannot be opened.
-- Upgrade to underlying curve25519 library that fixesa timing attack. Note
-  that the security of this application is not directly affected by this.
+- Fall back to using stdin if a tty cannot be opened.
+- Upgrade to curve25519 dependency that fixes a timing attack. Note
+  that the security of this application is not directly affected by this issue.
 
 ## Version 1.0.1
 
