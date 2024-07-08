@@ -1,6 +1,6 @@
 [package]
 name = "kestrel-cli"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2021"
 authors = [
     "Kyle Schreiber <kyle@80x24.net>",
@@ -23,7 +23,7 @@ base64ct = { version = "1.6.0", features = ["alloc"] }
 getopts = "0.2.21"
 anyhow = "1.0"
 passterm = { version = "2.0.3", features = ["secure_zero"] }
-zeroize = "1.7"
+zeroize = "1.8"
 
 [dev-dependencies]
 hex = "0.4.3"

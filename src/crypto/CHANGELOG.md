@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 2.0.2
+
+Date: 2024-07-07
+
+- Upgrade dependencies
+
 ## Version 2.0.1
 
 Date: 2024-05-13

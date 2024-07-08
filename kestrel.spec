@@ -9,10 +9,10 @@
 %define bin_arch arm64
 %endif
 
-%define alt_ver 1.0.1
+%define alt_ver 1.0.2
 
 Name: kestrel
-Version: 1.0.1
+Version: 1.0.2
 Release: 1
 Summary: File encryption done right
 

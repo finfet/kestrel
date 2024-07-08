@@ -61,6 +61,7 @@ pub struct HandshakeState {
     message_patterns: VecDeque<Vec<Token>>,
 }
 
+#[allow(dead_code)]
 pub struct NoiseHandshake {
     pub message: Vec<u8>,
     pub cipher_state: CipherState,

@@ -1,5 +1,15 @@
 # Changelog
 
+## Version 1.0.2
+
+**Date**: UNRELEASED
+
+**Changes**
+
+- Fall back to using standard input if a tty cannot be opened.
+- Upgrade to underlying curve25519 library that fixesa timing attack. Note
+  that the security of this application is not directly affected by this.
+
 ## Version 1.0.1
 
 **Date**: 2024-05-13

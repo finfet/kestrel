@@ -1,6 +1,6 @@
 [package]
 name = "kestrel-crypto"
-version = "2.0.1"
+version = "2.0.2"
 edition = "2021"
 authors = [
     "Kyle Schreiber <kyle@80x24.net>",
@@ -21,7 +21,7 @@ sha2 = { version = "0.10.8", default-features = false }
 hmac = { version = "0.12.1", default-features = false }
 hkdf = { version = "0.12.4", default-features = false }
 scrypt = { version = "0.11.0", default-features = false }
-zeroize = "1.7"
+zeroize = "1.8"
 
 [dev-dependencies]
 hex = "0.4.3"

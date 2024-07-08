@@ -101,6 +101,7 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
             Ok(sk) => break sk,
             Err(_) => {
                 if !passterm::isatty(Stream::Stdin) {
+                    pass.zeroize();
                     return Err(anyhow!("Key unlock failed."));
                 } else {
                     eprintln!("Key unlock failed.");
@@ -502,8 +503,8 @@ fn confirm_password(prompt: &str, env_pass: bool) -> Result<String, anyhow::Erro
 
 fn confirm_loop(prompt: &str) -> Result<String, anyhow::Error> {
     let password = loop {
-        let pass = passterm::prompt_password_tty(Some(prompt))?;
-        let confirm_pass = passterm::prompt_password_tty(Some("Confirm password: "))?;
+        let pass = ask_pass(prompt, false)?;
+        let confirm_pass = ask_pass("Confirm password: ", false)?;
 
         if pass != confirm_pass {
             // Don't loop if we're not in an interactive prompt.
@@ -525,7 +526,16 @@ fn ask_pass(prompt: &str, env_pass: bool) -> Result<String, anyhow::Error> {
         return read_env_pass();
     }
 
-    let pass = passterm::prompt_password_tty(Some(prompt))?;
+    let pass = match passterm::prompt_password_tty(Some(prompt)) {
+        Ok(p) => p,
+        Err(e) => {
+            if passterm::isatty(Stream::Stdin) {
+                passterm::prompt_password_stdin(Some(prompt), Stream::Stderr)?
+            } else {
+                return Err(anyhow!(e));
+            }
+        }
+    };
 
     Ok(pass)
 }
