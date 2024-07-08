@@ -18,7 +18,7 @@ name = "kestrel"
 path = "src/main.rs"
 
 [dependencies]
-kestrel-crypto = "2.0.1"
+kestrel-crypto = "2.0.2"
 base64ct = { version = "1.6.0", features = ["alloc"] }
 getopts = "0.2.21"
 anyhow = "1.0"

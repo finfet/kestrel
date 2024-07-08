@@ -16,15 +16,15 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout (Latest)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         if: github.event.inputs.git-ref == ''
       - name: Checkout (Ref)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         if: github.event.inputs.git-ref != ''
       - name: Create Source Archive
         run: make source
       - name: Upload Source Archive
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: source-archive
           path: build/kestrel-*.*.*.tar.gz
@@ -39,15 +39,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu rpm
       - name: Checkout (Latest)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         if: github.event.inputs.git-ref == ''
       - name: Checkout (Ref)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         if: github.event.inputs.git-ref != ''
       - name: Build Release
         run: make all-linux
       - name: Upload Release Archive
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: release-linux
           path: build/release-linux-*.tar.gz
@@ -60,15 +60,15 @@ jobs:
           rustup target add x86_64-apple-darwin
           rustup target add aarch64-apple-darwin
       - name: Checkout (Latest)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         if: github.event.inputs.git-ref == ''
       - name: Checkout (Ref)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         if: github.event.inputs.git-ref != ''
       - name: Build Release
         run: make all-macos
       - name: Upload Release Archive
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: release-macos
           path: build/release-macos-*.tar.gz
@@ -80,17 +80,17 @@ jobs:
           rustup update
           rustup target add x86_64-pc-windows-msvc
       - name: Checkout (Latest)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         if: github.event.inputs.git-ref == ''
       - name: Checkout (Ref)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         if: github.event.inputs.git-ref != ''
       - name: Build Release
         run: |
           .\windows-build.ps1 all
         shell: pwsh
       - name: Upload Release Archive
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: release-windows
           path: build/release-windows-*.zip
@@ -104,7 +104,7 @@ jobs:
     ]
     steps:
       - name: Download Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
       - name: Extract Files
         run: |
           tar -C release-linux -xf release-linux/release-linux-*.tar.gz
@@ -120,7 +120,7 @@ jobs:
           cd release-all && sha256sum -b * > SHA256SUMS.txt && cd ..
           tar -czvpf release-all.tar.gz release-all
       - name: Upload Release Archive
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: release-all
           path: release-all.tar.gz
