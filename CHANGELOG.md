@@ -2,7 +2,7 @@
 
 ## Version 1.0.2
 
-**Date**: UNRELEASED
+**Date**: 2024-07-07
 
 **Changes**
 
