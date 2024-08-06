@@ -153,9 +153,16 @@ pub struct NoiseEncryptMsg {
 }
 
 /// Encrypt the payload key using the noise X protocol.
-/// Passing None for ephemeral, abd ephemeral_public will generate
+///
+/// Passing None for ephemeral, and ephemeral_public will generate
 /// fresh keys. This is almost certainly what you want.
+///
 /// Sender and ephemeral private and public keys must match.
+/// prologue is included in the handshake hash, ensuring the handshake fails
+/// if the data isn't identical.
+/// payload must be <= 65439 bytes. The resulting message is a maximum of
+/// 65535 bytes.
+///
 /// Returns the handshake message ciphertext.
 pub fn noise_encrypt(
     sender: &PrivateKey,

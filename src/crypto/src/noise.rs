@@ -200,7 +200,8 @@ impl SymmetricState {
 
 impl HandshakeState {
     /// Implementation of the noise X pattern Noise_X_25519_ChaChaPoly_SHA256
-    /// Initialize a handshake state.
+    ///
+    /// Initializes a handshake state.
     /// When sending a message (initiator == true): rs is required.
     /// The sender public and private keys must match. Passing None for the
     /// ephemeral keys will generate fresh keys.
@@ -264,6 +265,10 @@ impl HandshakeState {
         None
     }
 
+    /// Write a Noise Handshake Message.
+    ///
+    /// payload must be <= 65439 bytes. The resulting message is a maximum of
+    /// 65535 bytes.
     pub fn write_message(&mut self, payload: &[u8]) -> NoiseHandshake {
         let mut message_buffer = Vec::<u8>::new();
         let message_pattern = self
@@ -334,6 +339,7 @@ impl HandshakeState {
         }
     }
 
+    /// Read a noise handshake message
     pub fn read_message(&mut self, message: &[u8]) -> Result<NoiseHandshake, ChaPolyDecryptError> {
         let message_pattern = self
             .message_patterns
@@ -341,8 +347,8 @@ impl HandshakeState {
             .expect("X pattern consists of a single message");
         let mut msgidx: usize = 0;
         assert!(
-            message.len() >= 64,
-            "Noise X pattern handshake message must be at least 64 bytes"
+            message.len() >= 64 && message.len() <= 65535,
+            "Noise X pattern handshake message must >= 64 and <= 65535 bytes"
         );
         for pattern in message_pattern {
             match pattern {
