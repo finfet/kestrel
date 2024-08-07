@@ -6,7 +6,7 @@ use crate::keyring::{EncodedSk, Keyring};
 use std::convert::TryInto;
 use std::ffi::OsStr;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{Read, Write, Seek};
 use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
@@ -48,6 +48,63 @@ pub(crate) struct PasswordOptions {
 enum OutputType {
     Path(PathBuf),
     Stdout,
+}
+
+/// A struct containing a path where the file is created the
+/// first time that a read or write is performed.
+struct OnDemandFile {
+    path: PathBuf,
+    handle: Option<File>
+}
+
+impl OnDemandFile {
+    fn ensure_created(&mut self) -> std::io::Result<()> {
+        if self.handle.is_none() {
+            self.handle = Some(File::create(&self.path)?);
+        }
+        Ok(())
+    }
+
+    fn new<T: AsRef<Path>>(p: T) -> Self {
+        Self {
+            path: p.as_ref().to_path_buf(),
+            handle: None
+        }
+    }
+}
+
+impl Write for OnDemandFile {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.ensure_created()?;
+
+        let f = self.handle.as_mut().unwrap();
+        Ok(f.write(buf)?)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.ensure_created()?;
+
+        let f = self.handle.as_mut().unwrap();
+        Ok(f.flush()?)
+    }
+}
+
+impl Read for OnDemandFile {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.ensure_created()?;
+
+        let f = self.handle.as_mut().unwrap();
+        Ok(f.read(buf)?)
+    }
+}
+
+impl Seek for OnDemandFile {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        self.ensure_created()?;
+
+        let f = self.handle.as_mut().unwrap();
+        Ok(f.seek(pos)?)
+    }
 }
 
 pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
@@ -409,6 +466,9 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
     }
 
     let mut ciphertext: Box<dyn Read> = open_input(infile.as_deref())?;
+    // TODO: Make an open_output that returns a Box<dyn Write> . Internally
+    // this box is either an OnDemandFile or stdout.
+    // Remove all of the _file usage in crypto decrypt_chunks
 
     let is_text = false;
     let output_type = get_output_type(outfile.as_deref(), is_text)?;
