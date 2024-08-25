@@ -5,9 +5,7 @@
 
 use crate::errors::{DecryptError, FileFormatError};
 
-use std::fs::File;
 use std::io::{Read, Write};
-use std::path::Path;
 
 use crate::{chapoly_decrypt_noise, hkdf_sha256, noise_decrypt, scrypt, PrivateKey, PublicKey};
 use crate::{AsymFileFormat, FileFormat, PassFileFormat};
@@ -19,47 +17,6 @@ const TAG_SIZE: usize = 16;
 pub fn key_decrypt<T: Read, U: Write>(
     ciphertext: &mut T,
     plaintext: &mut U,
-    recipient: &PrivateKey,
-    recipient_public: &PublicKey,
-    file_format: AsymFileFormat,
-) -> Result<PublicKey, DecryptError> {
-    let public_key = key_decrypt_internal(
-        ciphertext,
-        Some(plaintext),
-        None::<&str>,
-        recipient,
-        recipient_public,
-        file_format,
-    )?;
-
-    Ok(public_key)
-}
-
-/// Decrypt asymmetric encrypted data from [`key_encrypt`](crate::encrypt::key_encrypt)
-/// A file will be created at the specified plaintext path
-pub fn key_decrypt_file<T: Read, U: AsRef<Path>>(
-    ciphertext: &mut T,
-    plaintext: U,
-    recipient: &PrivateKey,
-    recipient_public: &PublicKey,
-    file_format: AsymFileFormat,
-) -> Result<PublicKey, DecryptError> {
-    let public_key = key_decrypt_internal(
-        ciphertext,
-        None::<&mut std::io::Sink>,
-        Some(plaintext),
-        recipient,
-        recipient_public,
-        file_format,
-    )?;
-
-    Ok(public_key)
-}
-
-fn key_decrypt_internal<T: Read, U: Write, V: AsRef<Path>>(
-    ciphertext: &mut T,
-    plaintext_sink: Option<&mut U>,
-    plaintext_path: Option<V>,
     recipient: &PrivateKey,
     recipient_public: &PublicKey,
     file_format: AsymFileFormat,
@@ -94,58 +51,17 @@ fn key_decrypt_internal<T: Read, U: Write, V: AsRef<Path>>(
     );
     let file_encryption_key: [u8; 32] = file_encryption_key.as_slice().try_into().unwrap();
 
-    decrypt_chunks(
-        ciphertext,
-        plaintext_sink,
-        plaintext_path,
-        file_encryption_key,
-        &[],
-        CHUNK_SIZE,
-    )?;
+    decrypt_chunks(ciphertext, plaintext, file_encryption_key, &[], CHUNK_SIZE)?;
 
-    Ok(noise_message.public_key)
+    let public_key = noise_message.public_key;
+
+    Ok(public_key)
 }
 
 /// Decrypt encrypted data from [`pass_encrypt`](crate::encrypt::pass_encrypt)
 pub fn pass_decrypt<T: Read, U: Write>(
     ciphertext: &mut T,
     plaintext: &mut U,
-    password: &[u8],
-    file_format: PassFileFormat,
-) -> Result<(), DecryptError> {
-    pass_decrypt_internal(
-        ciphertext,
-        Some(plaintext),
-        None::<&str>,
-        password,
-        file_format,
-    )?;
-
-    Ok(())
-}
-
-/// Decrypt encrypted data from [`pass_encrypt`](crate::encrypt::pass_encrypt)
-pub fn pass_decrypt_file<T: Read, U: AsRef<Path>>(
-    ciphertext: &mut T,
-    plaintext: U,
-    password: &[u8],
-    file_format: PassFileFormat,
-) -> Result<(), DecryptError> {
-    pass_decrypt_internal(
-        ciphertext,
-        None::<&mut std::io::Sink>,
-        Some(plaintext),
-        password,
-        file_format,
-    )?;
-
-    Ok(())
-}
-
-fn pass_decrypt_internal<T: Read, U: Write, V: AsRef<Path>>(
-    ciphertext: &mut T,
-    plaintext_sink: Option<&mut U>,
-    plaintext_path: Option<V>,
     password: &[u8],
     file_format: PassFileFormat,
 ) -> Result<(), DecryptError> {
@@ -173,14 +89,7 @@ fn pass_decrypt_internal<T: Read, U: Write, V: AsRef<Path>>(
     let key: [u8; 32] = key.as_slice().try_into().unwrap();
     let aad = &pass_magic_num[..];
 
-    decrypt_chunks(
-        ciphertext,
-        plaintext_sink,
-        plaintext_path,
-        key,
-        aad,
-        CHUNK_SIZE,
-    )?;
+    decrypt_chunks(ciphertext, plaintext, key, aad, CHUNK_SIZE)?;
 
     Ok(())
 }
@@ -192,23 +101,18 @@ fn pass_decrypt_internal<T: Read, U: Write, V: AsRef<Path>>(
 /// A file will be created at the specified plaintext path if a path is
 /// specified. plaintext_sink and plaintext_path are mutually exclusive. If
 /// both are supplied, path is used.
-fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
+fn decrypt_chunks<T: Read, U: Write>(
     ciphertext: &mut T,
-    mut plaintext_sink: Option<&mut U>,
-    plaintext_path: Option<V>,
+    plaintext: &mut U,
     key: [u8; 32],
     aad: &[u8],
     chunk_size: u32,
 ) -> Result<(), DecryptError> {
-    let is_path = plaintext_path.is_some();
-
     let mut chunk_number: u64 = 0;
     let mut done = false;
     let cs: usize = chunk_size.try_into().unwrap();
     let mut buffer = vec![0; cs + TAG_SIZE];
     let mut auth_data = vec![0u8; aad.len() + 8];
-
-    let mut plaintext_file: Option<File> = None;
 
     loop {
         let mut chunk_header = [0u8; 16];
@@ -253,20 +157,10 @@ fn decrypt_chunks<T: Read, U: Write, V: AsRef<Path>>(
             }
         }
 
-        if is_path {
-            if plaintext_file.is_none() {
-                let path = plaintext_path.as_ref().unwrap();
-                plaintext_file = Some(File::create(path.as_ref()).map_err(write_err)?);
-            }
-
-            let pt = plaintext_file.as_mut().unwrap();
-            pt.write_all(pt_chunk.as_slice()).map_err(write_err)?;
-            pt.flush().map_err(write_err)?;
-        } else {
-            let pt = plaintext_sink.as_mut().unwrap();
-            pt.write_all(pt_chunk.as_slice()).map_err(write_err)?;
-            pt.flush().map_err(write_err)?;
-        }
+        plaintext
+            .write_all(pt_chunk.as_slice())
+            .map_err(write_err)?;
+        plaintext.flush().map_err(write_err)?;
 
         if done {
             break;
@@ -314,53 +208,12 @@ fn write_err(err: std::io::Error) -> DecryptError {
 #[cfg(test)]
 mod tests {
     use super::CHUNK_SIZE;
-    use super::{key_decrypt, key_decrypt_file, pass_decrypt, pass_decrypt_file};
+    use super::{key_decrypt, pass_decrypt};
     use super::{PrivateKey, PublicKey};
     use crate::encrypt::{key_encrypt, pass_encrypt};
-    use crate::{secure_random, sha256};
+    use crate::sha256;
     use crate::{AsymFileFormat, PassFileFormat};
     use std::io::Read;
-    use std::path::{Path, PathBuf};
-
-    struct TempFile(PathBuf);
-
-    #[allow(dead_code)]
-    impl TempFile {
-        /// Generate a random filename in the specified directory.
-        /// Defaults to the system temporary directory if not providied.
-        fn new() -> Self {
-            TempFile::gen_tempfile(None::<&str>)
-        }
-
-        fn new_path<T: AsRef<Path>>(tempdir: T) -> Self {
-            TempFile::gen_tempfile(Some(tempdir))
-        }
-
-        fn gen_tempfile<T: AsRef<Path>>(tempdir: Option<T>) -> Self {
-            let suffix = hex::encode(secure_random(12).as_slice());
-            let mut path = PathBuf::new();
-            if let Some(d) = tempdir {
-                path.push(d);
-            } else {
-                path.push(std::env::temp_dir())
-            }
-            path.push(format!("temp-{}.tmp", suffix));
-            Self(path)
-        }
-
-        fn as_path(&self) -> &Path {
-            self.0.as_path()
-        }
-    }
-
-    impl Drop for TempFile {
-        fn drop(&mut self) {
-            match std::fs::remove_file(self.as_path()) {
-                Ok(_) => {}
-                Err(e) => eprintln!("Could not remove file: {}", e),
-            }
-        }
-    }
 
     #[allow(dead_code)]
     struct KeyData {
@@ -387,30 +240,6 @@ mod tests {
             AsymFileFormat::V1,
         )
         .unwrap();
-
-        assert_eq!(&expected_plaintext[..], plaintext.as_slice());
-        assert_eq!(expected_sender.as_bytes(), sender_public.as_bytes());
-    }
-
-    #[test]
-    fn test_decrypt_small_file() {
-        let expected_plaintext = b"Hello, world!";
-        let key_data = get_key_data();
-        let expected_sender = key_data.alice_public;
-        let recipient = key_data.bob_private;
-        let recipient_public = key_data.bob_public;
-        let ciphertext = encrypt_small_util();
-        let plaintext_file = TempFile::new();
-        let sender_public = key_decrypt_file(
-            &mut ciphertext.as_slice(),
-            plaintext_file.as_path(),
-            &recipient,
-            &recipient_public,
-            AsymFileFormat::V1,
-        )
-        .unwrap();
-
-        let plaintext = std::fs::read(plaintext_file.as_path()).unwrap();
 
         assert_eq!(&expected_plaintext[..], plaintext.as_slice());
         assert_eq!(expected_sender.as_bytes(), sender_public.as_bytes());
@@ -584,26 +413,6 @@ mod tests {
             PassFileFormat::V1,
         )
         .unwrap();
-
-        assert_eq!(&expected_pt[..], plaintext.as_slice());
-    }
-
-    #[test]
-    fn test_pass_decrypt_file() {
-        let expected_pt = b"Be sure to drink your Ovaltine";
-        let pass = b"hackme";
-
-        let ciphertext = pass_encrypt_util();
-        let plaintext_file = TempFile::new();
-        pass_decrypt_file(
-            &mut ciphertext.as_slice(),
-            plaintext_file.as_path(),
-            pass,
-            PassFileFormat::V1,
-        )
-        .unwrap();
-
-        let plaintext = std::fs::read(plaintext_file.as_path()).unwrap();
 
         assert_eq!(&expected_pt[..], plaintext.as_slice());
     }

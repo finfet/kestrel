@@ -73,14 +73,14 @@ impl Write for OnDemandFile {
         self.ensure_created()?;
 
         let f = self.handle.as_mut().unwrap();
-        Ok(f.write(buf)?)
+        f.write(buf)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
         self.ensure_created()?;
 
         let f = self.handle.as_mut().unwrap();
-        Ok(f.flush()?)
+        f.flush()
     }
 }
 
