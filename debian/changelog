@@ -1,4 +1,4 @@
-PACKAGE (1.0.2) unstable; urgency=medium
+kestrel (1.0.2) unstable; urgency=medium
 
   * Fall back to stdin if a tty cannot be opened
 
