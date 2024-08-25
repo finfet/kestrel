@@ -6,12 +6,13 @@ use crate::keyring::{EncodedSk, Keyring};
 use std::convert::TryInto;
 use std::ffi::OsStr;
 use std::fs::File;
-use std::io::{Read, Write, Seek};
+use std::io::{Read, Write};
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
 use passterm::{isatty, Stream};
-use zeroize::Zeroize;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use kestrel_crypto::errors::DecryptError;
 use kestrel_crypto::PrivateKey;
@@ -44,17 +45,11 @@ pub(crate) struct PasswordOptions {
     pub env_pass: bool,
 }
 
-#[derive(Debug)]
-enum OutputType {
-    Path(PathBuf),
-    Stdout,
-}
-
 /// A struct containing a path where the file is created the
 /// first time that a read or write is performed.
 struct OnDemandFile {
     path: PathBuf,
-    handle: Option<File>
+    handle: Option<File>,
 }
 
 impl OnDemandFile {
@@ -68,7 +63,7 @@ impl OnDemandFile {
     fn new<T: AsRef<Path>>(p: T) -> Self {
         Self {
             path: p.as_ref().to_path_buf(),
-            handle: None
+            handle: None,
         }
     }
 }
@@ -89,21 +84,33 @@ impl Write for OnDemandFile {
     }
 }
 
-impl Read for OnDemandFile {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        self.ensure_created()?;
+struct SecureString(String);
 
-        let f = self.handle.as_mut().unwrap();
-        Ok(f.read(buf)?)
+impl SecureString {
+    fn new(s: String) -> Self {
+        Self(s)
     }
 }
 
-impl Seek for OnDemandFile {
-    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
-        self.ensure_created()?;
+impl Deref for SecureString {
+    type Target = String;
 
-        let f = self.handle.as_mut().unwrap();
-        Ok(f.seek(pos)?)
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Zeroize for SecureString {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+impl ZeroizeOnDrop for SecureString {}
+
+impl Drop for SecureString {
+    fn drop(&mut self) {
+        self.0.zeroize();
     }
 }
 
@@ -123,12 +130,12 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
         }
     }
 
+    let is_text = false;
     // Try to open our plaintext early to not make the user input a keyring
     // password for a plaintext file that doesn't exist.
     let mut plaintext: Box<dyn Read> = open_input(infile.as_deref())?;
-
-    let is_text = false;
-    let output_type = get_output_type(outfile.as_deref(), is_text)?;
+    // The ciphertext won't be created until an actuail write() is called.
+    let mut ciphertext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
     // Read from the keyring
     let keyring = open_keyring(keyring)?;
@@ -150,15 +157,13 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     }
     let sender_key = sender_key.private_key.as_ref().unwrap();
     let unlock_prompt = format!("Unlock '{}' key: ", &from);
-    let pass = ask_pass(&unlock_prompt, env_pass)?;
+    let mut pass = ask_pass(&unlock_prompt, env_pass)?;
 
-    let mut pass = pass;
     let sender_private = loop {
         match Keyring::unlock_private_key(sender_key, pass.as_bytes()) {
             Ok(sk) => break sk,
             Err(_) => {
                 if !passterm::isatty(Stream::Stdin) {
-                    pass.zeroize();
                     return Err(anyhow!("Key unlock failed."));
                 } else {
                     eprintln!("Key unlock failed.");
@@ -169,14 +174,7 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
         }
     };
 
-    pass.zeroize();
-
-    // Finally open the output file. Only when we've gotten here should we
-    // attempt to open/create the output file.
-    let mut ciphertext: Box<dyn Write> = create_output(output_type)?;
-
     eprint!("Encrypting...");
-
     if let Err(e) = encrypt::key_encrypt(
         &mut plaintext,
         &mut ciphertext,
@@ -191,7 +189,6 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
         eprintln!("failed.");
         return Err(anyhow!(e));
     }
-
     eprintln!("done");
 
     Ok(())
@@ -214,12 +211,11 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
         }
     }
 
-    // Try to open our ciphertext early to not make the user input a keyring
-    // password for a ciphertext file that doesn't exist.
-    let mut ciphertext: Box<dyn Read> = open_input(infile.as_deref())?;
-
     let is_text = false;
-    let output_type = get_output_type(outfile.as_deref(), is_text)?;
+    // Try to open our ciphertext early to prevent the user from typing in
+    // a password for a ciphertext file that doesn't exist.
+    let mut ciphertext: Box<dyn Read> = open_input(infile.as_deref())?;
+    let mut plaintext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
     let keyring = open_keyring(keyring)?;
     let recipient_key = keyring.get_key(&to);
@@ -233,15 +229,13 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
         None => return Err(anyhow!("Key '{}' needs a private key.", &to)),
     };
     let unlock_prompt = format!("Unlock '{}' key: ", &to);
-    let pass = ask_pass(&unlock_prompt, env_pass)?;
+    let mut pass = ask_pass(&unlock_prompt, env_pass)?;
 
-    let mut pass = pass;
     let recipient_private = loop {
         match Keyring::unlock_private_key(recipient_key, pass.as_bytes()) {
             Ok(sk) => break sk,
             Err(_) => {
                 if !passterm::isatty(Stream::Stdin) {
-                    pass.zeroize();
                     return Err(anyhow!("Key unlock failed."));
                 } else {
                     eprintln!("Key unlock failed.");
@@ -252,37 +246,18 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
         }
     };
 
-    pass.zeroize();
-
     eprint!("Decrypting...");
-    let sender_public = if let OutputType::Path(p) = output_type {
-        match decrypt::key_decrypt_file(
-            &mut ciphertext,
-            p,
-            &recipient_private,
-            &recipient_public,
-            AsymFileFormat::V1,
-        ) {
-            Ok(pk) => pk,
-            Err(e) => {
-                eprintln!("failed.");
-                return Err(anyhow!(e));
-            }
-        }
-    } else {
-        let mut plaintext = std::io::stdout();
-        match decrypt::key_decrypt(
-            &mut ciphertext,
-            &mut plaintext,
-            &recipient_private,
-            &recipient_public,
-            AsymFileFormat::V1,
-        ) {
-            Ok(pk) => pk,
-            Err(e) => {
-                eprintln!("failed.");
-                return Err(anyhow!(e));
-            }
+    let sender_public = match decrypt::key_decrypt(
+        &mut ciphertext,
+        &mut plaintext,
+        &recipient_private,
+        &recipient_public,
+        AsymFileFormat::V1,
+    ) {
+        Ok(pk) => pk,
+        Err(e) => {
+            eprintln!("failed.");
+            return Err(anyhow!(e));
         }
     };
     eprintln!("done");
@@ -300,22 +275,18 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
 }
 
 pub(crate) fn gen_key(outfile: Option<String>, env_pass: bool) -> Result<(), anyhow::Error> {
-    let is_text = true;
-    let output_type = get_output_type(outfile.as_deref(), is_text)?;
-
     let name = ask_user_stderr("Key name: ")?;
     if !Keyring::valid_key_name(&name) {
         return Err(anyhow!("Name must be between 1 and 128 characters."));
     }
 
-    let mut pass = confirm_password("New password: ", env_pass)?;
+    let pass = confirm_password("New password: ", env_pass)?;
+
     let private_key = PrivateKey::generate();
     let public_key = private_key.to_public();
     let salt: [u8; 32] = kestrel_crypto::secure_random(32).try_into().unwrap();
 
     let encoded_private_key = Keyring::lock_private_key(&private_key, pass.as_bytes(), salt);
-    pass.zeroize();
-
     let encoded_public_key = Keyring::encode_public_key(&public_key);
 
     let key_config =
@@ -334,7 +305,8 @@ pub(crate) fn gen_key(outfile: Option<String>, env_pass: bool) -> Result<(), any
         key_config
     };
 
-    let mut keyring = create_output(output_type)?;
+    let is_text = true;
+    let mut keyring = open_output(outfile.as_deref(), is_text)?;
     keyring.write_all(key_output.as_bytes())?;
     keyring.flush()?;
 
@@ -342,8 +314,8 @@ pub(crate) fn gen_key(outfile: Option<String>, env_pass: bool) -> Result<(), any
 }
 
 pub(crate) fn change_pass(private_key: String, env_pass: bool) -> Result<(), anyhow::Error> {
-    let mut old_pass = ask_pass("Old password: ", env_pass)?;
-    let mut new_pass = confirm_new_pass("New password: ", env_pass)?;
+    let old_pass = ask_pass("Old password: ", env_pass)?;
+    let new_pass = confirm_new_pass("New password: ", env_pass)?;
 
     let old_sk: EncodedSk = private_key
         .as_str()
@@ -353,9 +325,6 @@ pub(crate) fn change_pass(private_key: String, env_pass: bool) -> Result<(), any
 
     let salt: [u8; 32] = kestrel_crypto::secure_random(32).try_into().unwrap();
     let new_sk = Keyring::lock_private_key(&sk, new_pass.as_bytes(), salt);
-
-    old_pass.zeroize();
-    new_pass.zeroize();
 
     let key_output = if isatty(Stream::Stdout) {
         format!("\nPrivateKey = {}", new_sk.as_str())
@@ -369,7 +338,7 @@ pub(crate) fn change_pass(private_key: String, env_pass: bool) -> Result<(), any
 }
 
 pub(crate) fn extract_pub(private_key: String, env_pass: bool) -> Result<(), anyhow::Error> {
-    let mut pass = ask_pass("Password: ", env_pass)?;
+    let pass = ask_pass("Password: ", env_pass)?;
 
     let esk: EncodedSk = private_key
         .as_str()
@@ -377,11 +346,7 @@ pub(crate) fn extract_pub(private_key: String, env_pass: bool) -> Result<(), any
         .map_err(|e| anyhow!("{}", e))?;
 
     let sk = Keyring::unlock_private_key(&esk, pass.as_bytes())?;
-
-    pass.zeroize();
-
     let pk = sk.to_public();
-
     let epk = Keyring::encode_public_key(&pk);
 
     println!("PublicKey = {}", epk.as_str());
@@ -402,17 +367,16 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
         }
     }
 
+    let is_text = false;
     let mut plaintext: Box<dyn Read> = open_input(infile.as_deref())?;
 
-    let is_text = false;
-    let output_type = get_output_type(outfile.as_deref(), is_text)?;
+    // Behind the scenes here we're using an OnDemandFile that doesn't
+    // create the file until an actual write is performed. This way if the
+    // user backs out before providing a password, we don't clobber their
+    // original output file.
+    let mut ciphertext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
-    let mut pass = confirm_password("Use password: ", env_pass)?;
-
-    // Don't open our output file until we've gotten a valid password from
-    // the user. If the user backs out before giving a valid password, we
-    // won't clobber their previous output file until we have to.
-    let mut ciphertext: Box<dyn Write> = create_output(output_type)?;
+    let pass = confirm_password("Use password: ", env_pass)?;
 
     eprint!("Encrypting...");
     let salt: [u8; 32] = kestrel_crypto::secure_random(32).try_into().unwrap();
@@ -423,26 +387,13 @@ pub(crate) fn pass_encrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
         salt,
         PassFileFormat::V1,
     ) {
-        pass.zeroize();
         eprintln!("failed.");
         return Err(anyhow!(e));
     }
 
-    pass.zeroize();
-
     eprintln!("done");
 
     Ok(())
-}
-
-fn create_output(output_type: OutputType) -> Result<Box<dyn Write>, anyhow::Error> {
-    if let OutputType::Path(p) = output_type {
-        Ok(Box::new(File::create(p).map_err(|e| {
-            anyhow!("Could not create output file: {}", e)
-        })?))
-    } else {
-        Ok(Box::new(std::io::stdout()))
-    }
 }
 
 pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
@@ -465,49 +416,30 @@ pub(crate) fn pass_decrypt(opts: PasswordOptions) -> Result<(), anyhow::Error> {
         }
     }
 
-    let mut ciphertext: Box<dyn Read> = open_input(infile.as_deref())?;
-    // TODO: Make an open_output that returns a Box<dyn Write> . Internally
-    // this box is either an OnDemandFile or stdout.
-    // Remove all of the _file usage in crypto decrypt_chunks
-
     let is_text = false;
-    let output_type = get_output_type(outfile.as_deref(), is_text)?;
+    let mut ciphertext: Box<dyn Read> = open_input(infile.as_deref())?;
+    let mut plaintext: Box<dyn Write> = open_output(outfile.as_deref(), is_text)?;
 
-    let mut pass = ask_pass("Password: ", env_pass)?;
+    let pass = ask_pass("Password: ", env_pass)?;
 
     eprint!("Decrypting...");
-    if let OutputType::Path(p) = output_type {
-        if let Err(e) = decrypt::pass_decrypt_file(
-            &mut ciphertext,
-            p.as_path(),
-            pass.as_bytes(),
-            PassFileFormat::V1,
-        ) {
-            pass.zeroize();
-            eprintln!("failed.");
-            return Err(fmt_err(e));
-        }
-    } else {
-        let mut plaintext = std::io::stdout();
-        if let Err(e) = decrypt::pass_decrypt(
-            &mut ciphertext,
-            &mut plaintext,
-            pass.as_bytes(),
-            PassFileFormat::V1,
-        ) {
-            pass.zeroize();
-            eprintln!("failed.");
-            return Err(fmt_err(e));
-        }
+    if let Err(e) = decrypt::pass_decrypt(
+        &mut ciphertext,
+        &mut plaintext,
+        pass.as_bytes(),
+        PassFileFormat::V1,
+    ) {
+        eprintln!("failed.");
+        return Err(fmt_err(e));
     }
-
-    pass.zeroize();
-
     eprintln!("done");
 
     Ok(())
 }
 
+/// Open a Read input source. Checks for the existence of the file at the
+/// given path if specified. If a path is not specified, the source will be
+/// stdin, if stdin has been piped in.
 fn open_input(path: Option<&str>) -> Result<Box<dyn Read>, anyhow::Error> {
     if let Some(p) = path {
         let infile_path = PathBuf::from(p);
@@ -528,11 +460,11 @@ fn open_input(path: Option<&str>) -> Result<Box<dyn Read>, anyhow::Error> {
     }
 }
 
-/// Return the type of output that the user is requesting.
-/// is_text specifies if the output data that is going to be written
-/// to this output is plaintext. Non plaintext data must have the
-/// output stream redirected to a file.
-fn get_output_type(path: Option<&str>, is_text: bool) -> Result<OutputType, anyhow::Error> {
+/// Open a Write output source. Will use the path if specified, or stdout.
+/// Stdout must be redirected to a file for any data that isn't text.
+/// The file at the specified path will not be created until an actual write
+/// call is performed.
+fn open_output(path: Option<&str>, is_text: bool) -> Result<Box<dyn Write>, anyhow::Error> {
     // Require that output be written to a file on windows because windows
     // can't write non utf-8 byte sequences in a console
     // https://doc.rust-lang.org/stable/std/io/fn.stdout.html#note-windows-portability-considerations
@@ -541,17 +473,17 @@ fn get_output_type(path: Option<&str>, is_text: bool) -> Result<OutputType, anyh
     }
 
     if let Some(p) = path {
-        Ok(OutputType::Path(p.into()))
+        Ok(Box::new(OnDemandFile::new(p)))
     } else if isatty(Stream::Stdout) && !is_text {
         // Refuse to output to the terminal unless it is redirected to
         // a file or another program.
         Err(anyhow!("Please specify an output file."))
     } else {
-        Ok(OutputType::Stdout)
+        Ok(Box::new(std::io::stdout()))
     }
 }
 
-fn confirm_password(prompt: &str, env_pass: bool) -> Result<String, anyhow::Error> {
+fn confirm_password(prompt: &str, env_pass: bool) -> Result<SecureString, anyhow::Error> {
     if env_pass {
         return read_env_pass();
     }
@@ -561,12 +493,12 @@ fn confirm_password(prompt: &str, env_pass: bool) -> Result<String, anyhow::Erro
     Ok(password)
 }
 
-fn confirm_loop(prompt: &str) -> Result<String, anyhow::Error> {
+fn confirm_loop(prompt: &str) -> Result<SecureString, anyhow::Error> {
     let password = loop {
         let pass = ask_pass(prompt, false)?;
         let confirm_pass = ask_pass("Confirm password: ", false)?;
 
-        if pass != confirm_pass {
+        if *pass != *confirm_pass {
             // Don't loop if we're not in an interactive prompt.
             if !passterm::isatty(Stream::Stdin) {
                 return Err(anyhow!("Passwords do not match"));
@@ -581,7 +513,7 @@ fn confirm_loop(prompt: &str) -> Result<String, anyhow::Error> {
     Ok(password)
 }
 
-fn ask_pass(prompt: &str, env_pass: bool) -> Result<String, anyhow::Error> {
+fn ask_pass(prompt: &str, env_pass: bool) -> Result<SecureString, anyhow::Error> {
     if env_pass {
         return read_env_pass();
     }
@@ -597,10 +529,10 @@ fn ask_pass(prompt: &str, env_pass: bool) -> Result<String, anyhow::Error> {
         }
     };
 
-    Ok(pass)
+    Ok(SecureString::new(pass))
 }
 
-fn confirm_new_pass(prompt: &str, env_pass: bool) -> Result<String, anyhow::Error> {
+fn confirm_new_pass(prompt: &str, env_pass: bool) -> Result<SecureString, anyhow::Error> {
     if env_pass {
         return read_env_new_pass();
     }
@@ -611,9 +543,9 @@ fn confirm_new_pass(prompt: &str, env_pass: bool) -> Result<String, anyhow::Erro
 }
 
 /// Read the password from the KESTREL_PASSWORD environment variable
-fn read_env_pass() -> Result<String, anyhow::Error> {
+fn read_env_pass() -> Result<SecureString, anyhow::Error> {
     match std::env::var("KESTREL_PASSWORD") {
-        Ok(p) => Ok(p),
+        Ok(p) => Ok(SecureString::new(p)),
         Err(e) => match e {
             std::env::VarError::NotPresent => Err(anyhow!(
                 "--env-pass requires setting the KESTREL_PASSWORD environment variable"
@@ -626,9 +558,9 @@ fn read_env_pass() -> Result<String, anyhow::Error> {
 }
 
 /// Read the password from the KESTREL_NEW_PASSWORD environment variable
-fn read_env_new_pass() -> Result<String, anyhow::Error> {
+fn read_env_new_pass() -> Result<SecureString, anyhow::Error> {
     match std::env::var("KESTREL_NEW_PASSWORD") {
-        Ok(p) => Ok(p),
+        Ok(p) => Ok(SecureString::new(p)),
         Err(e) => match e {
             std::env::VarError::NotPresent => {
                 Err(anyhow!("--env-pass with change-pass requires setting the KESTREL_NEW_PASSWORD environment variable"))

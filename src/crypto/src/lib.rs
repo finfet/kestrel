@@ -120,6 +120,12 @@ impl From<&[u8]> for PrivateKey {
 
 impl Drop for PrivateKey {
     fn drop(&mut self) {
+        self.key.zeroize();
+    }
+}
+
+impl Zeroize for PrivateKey {
+    fn zeroize(&mut self) {
         self.key.as_mut_slice().zeroize();
     }
 }

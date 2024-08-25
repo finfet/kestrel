@@ -6,7 +6,7 @@ use crate::errors::KeyringError;
 use kestrel_crypto::{PrivateKey, PublicKey};
 
 use base64ct::{Base64, Encoding};
-use zeroize::Zeroize;
+use zeroize::Zeroizing;
 
 const PRIVATE_KEY_VERSION: [u8; 4] = [0x65, 0x67, 0x6b, 0x30];
 const MAX_NAME_SIZE: usize = 128;
@@ -124,7 +124,8 @@ impl Keyring {
         encoded_bytes.extend_from_slice(&PRIVATE_KEY_VERSION);
         encoded_bytes.extend_from_slice(&salt);
 
-        let mut key = kestrel_crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
+        let key = kestrel_crypto::scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
+        let key = Zeroizing::new(key);
 
         let nonce = [0u8; 12];
         let ciphertext = kestrel_crypto::chapoly_encrypt_ietf(
@@ -133,8 +134,6 @@ impl Keyring {
             private_key.as_bytes(),
             &PRIVATE_KEY_VERSION,
         );
-
-        key.zeroize();
 
         encoded_bytes.extend_from_slice(ciphertext.as_slice());
 
@@ -158,16 +157,12 @@ impl Keyring {
         }
         let salt = &key_bytes[4..36];
         let ciphertext = &key_bytes[36..84];
-        let mut key = kestrel_crypto::scrypt(password, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
+        let key = kestrel_crypto::scrypt(password, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
+        let key = Zeroizing::new(key);
 
         let nonce = [0u8; 12];
         let plaintext = kestrel_crypto::chapoly_decrypt_ietf(&key, &nonce, ciphertext, version_aad)
-            .map_err(|_| {
-                key.zeroize();
-                KeyringError::PrivateKeyDecrypt
-            })?;
-
-        key.zeroize();
+            .map_err(|_| KeyringError::PrivateKeyDecrypt)?;
 
         Ok(PrivateKey::from(plaintext.as_slice()))
     }
