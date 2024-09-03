@@ -84,15 +84,15 @@ impl Write for OnDemandFile {
     }
 }
 
-struct SecureString(String);
+struct ZeroedString(String);
 
-impl SecureString {
+impl ZeroedString {
     fn new(s: String) -> Self {
         Self(s)
     }
 }
 
-impl Deref for SecureString {
+impl Deref for ZeroedString {
     type Target = String;
 
     fn deref(&self) -> &Self::Target {
@@ -100,17 +100,17 @@ impl Deref for SecureString {
     }
 }
 
-impl Zeroize for SecureString {
+impl Zeroize for ZeroedString {
     fn zeroize(&mut self) {
         self.0.zeroize();
     }
 }
 
-impl ZeroizeOnDrop for SecureString {}
+impl ZeroizeOnDrop for ZeroedString {}
 
-impl Drop for SecureString {
+impl Drop for ZeroedString {
     fn drop(&mut self) {
-        self.0.zeroize();
+        self.zeroize();
     }
 }
 
@@ -195,6 +195,14 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
 }
 
 pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
+    fn fmt_err(e: DecryptError) -> anyhow::Error {
+        if let DecryptError::ChaPolyDecrypt = e {
+            anyhow!("Decrypt failed. Check key used.")
+        } else {
+            anyhow!(e)
+        }
+    }
+
     let infile = opts.infile;
     let to = opts.to;
     let outfile = opts.outfile;
@@ -257,7 +265,7 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
         Ok(pk) => pk,
         Err(e) => {
             eprintln!("failed.");
-            return Err(anyhow!(e));
+            return Err(fmt_err(e));
         }
     };
     eprintln!("done");
@@ -483,7 +491,7 @@ fn open_output(path: Option<&str>, is_text: bool) -> Result<Box<dyn Write>, anyh
     }
 }
 
-fn confirm_password(prompt: &str, env_pass: bool) -> Result<SecureString, anyhow::Error> {
+fn confirm_password(prompt: &str, env_pass: bool) -> Result<ZeroedString, anyhow::Error> {
     if env_pass {
         return read_env_pass();
     }
@@ -493,7 +501,7 @@ fn confirm_password(prompt: &str, env_pass: bool) -> Result<SecureString, anyhow
     Ok(password)
 }
 
-fn confirm_loop(prompt: &str) -> Result<SecureString, anyhow::Error> {
+fn confirm_loop(prompt: &str) -> Result<ZeroedString, anyhow::Error> {
     let password = loop {
         let pass = ask_pass(prompt, false)?;
         let confirm_pass = ask_pass("Confirm password: ", false)?;
@@ -513,7 +521,7 @@ fn confirm_loop(prompt: &str) -> Result<SecureString, anyhow::Error> {
     Ok(password)
 }
 
-fn ask_pass(prompt: &str, env_pass: bool) -> Result<SecureString, anyhow::Error> {
+fn ask_pass(prompt: &str, env_pass: bool) -> Result<ZeroedString, anyhow::Error> {
     if env_pass {
         return read_env_pass();
     }
@@ -529,10 +537,10 @@ fn ask_pass(prompt: &str, env_pass: bool) -> Result<SecureString, anyhow::Error>
         }
     };
 
-    Ok(SecureString::new(pass))
+    Ok(ZeroedString::new(pass))
 }
 
-fn confirm_new_pass(prompt: &str, env_pass: bool) -> Result<SecureString, anyhow::Error> {
+fn confirm_new_pass(prompt: &str, env_pass: bool) -> Result<ZeroedString, anyhow::Error> {
     if env_pass {
         return read_env_new_pass();
     }
@@ -543,9 +551,9 @@ fn confirm_new_pass(prompt: &str, env_pass: bool) -> Result<SecureString, anyhow
 }
 
 /// Read the password from the KESTREL_PASSWORD environment variable
-fn read_env_pass() -> Result<SecureString, anyhow::Error> {
+fn read_env_pass() -> Result<ZeroedString, anyhow::Error> {
     match std::env::var("KESTREL_PASSWORD") {
-        Ok(p) => Ok(SecureString::new(p)),
+        Ok(p) => Ok(ZeroedString::new(p)),
         Err(e) => match e {
             std::env::VarError::NotPresent => Err(anyhow!(
                 "--env-pass requires setting the KESTREL_PASSWORD environment variable"
@@ -558,9 +566,9 @@ fn read_env_pass() -> Result<SecureString, anyhow::Error> {
 }
 
 /// Read the password from the KESTREL_NEW_PASSWORD environment variable
-fn read_env_new_pass() -> Result<SecureString, anyhow::Error> {
+fn read_env_new_pass() -> Result<ZeroedString, anyhow::Error> {
     match std::env::var("KESTREL_NEW_PASSWORD") {
-        Ok(p) => Ok(SecureString::new(p)),
+        Ok(p) => Ok(ZeroedString::new(p)),
         Err(e) => match e {
             std::env::VarError::NotPresent => {
                 Err(anyhow!("--env-pass with change-pass requires setting the KESTREL_NEW_PASSWORD environment variable"))

@@ -5,15 +5,19 @@
 
 use std::collections::VecDeque;
 
+use zeroize::Zeroizing;
+
 use crate::errors::ChaPolyDecryptError;
 use crate::{
-    chapoly_decrypt_noise, chapoly_encrypt_noise, hkdf_noise, sha256, PrivateKey, PublicKey,
+    chapoly_decrypt_noise, chapoly_encrypt_noise, hkdf_noise, sha256, PayloadKey, PrivateKey,
+    PublicKey,
 };
 
 const HASH_LEN: usize = 32;
 const DH_LEN: usize = 32;
 
-/// KeyPair holding a [`PrivateKey`] and [`PublicKey`]
+pub type Key = PayloadKey;
+
 #[derive(Clone)]
 struct KeyPair {
     pub private_key: PrivateKey,
@@ -41,13 +45,13 @@ enum Token {
 }
 
 pub struct CipherState {
-    key: Option<[u8; 32]>,
+    key: Option<Key>,
     nonce: u64,
 }
 
 pub struct SymmetricState {
     cipher_state: CipherState,
-    chaining_key: [u8; HASH_LEN],
+    chaining_key: Key,
     hash_output: [u8; HASH_LEN],
 }
 
@@ -76,7 +80,7 @@ impl CipherState {
         }
     }
 
-    pub fn initialize_key(&mut self, key: Option<[u8; 32]>) {
+    pub fn initialize_key(&mut self, key: Option<Key>) {
         self.key = key;
         self.nonce = 0;
     }
@@ -96,7 +100,7 @@ impl CipherState {
             .as_ref()
             .expect("X pattern must have a key initialized");
         let nonce = self.nonce;
-        let ciphertext = chapoly_encrypt_noise(key, nonce, ad, plaintext);
+        let ciphertext = chapoly_encrypt_noise(key.as_bytes(), nonce, ad, plaintext);
         self.set_nonce(nonce + 1);
         ciphertext
     }
@@ -111,19 +115,14 @@ impl CipherState {
             .as_ref()
             .expect("X pattern must have a key initialized");
         let nonce = self.nonce;
-        let plaintext = chapoly_decrypt_noise(key, nonce, ad, ciphertext)?;
+        let plaintext = chapoly_decrypt_noise(key.as_bytes(), nonce, ad, ciphertext)?;
         self.set_nonce(nonce + 1);
         Ok(plaintext)
     }
 
     #[allow(dead_code)]
     pub fn rekey(&mut self) {
-        let pt = [0u8; 32];
-        let key = self.key.unwrap();
-        let gen_key = chapoly_encrypt_noise(&key, u64::MAX, &[], &pt);
-        let mut key = [0u8; 32];
-        key.copy_from_slice(&gen_key[..32]);
-        self.key = Some(key);
+        unimplemented!("Rekey is not used by this application.");
     }
 }
 
@@ -140,7 +139,7 @@ impl SymmetricState {
 
         cipher_state.initialize_key(None);
 
-        let chaining_key = hash_output;
+        let chaining_key = Key::new(&hash_output);
 
         Self {
             cipher_state,
@@ -150,9 +149,12 @@ impl SymmetricState {
     }
 
     fn mix_key(&mut self, ikm: &[u8]) {
-        let (chaining_key, temp_key) = hkdf_noise(&self.chaining_key, ikm);
-        self.chaining_key = chaining_key;
-        self.cipher_state.initialize_key(Some(temp_key));
+        let (chaining_key, temp_key) = hkdf_noise(self.chaining_key.as_bytes(), ikm);
+        let chaining_key = Zeroizing::new(chaining_key);
+        let temp_key = Zeroizing::new(temp_key);
+        self.chaining_key = Key::new(chaining_key.as_ref());
+        self.cipher_state
+            .initialize_key(Some(Key::new(temp_key.as_ref())));
     }
 
     fn mix_hash(&mut self, data: &[u8]) {
@@ -188,11 +190,13 @@ impl SymmetricState {
     }
 
     fn split(&self) -> (CipherState, CipherState) {
-        let (temp_k1, temp_k2) = hkdf_noise(&self.chaining_key, &[]);
+        let (temp_k1, temp_k2) = hkdf_noise(self.chaining_key.as_bytes(), &[]);
+        let temp_k1 = Zeroizing::new(temp_k1);
+        let temp_k2 = Zeroizing::new(temp_k2);
         let mut c1 = CipherState::new();
         let mut c2 = CipherState::new();
-        c1.initialize_key(Some(temp_k1));
-        c2.initialize_key(Some(temp_k2));
+        c1.initialize_key(Some(Key::new(temp_k1.as_ref())));
+        c2.initialize_key(Some(Key::new(temp_k2.as_ref())));
 
         (c1, c2)
     }
@@ -310,7 +314,8 @@ impl HandshakeState {
                     let e = self.e.as_ref().unwrap();
                     let rs = self.rs.as_ref().unwrap();
                     let shared_secret = e.private_key.diffie_hellman(rs);
-                    self.symmetric_state.mix_key(&shared_secret);
+                    let shared_secret = Zeroizing::new(shared_secret);
+                    self.symmetric_state.mix_key(shared_secret.as_ref());
                 }
                 Token::SE => {
                     unimplemented!("SE not used in the X pattern");
@@ -319,7 +324,8 @@ impl HandshakeState {
                     let s = self.s.as_ref().unwrap();
                     let rs = self.rs.as_ref().unwrap();
                     let shared_secret = s.private_key.diffie_hellman(rs);
-                    self.symmetric_state.mix_key(&shared_secret)
+                    let shared_secret = Zeroizing::new(shared_secret);
+                    self.symmetric_state.mix_key(shared_secret.as_ref());
                 }
             }
         }
@@ -382,7 +388,8 @@ impl HandshakeState {
                     let s = self.s.as_ref().unwrap();
                     let re = self.re.as_ref().unwrap();
                     let shared_secret = s.private_key.diffie_hellman(re);
-                    self.symmetric_state.mix_key(&shared_secret);
+                    let shared_secret = Zeroizing::new(shared_secret);
+                    self.symmetric_state.mix_key(shared_secret.as_ref());
                 }
                 Token::SE => {
                     unimplemented!("SE not used in the X pattern");
@@ -391,7 +398,8 @@ impl HandshakeState {
                     let s = self.s.as_ref().unwrap();
                     let rs = self.rs.as_ref().unwrap();
                     let shared_secret = s.private_key.diffie_hellman(rs);
-                    self.symmetric_state.mix_key(&shared_secret);
+                    let shared_secret = Zeroizing::new(shared_secret);
+                    self.symmetric_state.mix_key(shared_secret.as_ref());
                 }
             }
         }

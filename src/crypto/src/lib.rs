@@ -55,8 +55,39 @@ pub enum FileFormat {
     PassV1,
 }
 
-/// Noise Payload Key
-pub type PayloadKey = [u8; 32];
+/// Payload Key encrypted by the noise protocol
+#[derive(Clone)]
+pub struct PayloadKey {
+    key: [u8; 32],
+}
+
+impl PayloadKey {
+    /// Create a new Key. Keys must be 32 bytes
+    pub fn new(key: &[u8]) -> Self {
+        Self {
+            key: key.try_into().expect("Keys must be 32 bytes"),
+        }
+    }
+
+    /// Get the bytes of the key
+    pub fn as_bytes(&self) -> &[u8] {
+        self.key.as_slice()
+    }
+}
+
+impl Drop for PayloadKey {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl Zeroize for PayloadKey {
+    fn zeroize(&mut self) {
+        self.key.zeroize();
+    }
+}
+
+impl ZeroizeOnDrop for PayloadKey {}
 
 /// X25519 Public Key
 #[derive(Clone)]
@@ -120,7 +151,7 @@ impl From<&[u8]> for PrivateKey {
 
 impl Drop for PrivateKey {
     fn drop(&mut self) {
-        self.key.zeroize();
+        self.zeroize();
     }
 }
 
@@ -145,11 +176,7 @@ pub fn x25519(k: &[u8], u: &[u8]) -> [u8; 32] {
 /// Derive an X25519 public key from a private key.
 /// The private key must be 32 bytes.
 pub fn x25519_derive_public(private_key: &[u8]) -> [u8; 32] {
-    let sk: [u8; 32] = private_key
-        .try_into()
-        .expect("Private key must be 32 bytes");
-
-    x25519(&sk, &x25519_dalek::X25519_BASEPOINT_BYTES)
+    x25519(private_key, &x25519_dalek::X25519_BASEPOINT_BYTES)
 }
 
 /// A struct containing the result of a [`noise_encrypt`]
@@ -189,7 +216,7 @@ pub fn noise_encrypt(
         Some(recipient.clone()),
     );
 
-    let noise_handshake = handshake_state.write_message(payload_key);
+    let noise_handshake = handshake_state.write_message(payload_key.as_bytes());
     let handshake_hash = noise_handshake.handshake_hash;
     let ciphertext = noise_handshake.message;
 
@@ -230,11 +257,13 @@ pub fn noise_decrypt(
     // Decrypt the payload key
     let noise_handshake = handshake_state.read_message(handshake_message)?;
     let handshake_hash = noise_handshake.handshake_hash;
-    let payload_key: [u8; 32] = noise_handshake
-        .message
-        .try_into()
-        .expect("Expected the decrypted payload key to be 32 bytes");
+    if noise_handshake.message.len() != 32 {
+        return Err(ChaPolyDecryptError::new(
+            "Expected payload key to be 32 bytes.",
+        ));
+    }
 
+    let payload_key = PayloadKey::new(noise_handshake.message.as_slice());
     let sender_pubkey = handshake_state
         .get_pubkey()
         .expect("Expected to get the sender's public key");
@@ -325,7 +354,7 @@ pub fn chapoly_decrypt_ietf(
 
     match cipher.decrypt(nonce.into(), ct_and_aad) {
         Ok(plaintext) => Ok(plaintext),
-        Err(_) => Err(ChaPolyDecryptError),
+        Err(_) => Err(ChaPolyDecryptError::new("Decrypt failed.")),
     }
 }
 

@@ -7,8 +7,11 @@ use crate::errors::EncryptError;
 
 use std::io::{Read, Write};
 
+use zeroize::Zeroizing;
+
 use crate::{
-    chapoly_encrypt_noise, hkdf_sha256, noise_encrypt, scrypt, secure_random, PrivateKey, PublicKey,
+    chapoly_encrypt_noise, hkdf_sha256, noise_encrypt, scrypt, secure_random, PayloadKey,
+    PrivateKey, PublicKey,
 };
 use crate::{AsymFileFormat, PassFileFormat};
 use crate::{CHUNK_SIZE, SCRYPT_N, SCRYPT_P, SCRYPT_R};
@@ -30,14 +33,14 @@ pub fn key_encrypt<T: Read, U: Write>(
     recipient: &PublicKey,
     ephemeral: Option<&PrivateKey>,
     ephemeral_public: Option<&PublicKey>,
-    payload_key: Option<[u8; 32]>,
+    payload_key: Option<&PayloadKey>,
     file_format: AsymFileFormat,
 ) -> Result<(), EncryptError> {
     let _file_format = file_format;
     let payload_key = if let Some(pk) = payload_key {
         pk
     } else {
-        secure_random(32).try_into().unwrap()
+        &PayloadKey::new(secure_random(32).as_slice())
     };
     let noise_message = noise_encrypt(
         sender,
@@ -55,10 +58,21 @@ pub fn key_encrypt<T: Read, U: Write>(
         .map_err(write_err)?;
     ciphertext.flush().map_err(write_err)?;
 
-    let file_encryption_key = hkdf_sha256(&[], &payload_key, &noise_message.handshake_hash, 32);
-    let file_encryption_key: [u8; 32] = file_encryption_key.as_slice().try_into().unwrap();
+    let file_encryption_key = hkdf_sha256(
+        &[],
+        payload_key.as_bytes(),
+        &noise_message.handshake_hash,
+        32,
+    );
+    let file_encryption_key = Zeroizing::new(file_encryption_key);
 
-    encrypt_chunks(plaintext, ciphertext, file_encryption_key, &[], CHUNK_SIZE)?;
+    encrypt_chunks(
+        plaintext,
+        ciphertext,
+        file_encryption_key.as_slice(),
+        &[],
+        CHUNK_SIZE,
+    )?;
 
     Ok(())
 }
@@ -74,14 +88,14 @@ pub fn pass_encrypt<T: Read, U: Write>(
 ) -> Result<(), EncryptError> {
     let _file_format = file_format;
     let key = scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
-    let key: [u8; 32] = key.as_slice().try_into().unwrap();
+    let key = Zeroizing::new(key);
     let aad = &PASS_FILE_MAGIC[..];
 
     ciphertext.write_all(&PASS_FILE_MAGIC).map_err(write_err)?;
     ciphertext.write_all(&salt).map_err(write_err)?;
     ciphertext.flush().map_err(write_err)?;
 
-    encrypt_chunks(plaintext, ciphertext, key, aad, CHUNK_SIZE)?;
+    encrypt_chunks(plaintext, ciphertext, key.as_slice(), aad, CHUNK_SIZE)?;
 
     Ok(())
 }
@@ -102,7 +116,7 @@ pub fn pass_encrypt<T: Read, U: Write>(
 fn encrypt_chunks<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,
-    key: [u8; 32],
+    key: &[u8],
     aad: &[u8],
     chunk_size: u32,
 ) -> Result<(), EncryptError> {
@@ -173,9 +187,7 @@ fn write_err(err: std::io::Error) -> EncryptError {
 pub(crate) mod tests {
     use super::CHUNK_SIZE;
     use super::{key_encrypt, pass_encrypt};
-    use super::{PrivateKey, PublicKey};
-    use crate::sha256;
-    use crate::{AsymFileFormat, PassFileFormat};
+    use crate::{sha256, AsymFileFormat, PassFileFormat, PayloadKey, PrivateKey, PublicKey};
     use std::convert::TryInto;
     use std::io::Read;
 
@@ -214,7 +226,7 @@ pub(crate) mod tests {
         let recipient = PublicKey::from(key_data.bob_public.as_bytes());
         let ephemeral = PrivateKey::from(ephemeral_private.as_slice());
         let ephemeral_public = ephemeral.to_public();
-        let payload_key: [u8; 32] = payload_key.as_slice().try_into().unwrap();
+        let payload_key = PayloadKey::new(payload_key.as_slice());
 
         let plaintext_data = b"Hello, world!";
         let mut plaintext = Vec::new();
@@ -229,7 +241,7 @@ pub(crate) mod tests {
             &recipient,
             Some(&ephemeral),
             Some(&ephemeral_public),
-            Some(payload_key),
+            Some(&payload_key),
             AsymFileFormat::V1,
         )
         .unwrap();
@@ -259,7 +271,7 @@ pub(crate) mod tests {
         let payload_key =
             hex::decode("a300f423e416610a5dd87442f4edc21325f2b3211c4c69f0e0c541cf6cf4eca6")
                 .unwrap();
-        let payload_key: [u8; 32] = payload_key.as_slice().try_into().unwrap();
+        let payload_key = PayloadKey::new(payload_key.as_slice());
         let key_data = get_key_data();
 
         let chunk_size: usize = CHUNK_SIZE.try_into().unwrap();
@@ -275,7 +287,7 @@ pub(crate) mod tests {
             &key_data.bob_public,
             Some(&ephemeral_private),
             Some(&ephemeral_public),
-            Some(payload_key),
+            Some(&payload_key),
             AsymFileFormat::V1,
         )
         .unwrap();
@@ -306,7 +318,7 @@ pub(crate) mod tests {
         let payload_key =
             hex::decode("d3387376438daeb6f7543e815cbde249810e341c1ccab192025b909b9ea4ebe7")
                 .unwrap();
-        let payload_key: [u8; 32] = payload_key.as_slice().try_into().unwrap();
+        let payload_key = PayloadKey::new(payload_key.as_slice());
         let key_data = get_key_data();
 
         let chunk_size: usize = CHUNK_SIZE.try_into().unwrap();
@@ -322,7 +334,7 @@ pub(crate) mod tests {
             &key_data.bob_public,
             Some(&ephemeral_private),
             Some(&ephemeral_public),
-            Some(payload_key),
+            Some(&payload_key),
             AsymFileFormat::V1,
         )
         .unwrap();

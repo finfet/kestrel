@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 3.0.0
+
+Date: Unreleased
+
+- Remove extraneous file decrypt methods.
+- Improved zeroize handling for keys
+
 ## Version 2.0.2
 
 Date: 2024-07-07

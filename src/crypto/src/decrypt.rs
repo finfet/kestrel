@@ -3,10 +3,11 @@
 
 //! Decryption functions
 
-use crate::errors::{DecryptError, FileFormatError};
-
 use std::io::{Read, Write};
 
+use zeroize::Zeroizing;
+
+use crate::errors::{DecryptError, FileFormatError};
 use crate::{chapoly_decrypt_noise, hkdf_sha256, noise_decrypt, scrypt, PrivateKey, PublicKey};
 use crate::{AsymFileFormat, FileFormat, PassFileFormat};
 use crate::{CHUNK_SIZE, SCRYPT_N, SCRYPT_P, SCRYPT_R};
@@ -45,15 +46,15 @@ pub fn key_decrypt<T: Read, U: Write>(
 
     let file_encryption_key = hkdf_sha256(
         &[],
-        &noise_message.payload_key,
+        &noise_message.payload_key.as_bytes(),
         &noise_message.handshake_hash,
         32,
     );
-    let file_encryption_key: [u8; 32] = file_encryption_key.as_slice().try_into().unwrap();
+    let file_encryption_key = Zeroizing::new(file_encryption_key);
 
-    decrypt_chunks(ciphertext, plaintext, file_encryption_key, &[], CHUNK_SIZE)?;
+    decrypt_chunks(ciphertext, plaintext, &file_encryption_key, &[], CHUNK_SIZE)?;
 
-    let public_key = noise_message.public_key;
+    let public_key = noise_message.public_key.clone();
 
     Ok(public_key)
 }
@@ -86,10 +87,10 @@ pub fn pass_decrypt<T: Read, U: Write>(
     ciphertext.read_exact(&mut salt).map_err(read_err)?;
 
     let key = scrypt(password, &salt, SCRYPT_N, SCRYPT_R, SCRYPT_P, 32);
-    let key: [u8; 32] = key.as_slice().try_into().unwrap();
+    let key = Zeroizing::new(key);
     let aad = &pass_magic_num[..];
 
-    decrypt_chunks(ciphertext, plaintext, key, aad, CHUNK_SIZE)?;
+    decrypt_chunks(ciphertext, plaintext, &key, aad, CHUNK_SIZE)?;
 
     Ok(())
 }
@@ -104,7 +105,7 @@ pub fn pass_decrypt<T: Read, U: Write>(
 fn decrypt_chunks<T: Read, U: Write>(
     ciphertext: &mut T,
     plaintext: &mut U,
-    key: [u8; 32],
+    key: &[u8],
     aad: &[u8],
     chunk_size: u32,
 ) -> Result<(), DecryptError> {
@@ -212,7 +213,7 @@ mod tests {
     use super::{PrivateKey, PublicKey};
     use crate::encrypt::{key_encrypt, pass_encrypt};
     use crate::sha256;
-    use crate::{AsymFileFormat, PassFileFormat};
+    use crate::{AsymFileFormat, PassFileFormat, PayloadKey};
     use std::io::Read;
 
     #[allow(dead_code)]
@@ -259,7 +260,7 @@ mod tests {
         let recipient = PublicKey::from(key_data.bob_public.as_bytes());
         let ephemeral = PrivateKey::from(ephemeral_private.as_slice());
         let ephemeral_public = ephemeral.to_public();
-        let payload_key: [u8; 32] = payload_key.as_slice().try_into().unwrap();
+        let payload_key = PayloadKey::new(payload_key.as_slice());
 
         let plaintext_data = b"Hello, world!";
         let mut plaintext = Vec::new();
@@ -274,7 +275,7 @@ mod tests {
             &recipient,
             Some(&ephemeral),
             Some(&ephemeral_public),
-            Some(payload_key),
+            Some(&payload_key),
             AsymFileFormat::V1,
         )
         .unwrap();
@@ -316,7 +317,7 @@ mod tests {
         let payload_key =
             hex::decode("a300f423e416610a5dd87442f4edc21325f2b3211c4c69f0e0c541cf6cf4eca6")
                 .unwrap();
-        let payload_key: [u8; 32] = payload_key.as_slice().try_into().unwrap();
+        let payload_key = PayloadKey::new(payload_key.as_slice());
         let key_data = get_key_data();
 
         let chunk_size: usize = CHUNK_SIZE.try_into().unwrap();
@@ -332,7 +333,7 @@ mod tests {
             &key_data.bob_public,
             Some(&ephemeral_private),
             Some(&ephemeral_public),
-            Some(payload_key),
+            Some(&payload_key),
             AsymFileFormat::V1,
         )
         .unwrap();
@@ -375,7 +376,7 @@ mod tests {
         let payload_key =
             hex::decode("d3387376438daeb6f7543e815cbde249810e341c1ccab192025b909b9ea4ebe7")
                 .unwrap();
-        let payload_key: [u8; 32] = payload_key.as_slice().try_into().unwrap();
+        let payload_key = PayloadKey::new(payload_key.as_slice());
         let key_data = get_key_data();
 
         let chunk_size: usize = CHUNK_SIZE.try_into().unwrap();
@@ -391,7 +392,7 @@ mod tests {
             &key_data.bob_public,
             Some(&ephemeral_private),
             Some(&ephemeral_public),
-            Some(payload_key),
+            Some(&payload_key),
             AsymFileFormat::V1,
         )
         .unwrap();

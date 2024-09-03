@@ -6,11 +6,17 @@
 use std::error::Error;
 
 #[derive(Debug)]
-pub struct ChaPolyDecryptError;
+pub struct ChaPolyDecryptError(String);
+
+impl ChaPolyDecryptError {
+    pub fn new(msg: &str) -> Self {
+        Self(msg.into())
+    }
+}
 
 impl std::fmt::Display for ChaPolyDecryptError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Decrypt failed")
+        write!(f, "{}", &self.0)
     }
 }
 
@@ -68,10 +74,7 @@ impl std::fmt::Display for DecryptError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             DecryptError::ChunkLen => write!(f, "Chunk length is too large."),
-            DecryptError::ChaPolyDecrypt => write!(
-                f,
-                "Decrypt failed. Check key used. File may have been modified."
-            ),
+            DecryptError::ChaPolyDecrypt => write!(f, "Decrypt failed."),
             DecryptError::UnexpectedData => write!(f, "Expected end of stream. Found extra data."),
             DecryptError::IORead(_) => write!(f, "Ciphertext read failed"),
             DecryptError::IOWrite(_) => write!(f, "Plaintext write failed"),
