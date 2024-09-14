@@ -255,10 +255,10 @@ mod tests {
                 .unwrap();
         let key_data = get_key_data();
 
-        let sender = PrivateKey::from(key_data.alice_private.as_bytes());
+        let sender = PrivateKey::try_from(key_data.alice_private.as_bytes()).unwrap();
         let sender_public = sender.to_public();
-        let recipient = PublicKey::from(key_data.bob_public.as_bytes());
-        let ephemeral = PrivateKey::from(ephemeral_private.as_slice());
+        let recipient = PublicKey::try_from(key_data.bob_public.as_bytes()).unwrap();
+        let ephemeral = PrivateKey::try_from(ephemeral_private.as_slice()).unwrap();
         let ephemeral_public = ephemeral.to_public();
         let payload_key = PayloadKey::new(payload_key.as_slice());
 
@@ -312,7 +312,7 @@ mod tests {
         let ephemeral_private =
             hex::decode("fdf2b46d965e4bb85d856971d657fdd6dc1fe8993f27587980e4f07f6409927f")
                 .unwrap();
-        let ephemeral_private = PrivateKey::from(ephemeral_private.as_slice());
+        let ephemeral_private = PrivateKey::try_from(ephemeral_private.as_slice()).unwrap();
         let ephemeral_public = ephemeral_private.to_public();
         let payload_key =
             hex::decode("a300f423e416610a5dd87442f4edc21325f2b3211c4c69f0e0c541cf6cf4eca6")
@@ -371,7 +371,7 @@ mod tests {
         let ephemeral_private =
             hex::decode("90ecf9d1dca6ed1e6997585228513a73d4db36bd7dd7c758acb55a6d333bb2fb")
                 .unwrap();
-        let ephemeral_private = PrivateKey::from(ephemeral_private.as_slice());
+        let ephemeral_private = PrivateKey::try_from(ephemeral_private.as_slice()).unwrap();
         let ephemeral_public = ephemeral_private.to_public();
         let payload_key =
             hex::decode("d3387376438daeb6f7543e815cbde249810e341c1ccab192025b909b9ea4ebe7")
@@ -444,20 +444,20 @@ mod tests {
         let alice_private =
             hex::decode("46acb4ad2a6ffb9d70245798634ad0d5caf7a9738e5f3b60905dee7a7b973bd5")
                 .unwrap();
-        let alice_private = PrivateKey::from(alice_private.as_slice());
+        let alice_private = PrivateKey::try_from(alice_private.as_slice()).unwrap();
         let alice_public =
             hex::decode("3cf3637b4dfdc4596544a936b3983fca09324505f39568d4b8537bc01a92cf6d")
                 .unwrap();
-        let alice_public = PublicKey::from(alice_public.as_slice());
+        let alice_public = PublicKey::try_from(alice_public.as_slice()).unwrap();
 
         let bob_private =
             hex::decode("461299525a53333e8597a2b065703ec751356f8462d2704e630c108037567bd4")
                 .unwrap();
-        let bob_private = PrivateKey::from(bob_private.as_slice());
+        let bob_private = PrivateKey::try_from(bob_private.as_slice()).unwrap();
         let bob_public =
             hex::decode("98459724b39e6b9e90b60d214df2887093e224b163714e07e527a4d37edc2d03")
                 .unwrap();
-        let bob_public = PublicKey::from(bob_public.as_slice());
+        let bob_public = PublicKey::try_from(bob_public.as_slice()).unwrap();
 
         KeyData {
             alice_private,

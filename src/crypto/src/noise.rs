@@ -134,7 +134,7 @@ impl SymmetricState {
         if protocol_name.len() <= HASH_LEN {
             hash_output[..protocol_name.len()].copy_from_slice(protocol_name);
         } else {
-            hash_output = sha256(protocol_name);
+            hash_output = sha256(protocol_name).try_into().unwrap();
         }
 
         cipher_state.initialize_key(None);
@@ -161,7 +161,7 @@ impl SymmetricState {
         let mut h = Vec::new();
         h.extend_from_slice(&self.hash_output);
         h.extend_from_slice(data);
-        self.hash_output = sha256(h.as_slice());
+        self.hash_output = sha256(h.as_slice()).try_into().unwrap();
     }
 
     #[allow(dead_code)]
@@ -360,7 +360,9 @@ impl HandshakeState {
             match pattern {
                 Token::E => {
                     let remote_ephem_bytes = &message[msgidx..(msgidx + DH_LEN)];
-                    let re = PublicKey::from(remote_ephem_bytes);
+                    let re = PublicKey::try_from(remote_ephem_bytes).map_err(|_| {
+                        ChaPolyDecryptError::new("Invalid remote emphem public key size")
+                    })?;
                     self.re = Some(re.clone());
                     self.symmetric_state.mix_hash(re.as_bytes());
                     msgidx += DH_LEN;
@@ -375,7 +377,9 @@ impl HandshakeState {
                     let rs_bytes = self.symmetric_state.decrypt_and_hash(enc_pubkey_and_tag)?;
                     msgidx += index_len;
 
-                    let rs = PublicKey::from(rs_bytes.as_ref());
+                    let rs = PublicKey::try_from(rs_bytes.as_ref()).map_err(|_| {
+                        ChaPolyDecryptError::new("Invalid remote static public key size")
+                    })?;
                     self.rs = Some(rs);
                 }
                 Token::EE => {
@@ -451,13 +455,13 @@ mod tests {
         let exp_transport_ct2 =
             hex::decode("9fdd2576d757f880de49b32b80abf53afec16ddc86769f0e92daff").unwrap();
 
-        let static_priv = PrivateKey::from(initiator_priv_bytes.as_ref());
+        let static_priv = PrivateKey::try_from(initiator_priv_bytes.as_ref()).unwrap();
         let static_pub = static_priv.to_public();
 
-        let ephem_priv = PrivateKey::from(ephem_priv_bytes.as_ref());
+        let ephem_priv = PrivateKey::try_from(ephem_priv_bytes.as_ref()).unwrap();
         let ephem_pub = ephem_priv.to_public();
 
-        let remote_static_pub = PublicKey::from(remote_static_pub_bytes.as_ref());
+        let remote_static_pub = PublicKey::try_from(remote_static_pub_bytes.as_ref()).unwrap();
 
         let initiator = true;
         let mut handshake_state = HandshakeState::init_x(
@@ -509,7 +513,7 @@ mod tests {
         let transport_ciphertext2 =
             hex::decode("9fdd2576d757f880de49b32b80abf53afec16ddc86769f0e92daff").unwrap();
 
-        let responder_private = PrivateKey::from(responder_static_bytes.as_slice());
+        let responder_private = PrivateKey::try_from(responder_static_bytes.as_slice()).unwrap();
         let responder_public = responder_private.to_public();
 
         let initiator = false;

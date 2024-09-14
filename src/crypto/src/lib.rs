@@ -9,6 +9,10 @@
 //! cryptographic library, but the functions provided here could certainly
 //! be used as such.
 
+// @@SECURITY: We're going a best effort job to zero all key data after use.
+// The APIs of some of the underlying crypto libraries result in some key
+// data being left on the stack.
+
 pub mod decrypt;
 pub mod encrypt;
 pub mod errors;
@@ -92,13 +96,13 @@ impl ZeroizeOnDrop for PayloadKey {}
 /// X25519 Public Key
 #[derive(Clone)]
 pub struct PublicKey {
-    key: [u8; 32],
+    key: Vec<u8>,
 }
 
 /// X25519 Private Key
 #[derive(Clone)]
 pub struct PrivateKey {
-    key: [u8; 32],
+    key: Vec<u8>,
 }
 
 impl PublicKey {
@@ -109,10 +113,15 @@ impl PublicKey {
 }
 
 /// Convert a raw 32 byte public key into a PublicKey
-impl From<&[u8]> for PublicKey {
-    fn from(raw_key: &[u8]) -> PublicKey {
-        let pk: [u8; 32] = raw_key.try_into().unwrap();
-        PublicKey { key: pk }
+impl TryFrom<&[u8]> for PublicKey {
+    type Error = &'static str;
+
+    fn try_from(raw_key: &[u8]) -> Result<PublicKey, Self::Error> {
+        if raw_key.len() != 32 {
+            return Err("Public keys must be 32 bytes");
+        }
+        let pk = raw_key.to_vec();
+        Ok(PublicKey { key: pk })
     }
 }
 
@@ -120,7 +129,6 @@ impl PrivateKey {
     /// Generate a new private key from 32 secure random bytes
     pub fn generate() -> PrivateKey {
         let key = secure_random(32);
-        let key: [u8; 32] = key.try_into().unwrap();
         PrivateKey { key }
     }
 
@@ -131,21 +139,26 @@ impl PrivateKey {
 
     /// Derive the public key from the private key
     pub fn to_public(&self) -> PublicKey {
-        PublicKey::from(x25519_derive_public(&self.key).as_slice())
+        PublicKey::try_from(x25519_derive_public(&self.key).as_slice()).unwrap()
     }
 
     /// X25519 Key Exchange between private and a public key,
     /// returning the raw shared secret
-    pub fn diffie_hellman(&self, public_key: &PublicKey) -> [u8; 32] {
+    pub fn diffie_hellman(&self, public_key: &PublicKey) -> Vec<u8> {
         x25519(self.as_bytes(), public_key.as_bytes())
     }
 }
 
 /// Convert a raw 32 byte private key into a PrivateKey
-impl From<&[u8]> for PrivateKey {
-    fn from(raw_key: &[u8]) -> PrivateKey {
-        let sk: [u8; 32] = raw_key.try_into().expect("Key must be 32 bytes");
-        PrivateKey { key: sk }
+impl TryFrom<&[u8]> for PrivateKey {
+    type Error = &'static str;
+
+    fn try_from(raw_key: &[u8]) -> Result<PrivateKey, Self::Error> {
+        if raw_key.len() != 32 {
+            return Err("Private keys must be 32 bytes");
+        }
+        let sk = raw_key.to_vec();
+        Ok(PrivateKey { key: sk })
     }
 }
 
@@ -166,16 +179,21 @@ impl ZeroizeOnDrop for PrivateKey {}
 /// RFC 7748 compliant X25519.
 /// k is the private key and u is the public key.
 /// Keys must be 32 bytes.
-pub fn x25519(k: &[u8], u: &[u8]) -> [u8; 32] {
-    let sk: [u8; 32] = k.try_into().expect("Private key must be 32 bytes");
+pub fn x25519(k: &[u8], u: &[u8]) -> Vec<u8> {
+    let mut sk: [u8; 32] = k.try_into().expect("Private key must be 32 bytes");
     let pk: [u8; 32] = u.try_into().expect("Public key must be 32 bytes");
 
-    x25519_dalek::x25519(sk, pk)
+    let mut dh = x25519_dalek::x25519(sk, pk);
+    let res = dh.to_vec();
+    dh.zeroize();
+    sk.zeroize();
+
+    res
 }
 
 /// Derive an X25519 public key from a private key.
 /// The private key must be 32 bytes.
-pub fn x25519_derive_public(private_key: &[u8]) -> [u8; 32] {
+pub fn x25519_derive_public(private_key: &[u8]) -> Vec<u8> {
     x25519(private_key, &x25519_dalek::X25519_BASEPOINT_BYTES)
 }
 
@@ -359,20 +377,18 @@ pub fn chapoly_decrypt_ietf(
 }
 
 /// SHA-256
-pub fn sha256(data: &[u8]) -> [u8; 32] {
-    let res: [u8; 32] = Sha256::digest(data).as_slice().try_into().unwrap();
-    res
+pub fn sha256(data: &[u8]) -> Vec<u8> {
+    Sha256::digest(data).as_slice().to_vec()
 }
 
 /// HMAC-SHA-256
-pub fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
+pub fn hmac_sha256(key: &[u8], data: &[u8]) -> Vec<u8> {
     let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(key).unwrap();
     mac.update(data);
-    let res = mac.finalize();
-    res.into_bytes().into()
+    mac.finalize().into_bytes().as_slice().to_vec()
 }
 
-fn hkdf_noise(chaining_key: &[u8], ikm: &[u8]) -> ([u8; 32], [u8; 32]) {
+fn hkdf_noise(chaining_key: &[u8], ikm: &[u8]) -> (Vec<u8>, Vec<u8>) {
     let counter1: [u8; 1] = [0x01];
     let mut counter2: [u8; 33] = [0u8; 33];
     let temp_key = hmac_sha256(chaining_key, ikm);
@@ -380,6 +396,7 @@ fn hkdf_noise(chaining_key: &[u8], ikm: &[u8]) -> ([u8; 32], [u8; 32]) {
     counter2[..32].copy_from_slice(&output1);
     counter2[32..].copy_from_slice(&[0x02]);
     let output2 = hmac_sha256(&temp_key, &counter2);
+    counter2.zeroize();
     (output1, output2)
 }
 
@@ -582,15 +599,15 @@ mod tests {
             hex::decode("4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742")
                 .unwrap();
 
-        let alice_private = PrivateKey::from(alice_private_expected.as_slice());
-        let alice_public = PublicKey::from(alice_public_expected.as_slice());
+        let alice_private = PrivateKey::try_from(alice_private_expected.as_slice()).unwrap();
+        let alice_public = PublicKey::try_from(alice_public_expected.as_slice()).unwrap();
         assert_eq!(
             &alice_public_expected,
             &alice_private.to_public().as_bytes()
         );
 
-        let bob_private = PrivateKey::from(bob_private_expected.as_slice());
-        let bob_public = PublicKey::from(bob_public_expected.as_slice());
+        let bob_private = PrivateKey::try_from(bob_private_expected.as_slice()).unwrap();
+        let bob_public = PublicKey::try_from(bob_public_expected.as_slice()).unwrap();
 
         let alice_to_bob = x25519(alice_private.as_bytes(), bob_public.as_bytes());
         let bob_to_alice = x25519(bob_private.as_bytes(), alice_public.as_bytes());
@@ -609,7 +626,9 @@ mod tests {
         let alice_public_expected =
             hex::decode("8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a")
                 .unwrap();
-        let got_public = PrivateKey::from(&alice_private_expected[..]).to_public();
+        let got_public = PrivateKey::try_from(&alice_private_expected[..])
+            .unwrap()
+            .to_public();
 
         assert_eq!(&alice_public_expected[..], got_public.as_bytes());
     }
