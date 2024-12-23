@@ -152,7 +152,7 @@ jobs:
           cp -a release-macos/release-macos-*/* release-all/
           cp release-windows/release-windows-*/* release-all/
           cp -a source-archive/kestrel-*.*.*.tar.gz release-all/
-          cp -a aur-srcinfo/.SRCINFO release-all/SRCINFO
+          cp -a arch-linux-srcinfo/.SRCINFO release-all/SRCINFO
           cd release-all && sha256sum -b * > SHA256SUMS.txt && cd ..
           tar -czvpf release-all.tar.gz release-all
       - name: Upload Release Archive
