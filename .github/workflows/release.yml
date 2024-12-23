@@ -122,12 +122,12 @@ jobs:
           sudo -u comp makepkg --printsrcinfo > .SRCINFO
           sudo -u comp makepkg --noconfirm -sri
           sudo -u comp kestrel --version
+          sudo -u comp cp .SRCINFO SRCINFO
       - name: Upload SRCINFO
         uses: actions/upload-artifact@v4
         with:
           name: arch-linux-srcinfo
-          include-hidden-files: true
-          path: /home/comp/aur/.SRCINFO
+          path: /home/comp/aur/SRCINFO
   combine-artifacts:
     runs-on: ubuntu-24.04
     needs: [
@@ -147,16 +147,15 @@ jobs:
           unzip release-windows/release-windows-*.zip -d release-windows
       - name: Create Combined Release
         run: |
-          mkdir release-all
-          cp -a release-linux/release-linux-*/* release-all/
-          cp -a release-macos/release-macos-*/* release-all/
-          cp release-windows/release-windows-*/* release-all/
-          cp -a source-archive/kestrel-*.*.*.tar.gz release-all/
-          cp -a arch-linux-srcinfo/.SRCINFO release-all/SRCINFO
-          cd release-all && sha256sum -b * > SHA256SUMS.txt && cd ..
-          tar -czvpf release-all.tar.gz release-all
+          mkdir release-combined
+          cp -a release-linux/release-linux-*/* release-combined/
+          cp -a release-macos/release-macos-*/* release-combined/
+          cp release-windows/release-windows-*/* release-combined/
+          cp -a source-archive/kestrel-*.*.*.tar.gz release-combined/
+          cd release-combined && sha256sum -b * > SHA256SUMS.txt && cd ..
+          tar -czvpf release-combined.tar.gz release-combined
       - name: Upload Release Archive
         uses: actions/upload-artifact@v4
         with:
-          name: release-all
-          path: release-all.tar.gz
+          name: release-combined
+          path: release-combined.tar.gz
