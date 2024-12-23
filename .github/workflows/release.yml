@@ -110,17 +110,23 @@ jobs:
       - name: Checkout (Ref)
         uses: actions/checkout@v4
         if: github.event.inputs.git-ref != ''
-      - name: Create Package
+      - name: Copy PKGBUILD
         run: |
-          su - comp
-          mkdir aur && cp -a PKGBUILD aur/ && cd aur
-          makepkg --printsrcinfo > .SRCINFO
-          sudo makepkg -sri
-          kestrel --version
+          mkdir /home/comp/aur
+          cp PKGBUILD /home/comp/aur/
+          chmod 644 /home/com/aur/PKGBUILD
+          chown -R comp:comp /home/comp/aur
+      - name: Make Package
+        working-directory: /home/comp/aur
+        run: |
+          sudo -H -u comp makepkg --printsrcinfo > .SRCINFO
+          sudo -H -u comp makepkg -sri
+          sudo -H -u comp kestrel --version
       - name: Upload SRCINFO
+        working-directory: /home/comp/aur
         uses: actions/upload-artifact@v4
         with:
-          name: aur-srcinfo
+          name: arch-linux-srcinfo
           path: .SRCINFO
   combine-artifacts:
     runs-on: ubuntu-24.04
