@@ -114,7 +114,7 @@ jobs:
         run: |
           mkdir /home/comp/aur
           cp PKGBUILD /home/comp/aur/
-          chmod 644 /home/com/aur/PKGBUILD
+          chmod 644 /home/comp/aur/PKGBUILD
           chown -R comp:comp /home/comp/aur
       - name: Make Package
         run: |
