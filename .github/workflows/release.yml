@@ -13,7 +13,7 @@ on:
 
 jobs:
   create-source-archive:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout (Latest)
         uses: actions/checkout@v4
@@ -29,7 +29,7 @@ jobs:
           name: source-archive
           path: build/kestrel-*.*.*.tar.gz
   release-linux:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Install Build Dependencies
         run: |
@@ -94,8 +94,36 @@ jobs:
         with:
           name: release-windows
           path: build/release-windows-*.zip
+  package-aur:
+    runs-on: ubuntu-24.04
+    container: archlinux:latest
+    steps:
+      - name: Setup user environment
+        run: |
+          pacman --noconfirm -Syu
+          pacman --noconfirm -S base-devel git sudo
+          useradd -m -s /bin/bash comp
+          printf "%s\n" "comp ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          su - comp
+      - name: Checkout (Latest)
+        uses: actions/checkout@v4
+        if: github.event.inputs.git-ref == ''
+      - name: Checkout (Ref)
+        uses: actions/checkout@v4
+        if: github.event.inputs.git-ref != ''
+      - name: Create Package
+        run: |
+          mkdir aur && cp -a PKGBUILD aur/ && cd aur
+          makepkg --printsrcinfo > .SRCINFO
+          sudo makepkg -sri
+          kestrel --version
+      - name: Upload SRCINFO
+        uses: actions/upload-artifact@v4
+        with:
+          name: aur-srcinfo
+          path: .SRCINFO
   combine-artifacts:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [
       create-source-archive,
       release-linux,
@@ -117,6 +145,7 @@ jobs:
           cp -a release-macos/release-macos-*/* release-all/
           cp release-windows/release-windows-*/* release-all/
           cp -a source-archive/kestrel-*.*.*.tar.gz release-all/
+          cp -a aur-srcinfo/.SRCINFO release-all/SRCINFO
           cd release-all && sha256sum -b * > SHA256SUMS.txt && cd ..
           tar -czvpf release-all.tar.gz release-all
       - name: Upload Release Archive
