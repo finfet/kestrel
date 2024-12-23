@@ -120,6 +120,7 @@ jobs:
         run: |
           cd /home/comp/aur
           sudo -u comp makepkg --printsrcinfo > /home/comp/aur/.SRCINFO
+          ls -lha /home/comp/aur
           sudo -u comp makepkg --noconfirm -sri
           sudo -u comp kestrel --version
       - name: Upload SRCINFO
