@@ -119,7 +119,7 @@ jobs:
       - name: Make Package
         run: |
           cd /home/comp/aur
-          sudo -u comp makepkg --printsrcinfo > .SRCINFO
+          sudo -u comp makepkg --printsrcinfo > /home/comp/aur/.SRCINFO
           sudo -u comp makepkg --noconfirm -sri
           sudo -u comp kestrel --version
       - name: Upload SRCINFO
