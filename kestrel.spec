@@ -37,7 +37,7 @@ install -D -p -m=755 kestrel %{buildroot}%{_bindir}/kestrel
 install -D -p -m=644 man/kestrel.1.gz %{buildroot}%{_mandir}/man1/kestrel.1.gz
 install -D -p -m=644 LICENSE.txt %{buildroot}%{_docdir}/kestrel/LICENSE.txt
 install -D -p -m=644 THIRD-PARTY-LICENSE.txt %{buildroot}%{_docdir}/kestrel/THIRD-PARTY-LICENSE.txt
-install -D -p -m=644 completion/kestrel.bash-completion %{buildroot}%{bash_completions_dir}/kestrel
+install -D -p -m=644 completion/kestrel.bash-completion %{buildroot}%{_datadir}/bash-completion/completions/kestrel
 
 %files
 # Make sure we know about the kestrel doc folder so we can delete it
@@ -46,7 +46,7 @@ install -D -p -m=644 completion/kestrel.bash-completion %{buildroot}%{bash_compl
 %{_mandir}/man1/kestrel.1.gz
 %{_docdir}/kestrel/LICENSE.txt
 %{_docdir}/kestrel/THIRD-PARTY-LICENSE.txt
-%{bash_completions_dir}/kestrel
+%{_datadir}/bash-completion/completions/kestrel
 
 %changelog
 * Sun Jul 07 2024 Kyle Schreiber <kyle@80x24.net> - 1.0.2-1
