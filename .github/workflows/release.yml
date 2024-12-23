@@ -118,10 +118,9 @@ jobs:
           chown -R comp:comp /home/comp/aur
       - name: Make Package
         run: |
-          su - comp
-          makepkg --printsrcinfo > .SRCINFO
-          makepkg --noconfirm -sri
-          kestrel --version
+          sudo -u comp makepkg --printsrcinfo > .SRCINFO
+          sudo -u comp makepkg --noconfirm -sri
+          sudo -u comp kestrel --version
       - name: Upload SRCINFO
         uses: actions/upload-artifact@v4
         with:
