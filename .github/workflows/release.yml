@@ -94,7 +94,7 @@ jobs:
         with:
           name: release-windows
           path: build/release-windows-*.zip
-  package-aur:
+  package-arch-linux:
     runs-on: ubuntu-24.04
     container: archlinux:latest
     steps:
@@ -104,7 +104,6 @@ jobs:
           pacman --noconfirm -S base-devel git sudo
           useradd -m -s /bin/bash comp
           printf "%s\n" "comp ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-          su - comp
       - name: Checkout (Latest)
         uses: actions/checkout@v4
         if: github.event.inputs.git-ref == ''
@@ -113,6 +112,7 @@ jobs:
         if: github.event.inputs.git-ref != ''
       - name: Create Package
         run: |
+          su - comp
           mkdir aur && cp -a PKGBUILD aur/ && cd aur
           makepkg --printsrcinfo > .SRCINFO
           sudo makepkg -sri
@@ -128,7 +128,8 @@ jobs:
       create-source-archive,
       release-linux,
       release-macos,
-      release-windows
+      release-windows,
+      package-arch-linux
     ]
     steps:
       - name: Download Artifacts
