@@ -4,8 +4,9 @@
 
 Date: Unreleased
 
-- Remove extraneous file decrypt methods
+- Removed extraneous file decrypt methods
 - Improved zeroize handling for keys
+- Improved error handling
 
 ## Version 2.0.2
 

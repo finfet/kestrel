@@ -6,17 +6,11 @@
 use std::error::Error;
 
 #[derive(Debug)]
-pub struct ChaPolyDecryptError(String);
-
-impl ChaPolyDecryptError {
-    pub fn new(msg: &str) -> Self {
-        Self(msg.into())
-    }
-}
+pub struct ChaPolyDecryptError;
 
 impl std::fmt::Display for ChaPolyDecryptError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", &self.0)
+        write!(f, "Decrypt failed")
     }
 }
 
@@ -27,14 +21,16 @@ pub enum EncryptError {
     UnexpectedData,
     IORead(std::io::Error),
     IOWrite(std::io::Error),
+    Other(String),
 }
 
 impl std::fmt::Display for EncryptError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            EncryptError::UnexpectedData => write!(f, "Expected end of stream. Found extra data."),
+            EncryptError::UnexpectedData => write!(f, "Expected end of stream. Found extra data"),
             EncryptError::IORead(_) => write!(f, "Plaintext read failed"),
             EncryptError::IOWrite(_) => write!(f, "Ciphertext write failed"),
+            EncryptError::Other(msg) => write!(f, "{}", msg),
         }
     }
 }
@@ -45,6 +41,7 @@ impl Error for EncryptError {
             EncryptError::UnexpectedData => None,
             EncryptError::IORead(e) => Some(e),
             EncryptError::IOWrite(e) => Some(e),
+            EncryptError::Other(_) => None,
         }
     }
 }
@@ -61,6 +58,48 @@ impl std::fmt::Display for FileFormatError {
 impl Error for FileFormatError {}
 
 #[derive(Debug)]
+pub struct DhError;
+
+impl std::fmt::Display for DhError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Diffie-Hellman operation failed")
+    }
+}
+
+impl Error for DhError {}
+
+#[derive(Debug)]
+pub enum NoiseError {
+    Decrypt,
+    DhError,
+    Other(String),
+}
+
+impl std::fmt::Display for NoiseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            NoiseError::Decrypt => write!(f, "Decrypt failed"),
+            NoiseError::DhError => write!(f, "Diffie-Hellman operation failed"),
+            NoiseError::Other(msg) => write!(f, "{}", msg),
+        }
+    }
+}
+
+impl From<ChaPolyDecryptError> for NoiseError {
+    fn from(_e: ChaPolyDecryptError) -> NoiseError {
+        NoiseError::Decrypt
+    }
+}
+
+impl From<DhError> for NoiseError {
+    fn from(_e: DhError) -> NoiseError {
+        NoiseError::DhError
+    }
+}
+
+impl Error for NoiseError {}
+
+#[derive(Debug)]
 pub enum DecryptError {
     ChunkLen,
     ChaPolyDecrypt,
@@ -73,9 +112,9 @@ pub enum DecryptError {
 impl std::fmt::Display for DecryptError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            DecryptError::ChunkLen => write!(f, "Chunk length is too large."),
-            DecryptError::ChaPolyDecrypt => write!(f, "Decrypt failed."),
-            DecryptError::UnexpectedData => write!(f, "Expected end of stream. Found extra data."),
+            DecryptError::ChunkLen => write!(f, "Chunk length is too large"),
+            DecryptError::ChaPolyDecrypt => write!(f, "Decrypt failed"),
+            DecryptError::UnexpectedData => write!(f, "Expected end of stream. Found extra data"),
             DecryptError::IORead(_) => write!(f, "Ciphertext read failed"),
             DecryptError::IOWrite(_) => write!(f, "Plaintext write failed"),
             DecryptError::Other(msg) => write!(f, "{}", msg),

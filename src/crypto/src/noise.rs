@@ -7,7 +7,7 @@ use std::collections::VecDeque;
 
 use zeroize::Zeroizing;
 
-use crate::errors::ChaPolyDecryptError;
+use crate::errors::NoiseError;
 use crate::{
     chapoly_decrypt_noise, chapoly_encrypt_noise, hkdf_noise, sha256, PayloadKey, PrivateKey,
     PublicKey,
@@ -105,11 +105,7 @@ impl CipherState {
         ciphertext
     }
 
-    pub fn decrypt_with_ad(
-        &mut self,
-        ad: &[u8],
-        ciphertext: &[u8],
-    ) -> Result<Vec<u8>, ChaPolyDecryptError> {
+    pub fn decrypt_with_ad(&mut self, ad: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>, NoiseError> {
         let key = self
             .key
             .as_ref()
@@ -181,7 +177,7 @@ impl SymmetricState {
         ciphertext
     }
 
-    fn decrypt_and_hash(&mut self, ciphertext: &[u8]) -> Result<Vec<u8>, ChaPolyDecryptError> {
+    fn decrypt_and_hash(&mut self, ciphertext: &[u8]) -> Result<Vec<u8>, NoiseError> {
         let plaintext = self
             .cipher_state
             .decrypt_with_ad(&self.hash_output, ciphertext)?;
@@ -273,7 +269,7 @@ impl HandshakeState {
     ///
     /// payload must be <= 65439 bytes. The resulting message is a maximum of
     /// 65535 bytes.
-    pub fn write_message(&mut self, payload: &[u8]) -> NoiseHandshake {
+    pub fn write_message(&mut self, payload: &[u8]) -> Result<NoiseHandshake, NoiseError> {
         let mut message_buffer = Vec::<u8>::new();
         let message_pattern = self
             .message_patterns
@@ -284,7 +280,7 @@ impl HandshakeState {
                 Token::E => {
                     if self.e.is_none() {
                         let ephem_private_key = PrivateKey::generate();
-                        let ephem_public_key = ephem_private_key.to_public();
+                        let ephem_public_key = ephem_private_key.to_public()?;
                         let ephem_pair = KeyPair {
                             private_key: ephem_private_key,
                             public_key: ephem_public_key,
@@ -313,7 +309,7 @@ impl HandshakeState {
                     debug_assert!(self.initiator);
                     let e = self.e.as_ref().unwrap();
                     let rs = self.rs.as_ref().unwrap();
-                    let shared_secret = e.private_key.diffie_hellman(rs);
+                    let shared_secret = e.private_key.diffie_hellman(rs)?;
                     let shared_secret = Zeroizing::new(shared_secret);
                     self.symmetric_state.mix_key(shared_secret.as_ref());
                 }
@@ -323,7 +319,7 @@ impl HandshakeState {
                 Token::SS => {
                     let s = self.s.as_ref().unwrap();
                     let rs = self.rs.as_ref().unwrap();
-                    let shared_secret = s.private_key.diffie_hellman(rs);
+                    let shared_secret = s.private_key.diffie_hellman(rs)?;
                     let shared_secret = Zeroizing::new(shared_secret);
                     self.symmetric_state.mix_key(shared_secret.as_ref());
                 }
@@ -338,15 +334,15 @@ impl HandshakeState {
         // X pattern is one way so we don't need the second cipher state
         let (cipher_state, _) = self.symmetric_state.split();
 
-        NoiseHandshake {
+        Ok(NoiseHandshake {
             message: message_buffer,
             cipher_state,
             handshake_hash,
-        }
+        })
     }
 
     /// Read a noise handshake message
-    pub fn read_message(&mut self, message: &[u8]) -> Result<NoiseHandshake, ChaPolyDecryptError> {
+    pub fn read_message(&mut self, message: &[u8]) -> Result<NoiseHandshake, NoiseError> {
         let message_pattern = self
             .message_patterns
             .pop_front()
@@ -361,7 +357,7 @@ impl HandshakeState {
                 Token::E => {
                     let remote_ephem_bytes = &message[msgidx..(msgidx + DH_LEN)];
                     let re = PublicKey::try_from(remote_ephem_bytes).map_err(|_| {
-                        ChaPolyDecryptError::new("Invalid remote emphem public key size")
+                        NoiseError::Other("Invalid remote emphem public key size".to_string())
                     })?;
                     self.re = Some(re.clone());
                     self.symmetric_state.mix_hash(re.as_bytes());
@@ -378,7 +374,7 @@ impl HandshakeState {
                     msgidx += index_len;
 
                     let rs = PublicKey::try_from(rs_bytes.as_ref()).map_err(|_| {
-                        ChaPolyDecryptError::new("Invalid remote static public key size")
+                        NoiseError::Other("Invalid remote static public key size".to_string())
                     })?;
                     self.rs = Some(rs);
                 }
@@ -391,7 +387,7 @@ impl HandshakeState {
                     debug_assert!(!self.initiator);
                     let s = self.s.as_ref().unwrap();
                     let re = self.re.as_ref().unwrap();
-                    let shared_secret = s.private_key.diffie_hellman(re);
+                    let shared_secret = s.private_key.diffie_hellman(re)?;
                     let shared_secret = Zeroizing::new(shared_secret);
                     self.symmetric_state.mix_key(shared_secret.as_ref());
                 }
@@ -401,7 +397,7 @@ impl HandshakeState {
                 Token::SS => {
                     let s = self.s.as_ref().unwrap();
                     let rs = self.rs.as_ref().unwrap();
-                    let shared_secret = s.private_key.diffie_hellman(rs);
+                    let shared_secret = s.private_key.diffie_hellman(rs)?;
                     let shared_secret = Zeroizing::new(shared_secret);
                     self.symmetric_state.mix_key(shared_secret.as_ref());
                 }
@@ -456,10 +452,10 @@ mod tests {
             hex::decode("9fdd2576d757f880de49b32b80abf53afec16ddc86769f0e92daff").unwrap();
 
         let static_priv = PrivateKey::try_from(initiator_priv_bytes.as_ref()).unwrap();
-        let static_pub = static_priv.to_public();
+        let static_pub = static_priv.to_public().unwrap();
 
         let ephem_priv = PrivateKey::try_from(ephem_priv_bytes.as_ref()).unwrap();
-        let ephem_pub = ephem_priv.to_public();
+        let ephem_pub = ephem_priv.to_public().unwrap();
 
         let remote_static_pub = PublicKey::try_from(remote_static_pub_bytes.as_ref()).unwrap();
 
@@ -475,7 +471,7 @@ mod tests {
         );
 
         // handshake message
-        let mut noise_data = handshake_state.write_message(&payload);
+        let mut noise_data = handshake_state.write_message(&payload).unwrap();
         assert_eq!(&noise_data.message, &expected_ciphertext);
 
         let handshake_hash = handshake_state.symmetric_state.get_handshake_hash();
@@ -514,7 +510,7 @@ mod tests {
             hex::decode("9fdd2576d757f880de49b32b80abf53afec16ddc86769f0e92daff").unwrap();
 
         let responder_private = PrivateKey::try_from(responder_static_bytes.as_slice()).unwrap();
-        let responder_public = responder_private.to_public();
+        let responder_public = responder_private.to_public().unwrap();
 
         let initiator = false;
         let mut handshake_state = HandshakeState::init_x(

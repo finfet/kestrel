@@ -29,7 +29,7 @@ use sha2::{Digest, Sha256};
 
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use errors::ChaPolyDecryptError;
+use errors::{ChaPolyDecryptError, DhError, NoiseError};
 use noise::HandshakeState;
 
 const CHUNK_SIZE: u32 = 65536;
@@ -138,13 +138,14 @@ impl PrivateKey {
     }
 
     /// Derive the public key from the private key
-    pub fn to_public(&self) -> PublicKey {
-        PublicKey::try_from(x25519_derive_public(&self.key).as_slice()).unwrap()
+    pub fn to_public(&self) -> Result<PublicKey, DhError> {
+        let pk = x25519_derive_public(&self.key)?;
+        Ok(PublicKey::try_from(pk.as_slice()).unwrap())
     }
 
     /// X25519 Key Exchange between private and a public key,
     /// returning the raw shared secret
-    pub fn diffie_hellman(&self, public_key: &PublicKey) -> Vec<u8> {
+    pub fn diffie_hellman(&self, public_key: &PublicKey) -> Result<Vec<u8>, DhError> {
         x25519(self.as_bytes(), public_key.as_bytes())
     }
 }
@@ -179,7 +180,7 @@ impl ZeroizeOnDrop for PrivateKey {}
 /// RFC 7748 compliant X25519.
 /// k is the private key and u is the public key.
 /// Keys must be 32 bytes.
-pub fn x25519(k: &[u8], u: &[u8]) -> Vec<u8> {
+pub fn x25519(k: &[u8], u: &[u8]) -> Result<Vec<u8>, DhError> {
     let mut sk: [u8; 32] = k.try_into().expect("Private key must be 32 bytes");
     let pk: [u8; 32] = u.try_into().expect("Public key must be 32 bytes");
 
@@ -188,12 +189,12 @@ pub fn x25519(k: &[u8], u: &[u8]) -> Vec<u8> {
     dh.zeroize();
     sk.zeroize();
 
-    res
+    Ok(res)
 }
 
 /// Derive an X25519 public key from a private key.
 /// The private key must be 32 bytes.
-pub fn x25519_derive_public(private_key: &[u8]) -> Vec<u8> {
+pub fn x25519_derive_public(private_key: &[u8]) -> Result<Vec<u8>, DhError> {
     x25519(private_key, &x25519_dalek::X25519_BASEPOINT_BYTES)
 }
 
@@ -223,7 +224,7 @@ pub fn noise_encrypt(
     ephemeral_public: Option<&PublicKey>,
     prologue: &[u8],
     payload_key: &PayloadKey,
-) -> NoiseEncryptMsg {
+) -> Result<NoiseEncryptMsg, NoiseError> {
     let mut handshake_state = HandshakeState::init_x(
         true,
         prologue,
@@ -234,14 +235,14 @@ pub fn noise_encrypt(
         Some(recipient.clone()),
     );
 
-    let noise_handshake = handshake_state.write_message(payload_key.as_bytes());
+    let noise_handshake = handshake_state.write_message(payload_key.as_bytes())?;
     let handshake_hash = noise_handshake.handshake_hash;
     let ciphertext = noise_handshake.message;
 
-    NoiseEncryptMsg {
+    Ok(NoiseEncryptMsg {
         ciphertext,
         handshake_hash,
-    }
+    })
 }
 
 /// A struct containing the result of a [`noise_decrypt`]
@@ -260,7 +261,7 @@ pub fn noise_decrypt(
     recipient_public: &PublicKey,
     prologue: &[u8],
     handshake_message: &[u8],
-) -> Result<NoiseDecryptMsg, ChaPolyDecryptError> {
+) -> Result<NoiseDecryptMsg, NoiseError> {
     let initiator = false;
     let mut handshake_state = noise::HandshakeState::init_x(
         initiator,
@@ -276,8 +277,8 @@ pub fn noise_decrypt(
     let noise_handshake = handshake_state.read_message(handshake_message)?;
     let handshake_hash = noise_handshake.handshake_hash;
     if noise_handshake.message.len() != 32 {
-        return Err(ChaPolyDecryptError::new(
-            "Expected payload key to be 32 bytes.",
+        return Err(NoiseError::Other(
+            "Expected payload key to be 32 bytes.".to_string(),
         ));
     }
 
@@ -372,7 +373,7 @@ pub fn chapoly_decrypt_ietf(
 
     match cipher.decrypt(nonce.into(), ct_and_aad) {
         Ok(plaintext) => Ok(plaintext),
-        Err(_) => Err(ChaPolyDecryptError::new("Decrypt failed.")),
+        Err(_) => Err(ChaPolyDecryptError),
     }
 }
 
@@ -603,15 +604,15 @@ mod tests {
         let alice_public = PublicKey::try_from(alice_public_expected.as_slice()).unwrap();
         assert_eq!(
             &alice_public_expected,
-            &alice_private.to_public().as_bytes()
+            &alice_private.to_public().unwrap().as_bytes()
         );
 
         let bob_private = PrivateKey::try_from(bob_private_expected.as_slice()).unwrap();
         let bob_public = PublicKey::try_from(bob_public_expected.as_slice()).unwrap();
 
-        let alice_to_bob = x25519(alice_private.as_bytes(), bob_public.as_bytes());
-        let bob_to_alice = x25519(bob_private.as_bytes(), alice_public.as_bytes());
-        let alice_to_bob2 = alice_private.diffie_hellman(&bob_public);
+        let alice_to_bob = x25519(alice_private.as_bytes(), bob_public.as_bytes()).unwrap();
+        let bob_to_alice = x25519(bob_private.as_bytes(), alice_public.as_bytes()).unwrap();
+        let alice_to_bob2 = alice_private.diffie_hellman(&bob_public).unwrap();
 
         assert_eq!(&alice_to_bob, &bob_to_alice);
         assert_eq!(&alice_to_bob, &alice_to_bob2);
@@ -628,7 +629,8 @@ mod tests {
                 .unwrap();
         let got_public = PrivateKey::try_from(&alice_private_expected[..])
             .unwrap()
-            .to_public();
+            .to_public()
+            .unwrap();
 
         assert_eq!(&alice_public_expected[..], got_public.as_bytes());
     }
