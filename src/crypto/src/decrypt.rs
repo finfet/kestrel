@@ -10,9 +10,7 @@ use zeroize::Zeroizing;
 use crate::errors::{DecryptError, FileFormatError};
 use crate::{chapoly_decrypt_noise, hkdf_sha256, noise_decrypt, scrypt, PrivateKey, PublicKey};
 use crate::{AsymFileFormat, FileFormat, PassFileFormat};
-use crate::{CHUNK_SIZE, SCRYPT_N, SCRYPT_P, SCRYPT_R};
-
-const TAG_SIZE: usize = 16;
+use crate::{CHUNK_SIZE, SCRYPT_N, SCRYPT_P, SCRYPT_R, TAG_SIZE};
 
 /// Decrypt asymmetric encrypted data from [`key_encrypt`](crate::encrypt::key_encrypt)
 pub fn key_decrypt<T: Read, U: Write>(

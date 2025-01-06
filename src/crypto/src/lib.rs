@@ -9,7 +9,7 @@
 //! cryptographic library, but the functions provided here could certainly
 //! be used as such.
 
-// @@SECURITY: We're going a best effort job to zero all key data after use.
+// @@SECURITY: We're doing a best effort job to zero all key data after use.
 // The APIs of some of the underlying crypto libraries result in some key
 // data being left on the stack.
 
@@ -20,8 +20,7 @@ mod noise;
 
 use getrandom::getrandom;
 
-use chacha20poly1305::aead::{Aead, KeyInit, Payload};
-use chacha20poly1305::ChaCha20Poly1305;
+use orion::hazardous::aead::chacha20poly1305 as chapoly;
 
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
@@ -36,6 +35,7 @@ const CHUNK_SIZE: u32 = 65536;
 const SCRYPT_N: u32 = 32768;
 const SCRYPT_R: u32 = 8;
 const SCRYPT_P: u32 = 1;
+const TAG_SIZE: usize = 16;
 
 /// Key file format
 #[derive(Copy, Clone, PartialEq)]
@@ -316,17 +316,21 @@ pub(crate) fn chapoly_encrypt_noise(
 
 /// RFC 8439 ChaCha20-Poly1305 encrypt function.
 /// The key must be 32 bytes and the nonce must be 12 bytes.
+/// The aad should be an empty slice if not used.
 /// Returns the ciphertext.
 #[allow(clippy::let_and_return, clippy::redundant_field_names)]
 pub fn chapoly_encrypt_ietf(key: &[u8], nonce: &[u8], plaintext: &[u8], aad: &[u8]) -> Vec<u8> {
-    let cipher = ChaCha20Poly1305::new_from_slice(key).unwrap();
-    let pt_and_aad = Payload {
-        msg: plaintext,
-        aad: aad,
-    };
-    let ct_and_tag = cipher
-        .encrypt(nonce.into(), pt_and_aad)
-        .expect("ChaCha20-Poly1305 encryption failed.");
+    let nonce = chapoly::Nonce::from_slice(nonce).expect("Nonce must be 12 bytes");
+    let mut ct_and_tag = vec![0u8; plaintext.len() + TAG_SIZE];
+    let key = chapoly::SecretKey::from_slice(key).expect("Key must be 32 bytes");
+    chapoly::seal(
+        &key,
+        &nonce,
+        plaintext,
+        Some(aad),
+        ct_and_tag.as_mut_slice(),
+    )
+    .expect("ChaCha20-Poly11305 encryption failed");
 
     ct_and_tag
 }
@@ -364,17 +368,21 @@ pub fn chapoly_decrypt_ietf(
     ciphertext: &[u8],
     aad: &[u8],
 ) -> Result<Vec<u8>, ChaPolyDecryptError> {
-    let cipher = ChaCha20Poly1305::new_from_slice(key).unwrap();
+    let nonce = chapoly::Nonce::from_slice(nonce).expect("Nonce must be 12 bytes");
+    let key = chapoly::SecretKey::from_slice(key).expect("Key must be 32 bytes");
+    let pt_size = std::cmp::max(ciphertext.len() - TAG_SIZE, 0);
+    let mut plaintext = vec![0u8; pt_size];
 
-    let ct_and_aad = Payload {
-        msg: ciphertext,
-        aad: aad,
-    };
+    chapoly::open(
+        &key,
+        &nonce,
+        ciphertext,
+        Some(aad),
+        plaintext.as_mut_slice(),
+    )
+    .map_err(|_| ChaPolyDecryptError)?;
 
-    match cipher.decrypt(nonce.into(), ct_and_aad) {
-        Ok(plaintext) => Ok(plaintext),
-        Err(_) => Err(ChaPolyDecryptError),
-    }
+    Ok(plaintext)
 }
 
 /// SHA-256
