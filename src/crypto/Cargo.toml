@@ -25,7 +25,12 @@ zeroize = "1.8"
 
 [dev-dependencies]
 hex = "0.4.3"
+criterion = "0.5"
 
 [features]
 default = [ "std" ]
 std = []
+
+[[bench]]
+name = "bench"
+harness = false
