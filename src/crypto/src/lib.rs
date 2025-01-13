@@ -17,6 +17,7 @@ pub mod decrypt;
 pub mod encrypt;
 pub mod errors;
 mod noise;
+mod scrypt;
 
 use getrandom::getrandom;
 
@@ -25,6 +26,8 @@ use orion::hazardous::aead::chacha20poly1305 as chapoly;
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
+
+extern crate scrypt as rc_scrypt;
 
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -424,21 +427,7 @@ pub fn hkdf_sha256(salt: &[u8], ikm: &[u8], info: &[u8], len: usize) -> Vec<u8> 
 /// Recommended parameters are n = 32768, r = 8, p = 1
 /// Parameter n must be larger than 1 and a power of 2.
 pub fn scrypt(password: &[u8], salt: &[u8], n: u32, r: u32, p: u32, dk_len: usize) -> Vec<u8> {
-    assert!(n > 1, "n must be >1");
-    assert!(n.count_ones() == 1, "n must be a power of 2");
-
-    // The conversion here is safe because we are taking the log2(n) by counting
-    // the number of zeros before our number. Because n must be a power of 2,
-    // this will always give us the correct log2(n), and the result will
-    // always fit into a u8 for all values of u32
-    let n: u8 = n.trailing_zeros() as u8;
-    // The length parameter of 32 is ignored by scrypt::scrypt.
-    let scrypt_params = scrypt::Params::new(n, r, p, 32).unwrap();
-    let mut key = vec![0u8; dk_len];
-
-    scrypt::scrypt(password, salt, &scrypt_params, &mut key).expect("scrypt kdf failed");
-
-    key
+    scrypt::scrypt(password, salt, n as usize, r as usize, p as usize, dk_len)
 }
 
 /// Generates the specified amount of bytes from a CSPRNG
