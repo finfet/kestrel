@@ -22,5 +22,5 @@ include = [
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
-kestrel-crypto = "2.0.2"
+kestrel-crypto = { version = "3.0.0", path = "../crypto" }
 libc = "0.2"

@@ -22,12 +22,10 @@ mod scrypt;
 use getrandom::getrandom;
 
 use orion::hazardous::aead::chacha20poly1305 as chapoly;
-
-use hkdf::Hkdf;
-use hmac::{Hmac, Mac};
-use sha2::{Digest, Sha256};
-
-extern crate scrypt as rc_scrypt;
+use orion::hazardous::ecc::x25519 as orion_x25519;
+use orion::hazardous::hash::sha2::sha256::Sha256;
+use orion::hazardous::kdf::hkdf::sha256 as hkdf;
+use orion::hazardous::mac::hmac::sha256 as hmac;
 
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -183,13 +181,17 @@ impl ZeroizeOnDrop for PrivateKey {}
 /// RFC 7748 compliant X25519.
 /// k is the private key and u is the public key.
 /// Keys must be 32 bytes.
+/// Returns a [DhError] if the shared secret is the all zero output
 pub fn x25519(k: &[u8], u: &[u8]) -> Result<Vec<u8>, DhError> {
     let mut sk: [u8; 32] = k.try_into().expect("Private key must be 32 bytes");
     let pk: [u8; 32] = u.try_into().expect("Public key must be 32 bytes");
 
-    let mut dh = x25519_dalek::x25519(sk, pk);
-    let res = dh.to_vec();
-    dh.zeroize();
+    let private_key = orion_x25519::PrivateKey::from_slice(&sk).unwrap();
+    let public_key: orion_x25519::PublicKey = orion_x25519::PublicKey::from_slice(&pk).unwrap();
+
+    let shared_secret =
+        orion_x25519::key_agreement(&private_key, &public_key).map_err(|_| DhError)?;
+    let res = shared_secret.unprotected_as_bytes().to_vec();
     sk.zeroize();
 
     Ok(res)
@@ -198,7 +200,10 @@ pub fn x25519(k: &[u8], u: &[u8]) -> Result<Vec<u8>, DhError> {
 /// Derive an X25519 public key from a private key.
 /// The private key must be 32 bytes.
 pub fn x25519_derive_public(private_key: &[u8]) -> Result<Vec<u8>, DhError> {
-    x25519(private_key, &x25519_dalek::X25519_BASEPOINT_BYTES)
+    let sk = orion_x25519::PrivateKey::from_slice(private_key).unwrap();
+    let pk = orion_x25519::PublicKey::try_from(&sk).map_err(|_| DhError)?;
+
+    Ok(pk.to_bytes().as_ref().to_vec())
 }
 
 /// A struct containing the result of a [`noise_encrypt`]
@@ -390,14 +395,16 @@ pub fn chapoly_decrypt_ietf(
 
 /// SHA-256
 pub fn sha256(data: &[u8]) -> Vec<u8> {
-    Sha256::digest(data).as_slice().to_vec()
+    Sha256::digest(data).unwrap().as_ref().to_vec()
 }
 
 /// HMAC-SHA-256
 pub fn hmac_sha256(key: &[u8], data: &[u8]) -> Vec<u8> {
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(key).unwrap();
-    mac.update(data);
-    mac.finalize().into_bytes().as_slice().to_vec()
+    let sk = hmac::SecretKey::from_slice(key).unwrap();
+    hmac::HmacSha256::hmac(&sk, data)
+        .unwrap()
+        .unprotected_as_bytes()
+        .to_vec()
 }
 
 fn hkdf_noise(chaining_key: &[u8], ikm: &[u8]) -> (Vec<u8>, Vec<u8>) {
@@ -415,10 +422,9 @@ fn hkdf_noise(chaining_key: &[u8], ikm: &[u8]) -> (Vec<u8>, Vec<u8>) {
 /// HKDF-SHA256
 /// If no info or salt is required, use the empty slice.
 pub fn hkdf_sha256(salt: &[u8], ikm: &[u8], info: &[u8], len: usize) -> Vec<u8> {
-    let hk: Hkdf<Sha256> = Hkdf::new(Some(salt), ikm);
     let mut okm = vec![0u8; len];
-    hk.expand(info, okm.as_mut_slice())
-        .expect("Unexpected HKDF length");
+
+    hkdf::derive_key(salt, ikm, Some(info), okm.as_mut_slice()).unwrap();
 
     okm
 }

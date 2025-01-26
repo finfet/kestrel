@@ -291,7 +291,7 @@ pub(crate) fn gen_key(outfile: Option<String>, env_pass: bool) -> Result<(), any
     let pass = confirm_password("New password: ", env_pass)?;
 
     let private_key = PrivateKey::generate();
-    let public_key = private_key.to_public();
+    let public_key = private_key.to_public()?;
     let salt: [u8; 32] = kestrel_crypto::secure_random(32).try_into().unwrap();
 
     let encoded_private_key = Keyring::lock_private_key(&private_key, pass.as_bytes(), salt);
@@ -354,7 +354,7 @@ pub(crate) fn extract_pub(private_key: String, env_pass: bool) -> Result<(), any
         .map_err(|e| anyhow!("{}", e))?;
 
     let sk = Keyring::unlock_private_key(&esk, pass.as_bytes())?;
-    let pk = sk.to_public();
+    let pk = sk.to_public()?;
     let epk = Keyring::encode_public_key(&pk);
 
     println!("PublicKey = {}", epk.as_str());

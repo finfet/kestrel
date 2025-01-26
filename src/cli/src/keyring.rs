@@ -163,8 +163,9 @@ impl Keyring {
         let nonce = [0u8; 12];
         let plaintext = kestrel_crypto::chapoly_decrypt_ietf(&key, &nonce, ciphertext, version_aad)
             .map_err(|_| KeyringError::PrivateKeyDecrypt)?;
-
-        Ok(PrivateKey::from(plaintext.as_slice()))
+        let private_key =
+            PrivateKey::try_from(plaintext.as_slice()).expect("Invalid private key length");
+        Ok(private_key)
     }
 
     /// Encode a PublicKey
@@ -198,7 +199,9 @@ impl Keyring {
             return Err(KeyringError::PublicKeyChecksum);
         }
 
-        Ok(PublicKey::from(pk))
+        let public_key = PublicKey::try_from(pk).expect("Invalid public key length");
+
+        Ok(public_key)
     }
 
     /// Write a `[Key]` in the keyring config file format.
@@ -431,7 +434,7 @@ PublicKey = CT/e0R9tbBjTYUhDNnNxltT3LLWZLHwW4DCY/WHxBA8am9vP
 
         let locked_sk = "ZWdrMHMp/2yenV64rOfAJmMGWRVGbJuUAVhzOeRYRwNPqndu4Pfkg4YXzIna9Eg58JwreHA37o49xCS0x8CWd3yRe+D2ytRXFLb67WNIwxqHJ9Fw";
 
-        let sk = PrivateKey::from(sk_bytes.as_slice());
+        let sk = PrivateKey::try_from(sk_bytes.as_slice()).unwrap();
 
         let password = b"alice";
         let salt = hex::decode("7329ff6c9e9d5eb8ace7c02663065915466c9b9401587339e45847034faa776e")
@@ -464,7 +467,7 @@ PublicKey = CT/e0R9tbBjTYUhDNnNxltT3LLWZLHwW4DCY/WHxBA8am9vP
             hex::decode("3ad53dc25581b18af543a1e8cf4edc2b4e4e483df5a7e0d5ada53e7e4bb86374")
                 .unwrap();
         let expected = "OtU9wlWBsYr1Q6Hoz07cK05OSD31p+DVraU+fku4Y3R62CZl";
-        let pk = PublicKey::from(pk_bytes.as_slice());
+        let pk = PublicKey::try_from(pk_bytes.as_slice()).unwrap();
         let got = Keyring::encode_public_key(&pk);
 
         assert_eq!(got.as_str(), expected);
