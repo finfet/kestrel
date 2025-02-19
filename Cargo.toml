@@ -2,12 +2,6 @@
 members = ["src/*"]
 resolver = "2"
 
-[profile.dev.package.scrypt]
-opt-level = 3
-
-[profile.test.package.scrypt]
-opt-level = 3
-
 [profile.release]
 strip = true
 

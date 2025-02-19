@@ -19,8 +19,6 @@ pub mod errors;
 mod noise;
 mod scrypt;
 
-use getrandom::getrandom;
-
 use orion::hazardous::aead::chacha20poly1305 as chapoly;
 use orion::hazardous::ecc::x25519 as orion_x25519;
 use orion::hazardous::hash::sha2::sha256::Sha256;
@@ -199,6 +197,10 @@ pub fn x25519(k: &[u8], u: &[u8]) -> Result<Vec<u8>, DhError> {
 
 /// Derive an X25519 public key from a private key.
 /// The private key must be 32 bytes.
+///
+/// This function is not expected to ever return an error for the code path
+/// deriving public keys. A [DhError] is returned here only because the x25519
+/// implementation returns an error.
 pub fn x25519_derive_public(private_key: &[u8]) -> Result<Vec<u8>, DhError> {
     let sk = orion_x25519::PrivateKey::from_slice(private_key).unwrap();
     let pk = orion_x25519::PublicKey::try_from(&sk).map_err(|_| DhError)?;
@@ -439,7 +441,7 @@ pub fn scrypt(password: &[u8], salt: &[u8], n: u32, r: u32, p: u32, dk_len: usiz
 /// Generates the specified amount of bytes from a CSPRNG
 pub fn secure_random(len: usize) -> Vec<u8> {
     let mut data = vec![0u8; len];
-    getrandom(&mut data).expect("CSPRNG gen failed");
+    getrandom::fill(&mut data).expect("CSPRNG gen failed");
     data
 }
 

@@ -2,11 +2,15 @@
 
 ## Version 3.0.0
 
-Date: Unreleased
+Date: 2025-02-18
 
 - Removed extraneous file decrypt methods
 - Improved zeroize handling for keys
 - Improved error handling
+- Switch to the orion cryptography library, dramatically reducing the number
+  of required dependencies
+- Fixed scrypt key length output. The previous implementation was fixed
+  at 32 bytes
 
 ## Version 2.0.2
 
