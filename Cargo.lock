@@ -4,15 +4,9 @@ version = 4
 
 [[package]]
 name = "anyhow"
-version = "1.0.95"
+version = "1.0.96"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34ac096ce696dc2fcabef30516bb13c0a68a11d30131d3df6f04711467681b04"
-
-[[package]]
-name = "base64ct"
-version = "1.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
+checksum = "6b964d184e89d9b6b67dd2715bc8e74cf3107fb2b529990c90cf517326150bf4"
 
 [[package]]
 name = "bitflags"
@@ -70,7 +64,7 @@ name = "kestrel-cli"
 version = "1.0.3"
 dependencies = [
  "anyhow",
- "base64ct",
+ "ct-codecs",
  "getopts",
  "hex",
  "kestrel-crypto 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -109,9 +103,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.169"
+version = "0.2.170"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5aba8db14291edd000dfcc4d620c7ebfb122c613afb886ca8803fa4e128a20a"
+checksum = "875b3680cb2f8f71bdcf9a30f38d48282f5d3c95cbf9b3fa57269bb5d5c06828"
 
 [[package]]
 name = "orion"

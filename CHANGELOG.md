@@ -1,5 +1,14 @@
 # Changelog
 
+## Version 1.0.3
+
+**Date**: Unreleased
+
+**Changes**
+
+- Improvements to password prompting. Always attempts to disable echo. Fixes
+  an extraneous newline being printed on windows.
+
 ## Version 1.0.2
 
 **Date**: 2024-07-07

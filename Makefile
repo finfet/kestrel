@@ -6,7 +6,7 @@ ALTARCH = x86_64
 BUILD_TARGET = x86_64-unknown-linux-musl
 BIN_PACKAGE_DIR = kestrel-linux-v$(version)-$(ARCH)
 
-version := 1.0.2
+version := 1.0.3
 deb_rev := 1
 deb_build_dir := build/deb_$(ARCH)
 deb_app_dir := kestrel_$(version)-$(deb_rev)_$(ARCH)

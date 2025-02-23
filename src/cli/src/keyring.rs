@@ -5,7 +5,7 @@ use crate::errors::KeyringError;
 
 use kestrel_crypto::{PrivateKey, PublicKey};
 
-use base64ct::{Base64, Encoding};
+use ct_codecs::{Base64, Encoder, Decoder};
 use zeroize::Zeroizing;
 
 const PRIVATE_KEY_VERSION: [u8; 4] = [0x65, 0x67, 0x6b, 0x30];
@@ -35,7 +35,7 @@ impl TryFrom<&str> for EncodedPk {
     // Decode a base64 encoded public key to make sure that it is the right
     // amount of bytes
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        match Base64::decode_vec(s) {
+        match Base64::decode_to_vec(s, None) {
             Ok(s) => {
                 if s.len() != 36 {
                     return Err("Invalid Public Key length");
@@ -52,7 +52,7 @@ impl TryFrom<&str> for EncodedPk {
 
 impl EncodedSk {
     pub fn as_bytes(&self) -> Vec<u8> {
-        Base64::decode_vec(&self.0).expect("Invalid format for encoded Private Key")
+        Base64::decode_to_vec(&self.0, None).expect("Invalid format for encoded Private Key")
     }
 
     pub fn as_str(&self) -> &str {
@@ -66,7 +66,7 @@ impl TryFrom<&str> for EncodedSk {
     // Decode a base64 encoded private key to make sure that it is the
     // right amount of bytes
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        match Base64::decode_vec(s) {
+        match Base64::decode_to_vec(s, None) {
             Ok(s) => {
                 if s.len() != PRIVATE_KEY_CT_LEN {
                     return Err("Invalid Private Key length");
@@ -137,7 +137,7 @@ impl Keyring {
 
         encoded_bytes.extend_from_slice(ciphertext.as_slice());
 
-        let encoded_key = Base64::encode_string(&encoded_bytes);
+        let encoded_key = Base64::encode_to_string(&encoded_bytes).expect("Base64 encoding failed");
         EncodedSk(encoded_key)
     }
 
@@ -178,13 +178,13 @@ impl Keyring {
         encoded[..32].copy_from_slice(pk);
         encoded[32..].copy_from_slice(&checksum[..4]);
 
-        EncodedPk(Base64::encode_string(&encoded))
+        EncodedPk(Base64::encode_to_string(&encoded).expect("Base64 encoding failed"))
     }
 
     /// Decode a PublicKey
     /// Public keys are base64 encoded with a 4 byte SHA-256 checksum appended
     pub(crate) fn decode_public_key(encoded_pk: &EncodedPk) -> Result<PublicKey, KeyringError> {
-        let enc_pk = Base64::decode_vec(encoded_pk.as_str()).expect("Public key decode failed.");
+        let enc_pk = Base64::decode_to_vec(encoded_pk.as_str(), None).expect("Public key decode failed");
         let enc_pk_bytes = enc_pk.as_slice();
         if enc_pk_bytes.len() < PUBLIC_KEY_LEN {
             return Err(KeyringError::PublicKeyLength);

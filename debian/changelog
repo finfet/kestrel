@@ -1,5 +1,12 @@
+kestrel (1.0.3) unstable; urgency=medium
+
+ * Always attempt to disable echo during password prompt
+ * Upgrade underlying cryptography library implementation
+
+-- Kyle Schreiber <kyle@80x24.net>  Sat, 22 Feb 2025 23:02:03 -0700
+
 kestrel (1.0.2) unstable; urgency=medium
 
-  * Fall back to stdin if a tty cannot be opened
+ * Fall back to stdin if a tty cannot be opened
 
- -- Kyle <kyle@80x24.net>  Sun, 07 Jul 2024 17:14:03 -0700
+-- Kyle Schreiber <kyle@80x24.net>  Sun, 07 Jul 2024 17:14:03 -0700

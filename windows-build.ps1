@@ -1,4 +1,4 @@
-$version = "1.0.2"
+$version = "1.0.3"
 
 $buildTarget = "x86_64-pc-windows-msvc"
 $packageDir = "kestrel-windows-v$version-x64"

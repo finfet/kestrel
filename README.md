@@ -45,7 +45,7 @@ to anyone with a public key.
   key compromised doesn't affect the files that they had previously sent to you.
 
 Kestrel uses a combination of the Noise Protocol and a chunked file encryption
-scheme. Read the [security documentation](https://getkestrel.com/docs/security-information.html)
+scheme. Read the [security documentation](https://getkestrel.com/docs/security-information/)
 for more details.
 
 
