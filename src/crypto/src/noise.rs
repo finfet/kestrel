@@ -421,6 +421,7 @@ impl HandshakeState {
 
 #[cfg(test)]
 mod tests {
+    use const_hex as hex;
     use super::HandshakeState;
     use super::{PrivateKey, PublicKey};
 

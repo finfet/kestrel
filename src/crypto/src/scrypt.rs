@@ -198,9 +198,9 @@ pub(crate) fn scrypt(
     assert!(n > 1);
     assert!(n & (n - 1) == 0);
     assert!(r * p < 1 << 30);
-    assert!(r <= usize::MAX / 128 / p);
-    assert!(r <= usize::MAX / 256);
-    assert!(n <= usize::MAX / 128 / r);
+    assert!(r <= (isize::MAX as usize) / 128 / p);
+    assert!(r <= (isize::MAX as usize) / 256);
+    assert!(n <= (isize::MAX as usize) / 128 / r);
 
     let vlen: usize = 32 * n * r;
     let mut x = vec![0u32; 32 * r];
@@ -223,6 +223,7 @@ pub(crate) fn scrypt(
 
 #[cfg(test)]
 mod tests {
+    use const_hex as hex;
     use super::scrypt;
 
     struct ScryptVector<'a> {

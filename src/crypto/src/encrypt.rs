@@ -186,6 +186,7 @@ fn write_err(err: std::io::Error) -> EncryptError {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use const_hex as hex;
     use super::CHUNK_SIZE;
     use super::{key_encrypt, pass_encrypt};
     use crate::{sha256, AsymFileFormat, PassFileFormat, PayloadKey, PrivateKey, PublicKey};

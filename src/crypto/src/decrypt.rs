@@ -207,6 +207,7 @@ fn write_err(err: std::io::Error) -> DecryptError {
 
 #[cfg(test)]
 mod tests {
+    use const_hex as hex;
     use super::CHUNK_SIZE;
     use super::{key_decrypt, pass_decrypt};
     use super::{PrivateKey, PublicKey};

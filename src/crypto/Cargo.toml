@@ -16,10 +16,10 @@ categories = ["cryptography"]
 [dependencies]
 getrandom = "0.3"
 zeroize = "1.8"
-orion = "0.17.8"
+orion = "0.17.11"
 
 [dev-dependencies]
-hex = "0.4.3"
+const-hex = "1.14.1"
 
 [features]
 default = [ "std" ]
