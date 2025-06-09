@@ -197,10 +197,10 @@ pub(crate) fn scrypt(
     debug_assert!(usize::BITS >= 32);
     assert!(n > 1);
     assert!(n & (n - 1) == 0);
-    assert!(r * p < 1 << 30);
-    assert!(r <= (isize::MAX as usize) / 128 / p);
-    assert!(r <= (isize::MAX as usize) / 256);
-    assert!(n <= (isize::MAX as usize) / 128 / r);
+    assert!(((r as u64) * (p as u64)) < 1 << 30);
+    assert!(r <= (i32::MAX as usize) / 128 / p);
+    assert!(r <= (i32::MAX as usize) / 256);
+    assert!(n <= (i32::MAX as usize) / 128 / r);
 
     let vlen: usize = 32 * n * r;
     let mut x = vec![0u32; 32 * r];
