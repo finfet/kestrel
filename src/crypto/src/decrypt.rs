@@ -207,13 +207,13 @@ fn write_err(err: std::io::Error) -> DecryptError {
 
 #[cfg(test)]
 mod tests {
-    use const_hex as hex;
     use super::CHUNK_SIZE;
     use super::{key_decrypt, pass_decrypt};
     use super::{PrivateKey, PublicKey};
     use crate::encrypt::{key_encrypt, pass_encrypt};
     use crate::sha256;
     use crate::{AsymFileFormat, PassFileFormat, PayloadKey};
+    use const_hex as hex;
     use std::io::Read;
 
     #[allow(dead_code)]

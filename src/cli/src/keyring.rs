@@ -5,7 +5,7 @@ use crate::errors::KeyringError;
 
 use kestrel_crypto::{PrivateKey, PublicKey};
 
-use ct_codecs::{Base64, Encoder, Decoder};
+use ct_codecs::{Base64, Decoder, Encoder};
 use zeroize::Zeroizing;
 
 const PRIVATE_KEY_VERSION: [u8; 4] = [0x65, 0x67, 0x6b, 0x30];
@@ -184,7 +184,8 @@ impl Keyring {
     /// Decode a PublicKey
     /// Public keys are base64 encoded with a 4 byte SHA-256 checksum appended
     pub(crate) fn decode_public_key(encoded_pk: &EncodedPk) -> Result<PublicKey, KeyringError> {
-        let enc_pk = Base64::decode_to_vec(encoded_pk.as_str(), None).expect("Public key decode failed");
+        let enc_pk =
+            Base64::decode_to_vec(encoded_pk.as_str(), None).expect("Public key decode failed");
         let enc_pk_bytes = enc_pk.as_slice();
         if enc_pk_bytes.len() < PUBLIC_KEY_LEN {
             return Err(KeyringError::PublicKeyLength);
@@ -403,9 +404,232 @@ impl Keyring {
     }
 }
 
+// Parser for keyring config data
+//
+// ABNF Grammar
+//
+// section = 1*("[" "Key" "]" content)
+// content = name / public-key / [private-key] / [comment]
+// name = "Name" SP "=" SP 1*utf8 1*newline
+// public-key "PublicKey" SP "=" base64 1*newline
+// private-key "PrivateKey" SP "=" base64 1*newline
+// comment "#"*utf8 1*newline
+// base64 1*(ALPHA / DIGIT / "+" / "/" "=")
+// newline [CR] LF
+// utf8 OCTET ; utf-8 encoded bytes excluding CR and LF
+struct KeyringParser {
+    idx: usize,
+    chars: Vec<char>,
+}
+
+const CHAR_CR: char = '\x0d';
+const CHAR_LF: char = '\x0a';
+const CHAR_SPACE: char = ' ';
+
+impl KeyringParser {
+    // Create a new keyring parser
+    pub fn new(config: &str) -> Self {
+        Self {
+            idx: 0,
+            chars: config.chars().collect(),
+        }
+    }
+
+    // Parse keyring configuration data
+    pub fn parse(&mut self) -> Result<Vec<Key>, KeyringError> {
+        let mut done = false;
+        let mut keys = Vec::new();
+        while !done {
+            let ch = match self.get_char() {
+                Ok(c) => c,
+                Err(e) => {
+                    if keys.len() > 0 {
+                        done = true;
+                        continue;
+                    } else {
+                        return Err(e);
+                    }
+                }
+            };
+            if ch == '[' {
+                let section_name = self.parse_section()?;
+                if section_name.as_str() != "Key" {
+                    return Err(KeyringError::ParseConfig(
+                        "Invalid section name".to_string(),
+                    ));
+                }
+                let key = self.parse_content()?;
+                keys.push(key);
+            } else if ch == '#' {
+                self.parse_comment()?;
+            } else if ch == CHAR_CR || ch == CHAR_LF || ch == CHAR_SPACE {
+                continue;
+            } else {
+                return Err(KeyringError::ParseConfig(
+                    "Invalid data found in configuration file".to_string(),
+                ));
+            }
+        }
+
+        Ok(keys)
+    }
+
+    fn parse_section(&mut self) -> Result<String, KeyringError> {
+        let mut done = false;
+        let mut name = String::new();
+        while !done {
+            let ch = self.get_char()?;
+            if ch == ']' || ch == CHAR_CR {
+                continue;
+            } else if ch == CHAR_LF {
+                done = true;
+            } else {
+                name.push(ch)
+            }
+        }
+        Ok(name)
+    }
+
+    fn parse_content(&mut self) -> Result<Key, KeyringError> {
+        let mut name = String::new();
+        let mut public_key: Option<EncodedPk> = None;
+        let mut private_key: Option<EncodedSk> = None;
+        let mut done = false;
+        while !done {
+            let ch = match self.peek_char() {
+                Ok(c) => c,
+                Err(_) => {
+                    done = true;
+                    continue;
+                }
+            };
+            if ch == '[' {
+                done = true;
+                continue;
+            }
+
+            let (key, value) = self.parse_key_value()?;
+            let key = key.as_str();
+            let value = value.as_str();
+            if key == "PublicKey" {
+                if value.is_empty() {
+                    return Err(KeyringError::ParseConfig(
+                        "PublicKey must be set to something".into(),
+                    ));
+                }
+                let pk: EncodedPk = value
+                    .try_into()
+                    .map_err(|_| KeyringError::ParseConfig("Malformed public key".into()))?;
+                public_key = Some(pk);
+            } else if key == "PrivateKey" {
+                if value.is_empty() {
+                    return Err(KeyringError::ParseConfig(
+                        "PrivateKey must be set to something".into(),
+                    ));
+                }
+                let sk: EncodedSk = value
+                    .try_into()
+                    .map_err(|_| KeyringError::ParseConfig("Malformed private key".into()))?;
+                private_key = Some(sk);
+            } else if key == "Name" {
+                if value.is_empty() {
+                    return Err(KeyringError::ParseConfig(
+                        "Name must be set to something".into(),
+                    ));
+                }
+                name = value.to_string();
+            }
+        }
+
+        if name.is_empty() {
+            return Err(KeyringError::ParseConfig("Name is required".into()));
+        }
+
+        if public_key.is_none() {
+            return Err(KeyringError::ParseConfig("PublicKey is required".into()));
+        }
+
+        Ok(Key {
+            name,
+            public_key: public_key.unwrap(),
+            private_key,
+        })
+    }
+
+    fn parse_key_value(&mut self) -> Result<(String, String), KeyringError> {
+        let mut key = String::new();
+        let mut value = String::new();
+        let mut done = false;
+        while !done {
+            let ch = self.get_char()?;
+            if ch == CHAR_SPACE || ch == CHAR_CR {
+                continue;
+            } else if ch == CHAR_LF {
+                done = true;
+            } else if ch == '#' {
+                self.parse_comment()?;
+            } else if ch == '=' {
+                value = self.parse_value()?;
+                done = true;
+            } else {
+                key.push(ch);
+            }
+        }
+
+        Ok((key, value))
+    }
+
+    fn parse_value(&mut self) -> Result<String, KeyringError> {
+        let mut value = String::new();
+        let mut done = false;
+        while !done {
+            let ch = self.get_char()?;
+            if ch == CHAR_CR {
+                continue;
+            } else if ch == CHAR_LF {
+                done = true;
+            } else {
+                value.push(ch);
+            }
+        }
+
+        value = value.trim().to_string();
+
+        Ok(value)
+    }
+
+    fn parse_comment(&mut self) -> Result<(), KeyringError> {
+        let mut done = false;
+        while !done {
+            let ch = self.get_char()?;
+            if ch == CHAR_LF {
+                done = true;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn get_char(&mut self) -> Result<char, KeyringError> {
+        let ch = self.chars.get(self.idx).ok_or(KeyringError::ParseConfig(
+            "invalid configuration file".into(),
+        ))?;
+        self.idx += 1;
+        Ok(ch.clone())
+    }
+
+    fn peek_char(&self) -> Result<char, KeyringError> {
+        let ch = self.chars.get(self.idx).ok_or(KeyringError::ParseConfig(
+            "invalid configuration file".into(),
+        ))?;
+        Ok(ch.clone())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Keyring;
+    use super::KeyringParser;
     use super::{EncodedPk, EncodedSk};
     use kestrel_crypto::{PrivateKey, PublicKey};
     use std::convert::TryInto;
@@ -424,6 +648,32 @@ PublicKey = CT/e0R9tbBjTYUhDNnNxltT3LLWZLHwW4DCY/WHxBA8am9vP
     fn test_keyring_config() {
         let keyring = Keyring::new(KEYRING_INI).unwrap();
         assert_eq!(keyring.keys.len(), 2);
+    }
+
+    #[test]
+    fn test_keyring_parser() {
+        let mut parser = KeyringParser::new(KEYRING_INI);
+        let keys = parser.parse();
+        assert!(keys.is_ok());
+        let keys = keys.unwrap();
+        let alice = &keys[0];
+        let bob = &keys[1];
+        assert_eq!(2, keys.len());
+
+        assert_eq!("alice", alice.name.as_str());
+        assert_eq!(
+            "D7ZZstGYF6okKKEV2rwoUza/tK3iUa8IMY+l5tuirmzzkEog",
+            alice.public_key.as_str()
+        );
+        assert!(alice.private_key.is_some());
+        assert_eq!("ZWdrMPEp09tKN3rAutCDQTshrNqoh0MLPnEERRCm5KFxvXcTo+s/Sf2ze0fKebVsQilImvLzfIHRcJuX8kGetyAQL1VchvzHR28vFhdKeq+NY2KT", alice.private_key.as_ref().unwrap().as_str());
+
+        assert_eq!("Bobby Bobertson", bob.name.as_str());
+        assert_eq!(
+            "CT/e0R9tbBjTYUhDNnNxltT3LLWZLHwW4DCY/WHxBA8am9vP",
+            bob.public_key.as_str()
+        );
+        assert!(bob.private_key.is_none());
     }
 
     #[test]

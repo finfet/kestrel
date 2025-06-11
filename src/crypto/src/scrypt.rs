@@ -194,7 +194,7 @@ pub(crate) fn scrypt(
     p: usize,
     dk_len: usize,
 ) -> Vec<u8> {
-    debug_assert!(usize::BITS >= 32);
+    assert!(usize::BITS >= 32);
     assert!(n > 1);
     assert!(n & (n - 1) == 0);
     assert!(((r as u64) * (p as u64)) < 1 << 30);
@@ -223,8 +223,8 @@ pub(crate) fn scrypt(
 
 #[cfg(test)]
 mod tests {
-    use const_hex as hex;
     use super::scrypt;
+    use const_hex as hex;
 
     struct ScryptVector<'a> {
         password: &'a [u8],
