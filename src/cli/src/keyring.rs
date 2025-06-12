@@ -408,15 +408,16 @@ impl Keyring {
 //
 // ABNF Grammar
 //
-// section = 1*("[" "Key" "]" content)
-// content = name / public-key / [private-key] / [comment]
-// name = "Name" SP "=" SP 1*utf8 1*newline
-// public-key "PublicKey" SP "=" base64 1*newline
-// private-key "PrivateKey" SP "=" base64 1*newline
-// comment "#"*utf8 1*newline
-// base64 1*(ALPHA / DIGIT / "+" / "/" "=")
-// newline [CR] LF
-// utf8 OCTET ; utf-8 encoded bytes excluding CR and LF
+// section = *blanks 1*("[" "Key" "]" newline content)
+// content = *blanks name / public-key / [private-key]
+// name = "Name" *WSP "=" *WSP 1*utf8 newline
+// public-key = "PublicKey" *WSP "=" *WSP base64 newline
+// private-key = "PrivateKey" *WSP "=" *WSP base64 newline
+// comment = "#"*utf8 newline
+// base64 = 4*(ALPHA / DIGIT / "+" / "/" "=")
+// blanks = newline / comment / WSP
+// newline = [CR] LF
+// utf8 = OCTET ; utf-8 encoded bytes excluding CR and LF
 struct KeyringParser {
     idx: usize,
     chars: Vec<char>,
@@ -435,6 +436,7 @@ impl KeyringParser {
         }
     }
 
+    // TODO: Update for new grammar
     // Parse keyring configuration data
     pub fn parse(&mut self) -> Result<Vec<Key>, KeyringError> {
         let mut done = false;
