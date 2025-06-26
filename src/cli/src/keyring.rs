@@ -5,7 +5,7 @@ use crate::errors::KeyringError;
 
 use kestrel_crypto::{PrivateKey, PublicKey};
 
-use ct_codecs::{Base64, Encoder, Decoder};
+use ct_codecs::{Base64, Decoder, Encoder};
 use zeroize::Zeroizing;
 
 const PRIVATE_KEY_VERSION: [u8; 4] = [0x65, 0x67, 0x6b, 0x30];
@@ -178,13 +178,14 @@ impl Keyring {
         encoded[..32].copy_from_slice(pk);
         encoded[32..].copy_from_slice(&checksum[..4]);
 
-        EncodedPk(Base64::encode_to_string(&encoded).expect("Base64 encoding failed"))
+        EncodedPk(Base64::encode_to_string(encoded).expect("Base64 encoding failed"))
     }
 
     /// Decode a PublicKey
     /// Public keys are base64 encoded with a 4 byte SHA-256 checksum appended
     pub(crate) fn decode_public_key(encoded_pk: &EncodedPk) -> Result<PublicKey, KeyringError> {
-        let enc_pk = Base64::decode_to_vec(encoded_pk.as_str(), None).expect("Public key decode failed");
+        let enc_pk =
+            Base64::decode_to_vec(encoded_pk.as_str(), None).expect("Public key decode failed");
         let enc_pk_bytes = enc_pk.as_slice();
         if enc_pk_bytes.len() < PUBLIC_KEY_LEN {
             return Err(KeyringError::PublicKeyLength);
@@ -220,192 +221,308 @@ impl Keyring {
     }
 
     fn parse_config(config: &str) -> Result<Vec<Key>, KeyringError> {
-        let mut keys = Vec::<Key>::new();
-
-        let mut key_name: Option<String> = None;
-        let mut key_public: Option<EncodedPk> = None;
-        let mut key_private: Option<EncodedSk> = None;
-        let mut key_found = false;
-
-        for line in config.lines() {
-            let mut cleaned_line = line.to_string();
-            cleaned_line.retain(|c| c != '\t');
-            cleaned_line = cleaned_line.trim().to_string();
-            if cleaned_line.starts_with("[Key]") {
-                if key_found {
-                    if key_name.is_none() {
-                        return Err(KeyringError::ParseConfig("Key must have a Name".into()));
-                    } else if key_public.is_none() {
-                        return Err(KeyringError::ParseConfig(
-                            "Key must have a PublicKey".into(),
-                        ));
-                    } else {
-                        Keyring::add_key(
-                            &mut keys,
-                            key_name.as_ref(),
-                            key_public.as_ref(),
-                            key_private.as_ref(),
-                        )?;
-                        key_name = None;
-                        key_public = None;
-                        key_private = None;
-                    }
-                }
-                key_found = true;
-                continue;
-            } else if cleaned_line.starts_with("Name") {
-                if !key_found {
-                    return Err(KeyringError::ParseConfig(
-                        "Name found outside of [Key] section".into(),
-                    ));
-                } else if key_name.is_some() {
-                    return Err(KeyringError::ParseConfig("Duplicate Name found".into()));
-                }
-
-                let name = match cleaned_line.split_once('=') {
-                    Some((_, n)) => n.trim(),
-                    None => {
-                        return Err(KeyringError::ParseConfig(
-                            "Name must be set to something".into(),
-                        ))
-                    }
-                };
-
-                if !Keyring::valid_key_name(name) {
-                    return Err(KeyringError::ParseConfig("Invalid Name".into()));
-                }
-                key_name = Some(name.into());
-            } else if cleaned_line.starts_with("PublicKey") {
-                if !key_found {
-                    return Err(KeyringError::ParseConfig(
-                        "PublicKey found outside of [Key] section".into(),
-                    ));
-                } else if key_public.is_some() {
-                    return Err(KeyringError::ParseConfig(
-                        "Duplicate PublicKey found".into(),
-                    ));
-                }
-
-                let pubkey = match cleaned_line.split_once('=') {
-                    Some((_, pk)) => pk.trim(),
-                    None => {
-                        return Err(KeyringError::ParseConfig(
-                            "PublicKey must be set to something".into(),
-                        ))
-                    }
-                };
-
-                let encoded_pk = pubkey
-                    .try_into()
-                    .map_err(|_| KeyringError::ParseConfig("Malformed public key".into()))?;
-                key_public = Some(encoded_pk);
-            } else if cleaned_line.starts_with("PrivateKey") {
-                if !key_found {
-                    return Err(KeyringError::ParseConfig(
-                        "PrivateKey found outside of [Key] section".into(),
-                    ));
-                } else if key_private.is_some() {
-                    return Err(KeyringError::ParseConfig(
-                        "Duplicate PrivateKey found".into(),
-                    ));
-                }
-
-                let seckey = match cleaned_line.split_once('=') {
-                    Some((_, sk)) => sk.trim(),
-                    None => {
-                        return Err(KeyringError::ParseConfig(
-                            "PrivateKey must be set to something".into(),
-                        ))
-                    }
-                };
-
-                let encoded_sk = seckey
-                    .try_into()
-                    .map_err(|_| KeyringError::ParseConfig("Malformed private key".into()))?;
-                key_private = Some(encoded_sk);
-            } else if cleaned_line.starts_with('#') || cleaned_line.is_empty() {
-                // Ignore empty lines and comments lines starting with #
-                continue;
-            } else {
-                return Err(KeyringError::ParseConfig(
-                    "Invalid data found in configuration file".into(),
-                ));
-            }
-        }
-
-        if !key_found {
-            return Err(KeyringError::ParseConfig(
-                "No keys found in configuration file".into(),
-            ));
-        } else {
-            Keyring::add_key(
-                &mut keys,
-                key_name.as_ref(),
-                key_public.as_ref(),
-                key_private.as_ref(),
-            )?;
-        }
-
+        let mut keyring_parser = KeyringParser::new(config);
+        let keys = keyring_parser.parse()?;
         Ok(keys)
-    }
-
-    fn add_key(
-        keys: &mut Vec<Key>,
-        key_name: Option<&String>,
-        key_public: Option<&EncodedPk>,
-        key_private: Option<&EncodedSk>,
-    ) -> Result<(), KeyringError> {
-        if key_name.is_none() && key_public.is_some() {
-            return Err(KeyringError::ParseConfig("Key must have a Name".into()));
-        } else if key_name.is_some() && key_public.is_none() {
-            return Err(KeyringError::ParseConfig(
-                "Key must have a PublicKey".into(),
-            ));
-        } else if key_name.is_none() && key_public.is_none() {
-            return Err(KeyringError::ParseConfig(
-                "Key must have a Name and PublicKey".into(),
-            ));
-        }
-
-        for k in keys.iter() {
-            if &k.name == key_name.unwrap() {
-                return Err(KeyringError::ParseConfig(format!(
-                    "Found duplicate name: {}",
-                    &k.name
-                )));
-            }
-
-            if k.public_key.as_str() == key_public.unwrap().as_str() {
-                return Err(KeyringError::ParseConfig(format!(
-                    "Found duplicate public key: {}",
-                    k.public_key.as_str()
-                )));
-            }
-        }
-
-        let key = Key {
-            name: key_name.unwrap().clone(),
-            public_key: key_public.unwrap().clone(),
-            private_key: key_private.map(|k| k.to_owned()),
-        };
-
-        keys.push(key);
-
-        Ok(())
     }
 
     pub fn valid_key_name(name: &str) -> bool {
         if name.is_empty() || name.len() > MAX_NAME_SIZE {
             return false;
         }
-
         true
+    }
+}
+
+// Parser for keyring config data
+//
+// ABNF Grammar
+//
+// keyring = *blanks / *section
+// section = "[" "Key" "]" newline *content
+// content = *blanks / (name / public-key / private-key)
+// name = "Name" *WSP "=" *WSP 1*utf8 newline
+// public-key = "PublicKey" *WSP "=" *WSP base64 newline
+// private-key = "PrivateKey" *WSP "=" *WSP base64 newline
+// comment = "#"*utf8 newline
+// base64 = 4*(ALPHA / DIGIT / "+" / "/" / "=")
+// blanks = newline / comment / WSP
+// newline = [CR] LF
+// utf8 = OCTET ; utf-8 encoded bytes excluding CR and LF
+struct KeyringParser {
+    idx: usize,
+    chars: Vec<char>,
+}
+
+const CHAR_CR: char = '\x0d';
+const CHAR_LF: char = '\x0a';
+const CHAR_TAB: char = '\t';
+const CHAR_SPACE: char = ' ';
+
+impl KeyringParser {
+    // Create a new keyring parser
+    pub fn new(config: &str) -> Self {
+        Self {
+            idx: 0,
+            chars: config.chars().collect(),
+        }
+    }
+
+    // Parse keyring configuration data
+    pub fn parse(&mut self) -> Result<Vec<Key>, KeyringError> {
+        self.idx = 0;
+
+        let mut done = false;
+        let mut keys = Vec::new();
+        while !done {
+            let ch = match self.get_char() {
+                Ok(c) => c,
+                Err(_) => {
+                    done = true;
+                    continue;
+                }
+            };
+            if ch == '[' {
+                let key = self.parse_section()?;
+                keys.push(key);
+            } else if ch == '#' {
+                self.parse_comment()?;
+            } else if ch == CHAR_CR || ch == CHAR_LF || ch == CHAR_SPACE || ch == CHAR_TAB {
+                continue;
+            } else {
+                return Err(KeyringError::ParseConfig(
+                    "Found invalid data in configuration file".to_string(),
+                ));
+            }
+        }
+
+        Ok(keys)
+    }
+
+    fn parse_section(&mut self) -> Result<Key, KeyringError> {
+        let section_name = self.parse_section_name()?;
+        if section_name.as_str() != "Key" {
+            return Err(KeyringError::ParseConfig(
+                "Invalid section name".to_string(),
+            ));
+        }
+
+        let mut name = String::new();
+        let mut public_key: Option<EncodedPk> = None;
+        let mut private_key: Option<EncodedSk> = None;
+
+        let mut done = false;
+        while !done {
+            let ch = match self.peek_char() {
+                Ok(c) => c,
+                Err(e) => {
+                    if !name.is_empty() && public_key.is_some() {
+                        // We're at the end of the file but found all of
+                        // the data we need
+                        done = true;
+                        continue;
+                    } else {
+                        return Err(e);
+                    }
+                }
+            };
+
+            if ch == CHAR_CR || ch == CHAR_LF || ch == CHAR_SPACE || ch == CHAR_TAB {
+                self.get_char()?;
+                continue;
+            } else if ch == '#' {
+                self.get_char()?;
+                self.parse_comment()?;
+                continue;
+            } else if ch == '[' {
+                done = true;
+                continue;
+            }
+
+            let res = self.parse_key_value();
+            if let Err(e) = res {
+                if !name.is_empty() && public_key.is_some() {
+                    done = true;
+                    continue;
+                } else {
+                    return Err(e);
+                }
+            }
+
+            let (key, value) = res.unwrap();
+            let key = key.as_str();
+            let value = value.as_str();
+
+            if key == "PublicKey" {
+                let pk = self.extract_public_key(value)?;
+                if public_key.is_none() {
+                    public_key = Some(pk);
+                } else {
+                    return Err(KeyringError::ParseConfig("Found too many PublicKey".into()));
+                }
+            } else if key == "PrivateKey" {
+                let sk = self.extract_private_key(value)?;
+                if private_key.is_none() {
+                    private_key = Some(sk);
+                } else {
+                    return Err(KeyringError::ParseConfig(
+                        "Found too many PrivateKey".into(),
+                    ));
+                }
+            } else if key == "Name" {
+                if value.is_empty() {
+                    return Err(KeyringError::ParseConfig(
+                        "Name must be set to something".into(),
+                    ));
+                }
+                if name.is_empty() {
+                    name = value.to_string();
+                } else {
+                    return Err(KeyringError::ParseConfig("Found too many Name".into()));
+                }
+            } else {
+                return Err(KeyringError::ParseConfig("Found invalid data".into()));
+            }
+        }
+
+        if name.is_empty() {
+            return Err(KeyringError::ParseConfig("Name is required".into()));
+        }
+
+        if name.len() > MAX_NAME_SIZE {
+            return Err(KeyringError::ParseConfig(
+                "Name is too long. Must be < 128 chars".into(),
+            ));
+        }
+
+        if public_key.is_none() {
+            return Err(KeyringError::ParseConfig("PublicKey is required".into()));
+        }
+
+        Ok(Key {
+            name,
+            public_key: public_key.unwrap(),
+            private_key,
+        })
+    }
+
+    fn extract_public_key(&self, value: &str) -> Result<EncodedPk, KeyringError> {
+        if value.is_empty() {
+            return Err(KeyringError::ParseConfig(
+                "PublicKey must be set to something".into(),
+            ));
+        }
+        let pk: EncodedPk = value
+            .try_into()
+            .map_err(|_| KeyringError::ParseConfig("Malformed public key".into()))?;
+        Ok(pk)
+    }
+
+    fn extract_private_key(&self, value: &str) -> Result<EncodedSk, KeyringError> {
+        if value.is_empty() {
+            return Err(KeyringError::ParseConfig(
+                "PrivateKey must be set to something".into(),
+            ));
+        }
+        let sk: EncodedSk = value
+            .try_into()
+            .map_err(|_| KeyringError::ParseConfig("Malformed private key".into()))?;
+
+        Ok(sk)
+    }
+
+    fn parse_section_name(&mut self) -> Result<String, KeyringError> {
+        let mut done = false;
+        let mut name = String::new();
+        while !done {
+            let ch = self.get_char()?;
+            if ch == ']' || ch == CHAR_CR {
+                continue;
+            } else if ch == CHAR_LF {
+                done = true;
+            } else {
+                name.push(ch)
+            }
+        }
+        Ok(name)
+    }
+
+    fn parse_key_value(&mut self) -> Result<(String, String), KeyringError> {
+        let mut key = String::new();
+        let mut value = String::new();
+        let mut done = false;
+        while !done {
+            let ch = self.get_char()?;
+            if ch == CHAR_SPACE || ch == CHAR_TAB || ch == CHAR_CR {
+                continue;
+            } else if ch == CHAR_LF {
+                done = true;
+            } else if ch == '#' {
+                self.parse_comment()?;
+            } else if ch == '=' {
+                value = self.parse_value()?;
+                done = true;
+            } else {
+                key.push(ch);
+            }
+        }
+
+        Ok((key, value))
+    }
+
+    fn parse_value(&mut self) -> Result<String, KeyringError> {
+        let mut value = String::new();
+        let mut done = false;
+        while !done {
+            let ch = self.get_char()?;
+            if ch == CHAR_CR {
+                continue;
+            } else if ch == CHAR_LF {
+                done = true;
+            } else {
+                value.push(ch);
+            }
+        }
+
+        // Values can have spaces in them.
+        // Only trim leading and trailing whitespace.
+        value = value.trim().to_string();
+
+        Ok(value)
+    }
+
+    fn parse_comment(&mut self) -> Result<(), KeyringError> {
+        let mut done = false;
+        while !done {
+            let ch = self.get_char()?;
+            if ch == CHAR_LF {
+                done = true;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn get_char(&mut self) -> Result<char, KeyringError> {
+        let ch = self.chars.get(self.idx).ok_or(KeyringError::ParseConfig(
+            "invalid configuration file".into(),
+        ))?;
+        self.idx += 1;
+        Ok(*ch)
+    }
+
+    fn peek_char(&mut self) -> Result<char, KeyringError> {
+        let ch = self.chars.get(self.idx).ok_or(KeyringError::ParseConfig(
+            "invalid configuration file".into(),
+        ))?;
+        Ok(*ch)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::Keyring;
+    use super::KeyringParser;
     use super::{EncodedPk, EncodedSk};
     use kestrel_crypto::{PrivateKey, PublicKey};
     use std::convert::TryInto;
@@ -413,17 +530,43 @@ mod tests {
 [Key]
 # comment lines are fine.
 Name = alice
-PublicKey = D7ZZstGYF6okKKEV2rwoUza/tK3iUa8IMY+l5tuirmzzkEog
+	PublicKey = D7ZZstGYF6okKKEV2rwoUza/tK3iUa8IMY+l5tuirmzzkEog
 PrivateKey = ZWdrMPEp09tKN3rAutCDQTshrNqoh0MLPnEERRCm5KFxvXcTo+s/Sf2ze0fKebVsQilImvLzfIHRcJuX8kGetyAQL1VchvzHR28vFhdKeq+NY2KT
 
 [Key]
 Name = Bobby Bobertson
-PublicKey = CT/e0R9tbBjTYUhDNnNxltT3LLWZLHwW4DCY/WHxBA8am9vP
+    PublicKey = CT/e0R9tbBjTYUhDNnNxltT3LLWZLHwW4DCY/WHxBA8am9vP
 ";
     #[test]
     fn test_keyring_config() {
         let keyring = Keyring::new(KEYRING_INI).unwrap();
         assert_eq!(keyring.keys.len(), 2);
+    }
+
+    #[test]
+    fn test_keyring_parser() {
+        let mut parser = KeyringParser::new(KEYRING_INI);
+        let keys = parser.parse();
+        assert!(keys.is_ok());
+        let keys = keys.unwrap();
+        let alice = &keys[0];
+        let bob = &keys[1];
+        assert_eq!(2, keys.len());
+
+        assert_eq!("alice", alice.name.as_str());
+        assert_eq!(
+            "D7ZZstGYF6okKKEV2rwoUza/tK3iUa8IMY+l5tuirmzzkEog",
+            alice.public_key.as_str()
+        );
+        assert!(alice.private_key.is_some());
+        assert_eq!("ZWdrMPEp09tKN3rAutCDQTshrNqoh0MLPnEERRCm5KFxvXcTo+s/Sf2ze0fKebVsQilImvLzfIHRcJuX8kGetyAQL1VchvzHR28vFhdKeq+NY2KT", alice.private_key.as_ref().unwrap().as_str());
+
+        assert_eq!("Bobby Bobertson", bob.name.as_str());
+        assert_eq!(
+            "CT/e0R9tbBjTYUhDNnNxltT3LLWZLHwW4DCY/WHxBA8am9vP",
+            bob.public_key.as_str()
+        );
+        assert!(bob.private_key.is_none());
     }
 
     #[test]

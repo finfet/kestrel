@@ -49,7 +49,7 @@ pub fn key_encrypt<T: Read, U: Write>(
         ephemeral,
         ephemeral_public,
         &PROLOGUE,
-        &payload_key,
+        payload_key,
     )
     .map_err(|_| EncryptError::Other("Key exchange failed".to_string()))?;
 
@@ -149,7 +149,7 @@ fn encrypt_chunks<T: Read, U: Write>(
         auth_data[aad_len..aad_len + 4].copy_from_slice(&last_chunk_indicator_bytes);
         auth_data[aad_len + 4..].copy_from_slice(&ciphertext_length_bytes);
 
-        let ct = chapoly_encrypt_noise(&key, chunk_number, &auth_data, &prev[..prev_read]);
+        let ct = chapoly_encrypt_noise(key, chunk_number, &auth_data, &prev[..prev_read]);
 
         let mut chunk_header = [0u8; 16];
         chunk_header[..8].copy_from_slice(&chunk_number.to_be_bytes());
@@ -186,10 +186,10 @@ fn write_err(err: std::io::Error) -> EncryptError {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use const_hex as hex;
     use super::CHUNK_SIZE;
     use super::{key_encrypt, pass_encrypt};
     use crate::{sha256, AsymFileFormat, PassFileFormat, PayloadKey, PrivateKey, PublicKey};
+    use const_hex as hex;
     use std::convert::TryInto;
     use std::io::Read;
 

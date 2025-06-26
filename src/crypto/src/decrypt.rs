@@ -45,7 +45,7 @@ pub fn key_decrypt<T: Read, U: Write>(
 
     let file_encryption_key = hkdf_sha256(
         &[],
-        &noise_message.payload_key.as_bytes(),
+        noise_message.payload_key.as_bytes(),
         &noise_message.handshake_hash,
         32,
     );
@@ -136,7 +136,7 @@ fn decrypt_chunks<T: Read, U: Write>(
         auth_data[aad_len + 4..].copy_from_slice(&ciphertext_length_bytes);
 
         let ct = &buffer[..ct_len + TAG_SIZE];
-        let pt_chunk = chapoly_decrypt_noise(&key, chunk_number, auth_data.as_slice(), ct)?;
+        let pt_chunk = chapoly_decrypt_noise(key, chunk_number, auth_data.as_slice(), ct)?;
 
         // Here we know that our chunk is valid because we have successfully
         // decrypted. We also know that the chunk has not been duplicated or
@@ -193,10 +193,9 @@ fn read_err(err: std::io::Error) -> DecryptError {
     use std::io::ErrorKind;
 
     match err.kind() {
-        ErrorKind::UnexpectedEof => DecryptError::IORead(std::io::Error::new(
-            ErrorKind::Other,
-            "Did not read enough data.",
-        )),
+        ErrorKind::UnexpectedEof => {
+            DecryptError::IORead(std::io::Error::other("Did not read enough data."))
+        }
         _ => DecryptError::IORead(err),
     }
 }
@@ -207,13 +206,13 @@ fn write_err(err: std::io::Error) -> DecryptError {
 
 #[cfg(test)]
 mod tests {
-    use const_hex as hex;
     use super::CHUNK_SIZE;
     use super::{key_decrypt, pass_decrypt};
     use super::{PrivateKey, PublicKey};
     use crate::encrypt::{key_encrypt, pass_encrypt};
     use crate::sha256;
     use crate::{AsymFileFormat, PassFileFormat, PayloadKey};
+    use const_hex as hex;
     use std::io::Read;
 
     #[allow(dead_code)]

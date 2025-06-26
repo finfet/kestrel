@@ -151,6 +151,7 @@ fn integer(b: &[u32], r: usize) -> u64 {
 }
 
 #[allow(non_snake_case)]
+#[allow(clippy::needless_range_loop)]
 fn smix(b: &mut [u8], r: usize, N: usize, v: &mut [u32], x: &mut [u32], y: &mut [u32]) {
     let mut tmp = [0u32; 16];
     let R = 32 * r;
@@ -161,7 +162,7 @@ fn smix(b: &mut [u8], r: usize, N: usize, v: &mut [u32], x: &mut [u32], y: &mut 
         j += 4;
     }
 
-    for i in (0..N as usize).step_by(2) {
+    for i in (0..N).step_by(2) {
         block_copy(&mut v[i * R..], x, R);
         block_mix(&mut tmp, x, y, r);
 
@@ -170,11 +171,11 @@ fn smix(b: &mut [u8], r: usize, N: usize, v: &mut [u32], x: &mut [u32], y: &mut 
     }
 
     for _ in (0..N).step_by(2) {
-        let j = (integer(x, r) & u64::from((N - 1) as u64)) as usize;
+        let j = (integer(x, r) & (N - 1) as u64) as usize;
         block_xor(x, &v[j * R..], R);
         block_mix(&mut tmp, x, y, r);
 
-        let j = (integer(y, r) & u64::from((N - 1) as u64)) as usize;
+        let j = (integer(y, r) & (N - 1) as u64) as usize;
         block_xor(y, &v[j * R..], R);
         block_mix(&mut tmp, y, x, r);
     }
@@ -186,6 +187,7 @@ fn smix(b: &mut [u8], r: usize, N: usize, v: &mut [u32], x: &mut [u32], y: &mut 
     }
 }
 
+#[allow(clippy::assertions_on_constants)]
 pub(crate) fn scrypt(
     password: &[u8],
     salt: &[u8],
@@ -194,7 +196,7 @@ pub(crate) fn scrypt(
     p: usize,
     dk_len: usize,
 ) -> Vec<u8> {
-    debug_assert!(usize::BITS >= 32);
+    assert!(usize::BITS >= 32);
     assert!(n > 1);
     assert!(n & (n - 1) == 0);
     assert!(((r as u64) * (p as u64)) < 1 << 30);
@@ -223,8 +225,8 @@ pub(crate) fn scrypt(
 
 #[cfg(test)]
 mod tests {
-    use const_hex as hex;
     use super::scrypt;
+    use const_hex as hex;
 
     struct ScryptVector<'a> {
         password: &'a [u8],

@@ -447,12 +447,12 @@ pub fn secure_random(len: usize) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use const_hex as hex;
     use super::{
         chapoly_decrypt_ietf, chapoly_decrypt_noise, chapoly_encrypt_ietf, chapoly_encrypt_noise,
         hkdf_sha256, hmac_sha256, scrypt, sha256, x25519,
     };
     use super::{PrivateKey, PublicKey};
+    use const_hex as hex;
 
     #[test]
     fn test_chapoly_encrypt() {

@@ -421,9 +421,9 @@ impl HandshakeState {
 
 #[cfg(test)]
 mod tests {
-    use const_hex as hex;
     use super::HandshakeState;
     use super::{PrivateKey, PublicKey};
+    use const_hex as hex;
 
     #[test]
     fn test_write_message() {
