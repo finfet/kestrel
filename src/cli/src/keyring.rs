@@ -524,6 +524,7 @@ mod tests {
     use super::Keyring;
     use super::KeyringParser;
     use super::{EncodedPk, EncodedSk};
+    use ct_codecs::{Decoder, Hex};
     use kestrel_crypto::{PrivateKey, PublicKey};
     use std::convert::TryInto;
     const KEYRING_INI: &str = "
@@ -559,7 +560,10 @@ Name = Bobby Bobertson
             alice.public_key.as_str()
         );
         assert!(alice.private_key.is_some());
-        assert_eq!("ZWdrMPEp09tKN3rAutCDQTshrNqoh0MLPnEERRCm5KFxvXcTo+s/Sf2ze0fKebVsQilImvLzfIHRcJuX8kGetyAQL1VchvzHR28vFhdKeq+NY2KT", alice.private_key.as_ref().unwrap().as_str());
+        assert_eq!(
+            "ZWdrMPEp09tKN3rAutCDQTshrNqoh0MLPnEERRCm5KFxvXcTo+s/Sf2ze0fKebVsQilImvLzfIHRcJuX8kGetyAQL1VchvzHR28vFhdKeq+NY2KT",
+            alice.private_key.as_ref().unwrap().as_str()
+        );
 
         assert_eq!("Bobby Bobertson", bob.name.as_str());
         assert_eq!(
@@ -571,17 +575,22 @@ Name = Bobby Bobertson
 
     #[test]
     fn test_lock_private_key() {
-        let sk_bytes =
-            hex::decode("42d010ed1797fb3187351423f164caee1ce15eb5a462cf6194457b7a736938f5")
-                .unwrap();
+        let sk_bytes = Hex::decode_to_vec(
+            "42d010ed1797fb3187351423f164caee1ce15eb5a462cf6194457b7a736938f5",
+            None,
+        )
+        .unwrap();
 
         let locked_sk = "ZWdrMHMp/2yenV64rOfAJmMGWRVGbJuUAVhzOeRYRwNPqndu4Pfkg4YXzIna9Eg58JwreHA37o49xCS0x8CWd3yRe+D2ytRXFLb67WNIwxqHJ9Fw";
 
         let sk = PrivateKey::try_from(sk_bytes.as_slice()).unwrap();
 
         let password = b"alice";
-        let salt = hex::decode("7329ff6c9e9d5eb8ace7c02663065915466c9b9401587339e45847034faa776e")
-            .unwrap();
+        let salt = Hex::decode_to_vec(
+            "7329ff6c9e9d5eb8ace7c02663065915466c9b9401587339e45847034faa776e",
+            None,
+        )
+        .unwrap();
         let salt: [u8; 32] = salt.as_slice().try_into().unwrap();
 
         let enc_sk = Keyring::lock_private_key(&sk, password, salt);
@@ -606,9 +615,11 @@ Name = Bobby Bobertson
 
     #[test]
     fn test_encode_public_key() {
-        let pk_bytes =
-            hex::decode("3ad53dc25581b18af543a1e8cf4edc2b4e4e483df5a7e0d5ada53e7e4bb86374")
-                .unwrap();
+        let pk_bytes = Hex::decode_to_vec(
+            "3ad53dc25581b18af543a1e8cf4edc2b4e4e483df5a7e0d5ada53e7e4bb86374",
+            None,
+        )
+        .unwrap();
         let expected = "OtU9wlWBsYr1Q6Hoz07cK05OSD31p+DVraU+fku4Y3R62CZl";
         let pk = PublicKey::try_from(pk_bytes.as_slice()).unwrap();
         let got = Keyring::encode_public_key(&pk);

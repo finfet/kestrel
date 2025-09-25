@@ -226,7 +226,7 @@ pub(crate) fn scrypt(
 #[cfg(test)]
 mod tests {
     use super::scrypt;
-    use const_hex as hex;
+    use ct_codecs::{Decoder, Hex};
 
     struct ScryptVector<'a> {
         password: &'a [u8],
@@ -326,7 +326,7 @@ mod tests {
                 case.p,
                 case.dk_len,
             );
-            let exp = hex::decode(case.expected_dk).unwrap();
+            let exp = Hex::decode_to_vec(case.expected_dk, None).unwrap();
             assert_eq!(exp.as_slice(), got.as_slice())
         }
     }

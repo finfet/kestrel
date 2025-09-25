@@ -7,7 +7,7 @@ use kestrel_crypto::scrypt as ktl_scrypt;
 /// Parameter n must be larger than 1 and a power of 2
 /// # Safety
 /// The supplied lengths must be correct for their respective pointers.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn scrypt(
     password: *const c_uchar,
     password_len: size_t,
@@ -19,13 +19,15 @@ pub unsafe extern "C" fn scrypt(
     derived_key: *mut c_uchar,
     dk_len: size_t,
 ) {
-    let kpass = std::slice::from_raw_parts(password, password_len);
+    unsafe {
+        let kpass = std::slice::from_raw_parts(password, password_len);
 
-    let ksalt = std::slice::from_raw_parts(salt, salt_len);
+        let ksalt = std::slice::from_raw_parts(salt, salt_len);
 
-    let kderived_key = std::slice::from_raw_parts_mut(derived_key, dk_len);
+        let kderived_key = std::slice::from_raw_parts_mut(derived_key, dk_len);
 
-    let dk = ktl_scrypt(kpass, ksalt, n, r, p, kderived_key.len());
+        let dk = ktl_scrypt(kpass, ksalt, n, r, p, kderived_key.len());
 
-    kderived_key.copy_from_slice(dk.as_slice());
+        kderived_key.copy_from_slice(dk.as_slice());
+    }
 }

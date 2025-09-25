@@ -1,7 +1,8 @@
 [package]
 name = "kestrel-crypto"
-version = "3.0.0"
-edition = "2021"
+version = "3.0.1"
+edition = "2024"
+rust-version = "1.85"
 authors = [
     "Kyle Schreiber <kyle@80x24.net>",
 ]
@@ -19,7 +20,7 @@ zeroize = "1.8"
 orion = "0.17.11"
 
 [dev-dependencies]
-const-hex = "1.14.1"
+ct-codecs = "1.1.6"
 
 [features]
 default = [ "std" ]

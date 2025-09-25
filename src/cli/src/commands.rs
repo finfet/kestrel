@@ -11,13 +11,13 @@ use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
-use passterm::{isatty, Stream};
+use passterm::{Stream, isatty};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use kestrel_crypto::errors::DecryptError;
 use kestrel_crypto::PrivateKey;
-use kestrel_crypto::{decrypt, encrypt};
+use kestrel_crypto::errors::DecryptError;
 use kestrel_crypto::{AsymFileFormat, PassFileFormat};
+use kestrel_crypto::{decrypt, encrypt};
 
 #[derive(Debug)]
 pub(crate) struct EncryptOptions {
@@ -570,13 +570,13 @@ fn read_env_new_pass() -> Result<ZeroedString, anyhow::Error> {
     match std::env::var("KESTREL_NEW_PASSWORD") {
         Ok(p) => Ok(ZeroedString::new(p)),
         Err(e) => match e {
-            std::env::VarError::NotPresent => {
-                Err(anyhow!("--env-pass with change-pass requires setting the KESTREL_NEW_PASSWORD environment variable"))
-            }
-            std::env::VarError::NotUnicode(_) => {
-                Err(anyhow!("Could not read data from KESTREL_NEW_PASSWORD environment variable"))
-            }
-        }
+            std::env::VarError::NotPresent => Err(anyhow!(
+                "--env-pass with change-pass requires setting the KESTREL_NEW_PASSWORD environment variable"
+            )),
+            std::env::VarError::NotUnicode(_) => Err(anyhow!(
+                "Could not read data from KESTREL_NEW_PASSWORD environment variable"
+            )),
+        },
     }
 }
 
@@ -613,7 +613,7 @@ fn open_keyring(keyring_loc: Option<String>) -> Result<Keyring, anyhow::Error> {
                 std::env::VarError::NotPresent => {
                     return Err(anyhow!(
                         "Specify a keyring with -k or set the KESTREL_KEYRING env var"
-                    ))
+                    ));
                 }
                 std::env::VarError::NotUnicode(_) => {
                     return Err(anyhow!("Could not read data from KESTREL_KEYRING env var"));

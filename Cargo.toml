@@ -1,6 +1,6 @@
 [workspace]
 members = ["src/*"]
-resolver = "2"
+resolver = "3"
 
 [profile.release]
 strip = true

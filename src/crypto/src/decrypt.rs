@@ -8,9 +8,9 @@ use std::io::{Read, Write};
 use zeroize::Zeroizing;
 
 use crate::errors::{DecryptError, FileFormatError};
-use crate::{chapoly_decrypt_noise, hkdf_sha256, noise_decrypt, scrypt, PrivateKey, PublicKey};
 use crate::{AsymFileFormat, FileFormat, PassFileFormat};
 use crate::{CHUNK_SIZE, SCRYPT_N, SCRYPT_P, SCRYPT_R, TAG_SIZE};
+use crate::{PrivateKey, PublicKey, chapoly_decrypt_noise, hkdf_sha256, noise_decrypt, scrypt};
 
 /// Decrypt asymmetric encrypted data from [`key_encrypt`](crate::encrypt::key_encrypt)
 pub fn key_decrypt<T: Read, U: Write>(
@@ -207,12 +207,12 @@ fn write_err(err: std::io::Error) -> DecryptError {
 #[cfg(test)]
 mod tests {
     use super::CHUNK_SIZE;
-    use super::{key_decrypt, pass_decrypt};
     use super::{PrivateKey, PublicKey};
+    use super::{key_decrypt, pass_decrypt};
     use crate::encrypt::{key_encrypt, pass_encrypt};
     use crate::sha256;
     use crate::{AsymFileFormat, PassFileFormat, PayloadKey};
-    use const_hex as hex;
+    use ct_codecs::{Decoder, Hex};
     use std::io::Read;
 
     #[allow(dead_code)]
@@ -246,12 +246,16 @@ mod tests {
     }
 
     fn encrypt_small_util() -> Vec<u8> {
-        let ephemeral_private =
-            hex::decode("fdbc28d8f4c2a97013e460836cece7a4bdf59df0cb4b3a185146d13615884f38")
-                .unwrap();
-        let payload_key =
-            hex::decode("a9f9ddef54d0432ec067b75aef26c3db5419ade3b016339743ca1812d89188b2")
-                .unwrap();
+        let ephemeral_private = Hex::decode_to_vec(
+            "fdbc28d8f4c2a97013e460836cece7a4bdf59df0cb4b3a185146d13615884f38",
+            None,
+        )
+        .unwrap();
+        let payload_key = Hex::decode_to_vec(
+            "a9f9ddef54d0432ec067b75aef26c3db5419ade3b016339743ca1812d89188b2",
+            None,
+        )
+        .unwrap();
         let key_data = get_key_data();
 
         let sender = PrivateKey::try_from(key_data.alice_private.as_bytes()).unwrap();
@@ -284,9 +288,11 @@ mod tests {
 
     #[test]
     fn test_decrypt_one_chunk() {
-        let expected_hash =
-            hex::decode("916b144867c340614f515c7b0e5415c74832d899c05264ded2a277a6e81d81ff")
-                .unwrap();
+        let expected_hash = Hex::decode_to_vec(
+            "916b144867c340614f515c7b0e5415c74832d899c05264ded2a277a6e81d81ff",
+            None,
+        )
+        .unwrap();
         let key_data = get_key_data();
         let expected_sender = key_data.alice_public;
         let recipient = key_data.bob_private;
@@ -308,14 +314,18 @@ mod tests {
     }
 
     fn encrypt_one_chunk() -> Vec<u8> {
-        let ephemeral_private =
-            hex::decode("fdf2b46d965e4bb85d856971d657fdd6dc1fe8993f27587980e4f07f6409927f")
-                .unwrap();
+        let ephemeral_private = Hex::decode_to_vec(
+            "fdf2b46d965e4bb85d856971d657fdd6dc1fe8993f27587980e4f07f6409927f",
+            None,
+        )
+        .unwrap();
         let ephemeral_private = PrivateKey::try_from(ephemeral_private.as_slice()).unwrap();
         let ephemeral_public = ephemeral_private.to_public().unwrap();
-        let payload_key =
-            hex::decode("a300f423e416610a5dd87442f4edc21325f2b3211c4c69f0e0c541cf6cf4eca6")
-                .unwrap();
+        let payload_key = Hex::decode_to_vec(
+            "a300f423e416610a5dd87442f4edc21325f2b3211c4c69f0e0c541cf6cf4eca6",
+            None,
+        )
+        .unwrap();
         let payload_key = PayloadKey::new(payload_key.as_slice());
         let key_data = get_key_data();
 
@@ -342,9 +352,11 @@ mod tests {
 
     #[test]
     fn test_decrypt_two_chunks() {
-        let expected_hash =
-            hex::decode("6cb0ccb39028c57dd7db638d27c88fd1acc1794c8582fefe0949c091a2035ac7")
-                .unwrap();
+        let expected_hash = Hex::decode_to_vec(
+            "6cb0ccb39028c57dd7db638d27c88fd1acc1794c8582fefe0949c091a2035ac7",
+            None,
+        )
+        .unwrap();
         let key_data = get_key_data();
         let expected_sender = key_data.alice_public;
         let recipient = key_data.bob_private;
@@ -367,14 +379,18 @@ mod tests {
 
     fn encrypt_two_chunks() -> Vec<u8> {
         // Plaintext greater than 64k will trigger the need for an extra chunk
-        let ephemeral_private =
-            hex::decode("90ecf9d1dca6ed1e6997585228513a73d4db36bd7dd7c758acb55a6d333bb2fb")
-                .unwrap();
+        let ephemeral_private = Hex::decode_to_vec(
+            "90ecf9d1dca6ed1e6997585228513a73d4db36bd7dd7c758acb55a6d333bb2fb",
+            None,
+        )
+        .unwrap();
         let ephemeral_private = PrivateKey::try_from(ephemeral_private.as_slice()).unwrap();
         let ephemeral_public = ephemeral_private.to_public().unwrap();
-        let payload_key =
-            hex::decode("d3387376438daeb6f7543e815cbde249810e341c1ccab192025b909b9ea4ebe7")
-                .unwrap();
+        let payload_key = Hex::decode_to_vec(
+            "d3387376438daeb6f7543e815cbde249810e341c1ccab192025b909b9ea4ebe7",
+            None,
+        )
+        .unwrap();
         let payload_key = PayloadKey::new(payload_key.as_slice());
         let key_data = get_key_data();
 
@@ -418,8 +434,11 @@ mod tests {
     }
 
     fn pass_encrypt_util() -> Vec<u8> {
-        let salt = hex::decode("b3e94eb6bba5bc462aab92fd86eb9d9f939320a60ae46e690907918ef2ee3aec")
-            .unwrap();
+        let salt = Hex::decode_to_vec(
+            "b3e94eb6bba5bc462aab92fd86eb9d9f939320a60ae46e690907918ef2ee3aec",
+            None,
+        )
+        .unwrap();
         let salt: [u8; 32] = salt.try_into().unwrap();
         let pass = b"hackme";
         let plaintext = b"Be sure to drink your Ovaltine";
@@ -440,22 +459,30 @@ mod tests {
     }
 
     fn get_key_data() -> KeyData {
-        let alice_private =
-            hex::decode("46acb4ad2a6ffb9d70245798634ad0d5caf7a9738e5f3b60905dee7a7b973bd5")
-                .unwrap();
+        let alice_private = Hex::decode_to_vec(
+            "46acb4ad2a6ffb9d70245798634ad0d5caf7a9738e5f3b60905dee7a7b973bd5",
+            None,
+        )
+        .unwrap();
         let alice_private = PrivateKey::try_from(alice_private.as_slice()).unwrap();
-        let alice_public =
-            hex::decode("3cf3637b4dfdc4596544a936b3983fca09324505f39568d4b8537bc01a92cf6d")
-                .unwrap();
+        let alice_public = Hex::decode_to_vec(
+            "3cf3637b4dfdc4596544a936b3983fca09324505f39568d4b8537bc01a92cf6d",
+            None,
+        )
+        .unwrap();
         let alice_public = PublicKey::try_from(alice_public.as_slice()).unwrap();
 
-        let bob_private =
-            hex::decode("461299525a53333e8597a2b065703ec751356f8462d2704e630c108037567bd4")
-                .unwrap();
+        let bob_private = Hex::decode_to_vec(
+            "461299525a53333e8597a2b065703ec751356f8462d2704e630c108037567bd4",
+            None,
+        )
+        .unwrap();
         let bob_private = PrivateKey::try_from(bob_private.as_slice()).unwrap();
-        let bob_public =
-            hex::decode("98459724b39e6b9e90b60d214df2887093e224b163714e07e527a4d37edc2d03")
-                .unwrap();
+        let bob_public = Hex::decode_to_vec(
+            "98459724b39e6b9e90b60d214df2887093e224b163714e07e527a4d37edc2d03",
+            None,
+        )
+        .unwrap();
         let bob_public = PublicKey::try_from(bob_public.as_slice()).unwrap();
 
         KeyData {

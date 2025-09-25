@@ -447,17 +447,20 @@ pub fn secure_random(len: usize) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use super::{PrivateKey, PublicKey};
     use super::{
         chapoly_decrypt_ietf, chapoly_decrypt_noise, chapoly_encrypt_ietf, chapoly_encrypt_noise,
         hkdf_sha256, hmac_sha256, scrypt, sha256, x25519,
     };
-    use super::{PrivateKey, PublicKey};
-    use const_hex as hex;
+    use ct_codecs::{Decoder, Hex};
 
     #[test]
     fn test_chapoly_encrypt() {
-        let expected =
-            hex::decode("cc459a8b9d29617bb70791e7b158dfaf36585f656aec0ada3899fdcd").unwrap();
+        let expected = Hex::decode_to_vec(
+            "cc459a8b9d29617bb70791e7b158dfaf36585f656aec0ada3899fdcd",
+            None,
+        )
+        .unwrap();
         let pt = b"Hello world!";
         let key: [u8; 32] = [
             0x77, 0x07, 0x6d, 0x0a, 0x73, 0x18, 0xa5, 0x7d, 0x3c, 0x16, 0xc1, 0x72, 0x51, 0xb2,
@@ -474,9 +477,12 @@ mod tests {
 
     #[test]
     fn test_chapoly_enc_empty_pt() {
-        let expected_ct = hex::decode("c7a7077a5e9d774b510100904c7dc805").unwrap();
-        let key = hex::decode("68301045a4494999d59ffa818ee5fafc2878bf96c32acf5fa40dbe93e8ac98ce")
-            .unwrap();
+        let expected_ct = Hex::decode_to_vec("c7a7077a5e9d774b510100904c7dc805", None).unwrap();
+        let key = Hex::decode_to_vec(
+            "68301045a4494999d59ffa818ee5fafc2878bf96c32acf5fa40dbe93e8ac98ce",
+            None,
+        )
+        .unwrap();
         let nonce = [0u8; 12];
         let aad: [u8; 1] = [0x01];
 
@@ -487,13 +493,19 @@ mod tests {
 
     #[test]
     fn test_decrypt() {
-        let key = hex::decode("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a")
-            .unwrap();
+        let key = Hex::decode_to_vec(
+            "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a",
+            None,
+        )
+        .unwrap();
         let nonce: u64 = 0;
-        let ad = hex::decode("0000000C").unwrap();
+        let ad = Hex::decode_to_vec("0000000C", None).unwrap();
         let expected = b"Hello world!";
-        let ct_and_tag =
-            hex::decode("cc459a8b9d29617bb70791e7b158dfaf36585f656aec0ada3899fdcd").unwrap();
+        let ct_and_tag = Hex::decode_to_vec(
+            "cc459a8b9d29617bb70791e7b158dfaf36585f656aec0ada3899fdcd",
+            None,
+        )
+        .unwrap();
 
         let pt = chapoly_decrypt_noise(&key, nonce, &ad, &ct_and_tag).unwrap();
 
@@ -502,9 +514,12 @@ mod tests {
 
     #[test]
     fn test_chapoly_dec_empty_pt() {
-        let ct = hex::decode("c7a7077a5e9d774b510100904c7dc805").unwrap();
-        let key = hex::decode("68301045a4494999d59ffa818ee5fafc2878bf96c32acf5fa40dbe93e8ac98ce")
-            .unwrap();
+        let ct = Hex::decode_to_vec("c7a7077a5e9d774b510100904c7dc805", None).unwrap();
+        let key = Hex::decode_to_vec(
+            "68301045a4494999d59ffa818ee5fafc2878bf96c32acf5fa40dbe93e8ac98ce",
+            None,
+        )
+        .unwrap();
         let nonce = [0u8; 12];
         let aad: [u8; 1] = [0x01];
 
@@ -518,9 +533,11 @@ mod tests {
     fn test_sha256() {
         let data = b"hello";
         let got = sha256(data);
-        let expected =
-            hex::decode("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
-                .unwrap();
+        let expected = Hex::decode_to_vec(
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+            None,
+        )
+        .unwrap();
         assert_eq!(&got, expected.as_slice());
     }
 
@@ -528,9 +545,11 @@ mod tests {
     fn test_hmac_sha256() {
         let key = b"yellowsubmarine.yellowsubmarine.";
         let message = b"Hello, world!";
-        let expected =
-            hex::decode("3cb82dc71c26dfe8be75805f6438027d5170f3fdcd8057f0a55d1c7c1743224c")
-                .unwrap();
+        let expected = Hex::decode_to_vec(
+            "3cb82dc71c26dfe8be75805f6438027d5170f3fdcd8057f0a55d1c7c1743224c",
+            None,
+        )
+        .unwrap();
         let result = hmac_sha256(key, message);
 
         assert_eq!(&expected, &result);
@@ -539,13 +558,14 @@ mod tests {
     #[test]
     fn test_hkdf_sha256() {
         // RFC-5869 Test Case 1
-        let ikm = hex::decode("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b").unwrap();
-        let salt = hex::decode("000102030405060708090a0b0c").unwrap();
-        let info = hex::decode("f0f1f2f3f4f5f6f7f8f9").unwrap();
+        let ikm = Hex::decode_to_vec("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b", None).unwrap();
+        let salt = Hex::decode_to_vec("000102030405060708090a0b0c", None).unwrap();
+        let info = Hex::decode_to_vec("f0f1f2f3f4f5f6f7f8f9", None).unwrap();
         let length = 42;
 
-        let expected_okm = hex::decode(
+        let expected_okm = Hex::decode_to_vec(
             "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865",
+            None,
         )
         .unwrap();
 
@@ -554,13 +574,14 @@ mod tests {
         assert_eq!(&expected_okm, &result_okm);
 
         // RFC-5869 Test Case 3
-        let ikm = hex::decode("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b").unwrap();
+        let ikm = Hex::decode_to_vec("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b", None).unwrap();
         let salt = &[];
         let info = &[];
         let length = 42;
 
-        let expected_okm = hex::decode(
+        let expected_okm = Hex::decode_to_vec(
             "8da4e775a563c18f715f802a063c5a31b8a11f5c5ee1879ec3454e5f3c738d2d9d201395faa4b61a96c8",
+            None,
         )
         .unwrap();
 
@@ -573,38 +594,50 @@ mod tests {
         let password = b"hackme";
         let salt = b"yellowsubmarine.";
 
-        let expected1 =
-            hex::decode("3ebb9ac0d1da595f755407fe8fc246fe67fe6075730fc6e853351c2834bd6157")
-                .unwrap();
+        let expected1 = Hex::decode_to_vec(
+            "3ebb9ac0d1da595f755407fe8fc246fe67fe6075730fc6e853351c2834bd6157",
+            None,
+        )
+        .unwrap();
         let result1 = scrypt(password, salt, 32768, 8, 1, 32);
         assert_eq!(&expected1, &result1);
 
-        let expected2 = hex::decode("3ebb9ac0d1da595f").unwrap();
+        let expected2 = Hex::decode_to_vec("3ebb9ac0d1da595f", None).unwrap();
         let result2 = scrypt(password, salt, 32768, 8, 1, 8);
         assert_eq!(&expected2, &result2);
 
-        let expected3 = hex::decode("87b33dba57a7633a3df7741eabee3de0").unwrap();
+        let expected3 = Hex::decode_to_vec("87b33dba57a7633a3df7741eabee3de0", None).unwrap();
         let result3 = scrypt(password, salt, 1024, 8, 1, 16);
         assert_eq!(&expected3, &result3);
     }
 
     #[test]
     fn test_rfc7748_diffie_hellman_vectors() {
-        let alice_private_expected =
-            hex::decode("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a")
-                .unwrap();
-        let alice_public_expected =
-            hex::decode("8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a")
-                .unwrap();
-        let bob_private_expected =
-            hex::decode("5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb")
-                .unwrap();
-        let bob_public_expected =
-            hex::decode("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f")
-                .unwrap();
-        let expected_shared_secret =
-            hex::decode("4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742")
-                .unwrap();
+        let alice_private_expected = Hex::decode_to_vec(
+            "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a",
+            None,
+        )
+        .unwrap();
+        let alice_public_expected = Hex::decode_to_vec(
+            "8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a",
+            None,
+        )
+        .unwrap();
+        let bob_private_expected = Hex::decode_to_vec(
+            "5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb",
+            None,
+        )
+        .unwrap();
+        let bob_public_expected = Hex::decode_to_vec(
+            "de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f",
+            None,
+        )
+        .unwrap();
+        let expected_shared_secret = Hex::decode_to_vec(
+            "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742",
+            None,
+        )
+        .unwrap();
 
         let alice_private = PrivateKey::try_from(alice_private_expected.as_slice()).unwrap();
         let alice_public = PublicKey::try_from(alice_public_expected.as_slice()).unwrap();
@@ -627,12 +660,16 @@ mod tests {
 
     #[test]
     fn test_private_to_public() {
-        let alice_private_expected =
-            hex::decode("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a")
-                .unwrap();
-        let alice_public_expected =
-            hex::decode("8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a")
-                .unwrap();
+        let alice_private_expected = Hex::decode_to_vec(
+            "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a",
+            None,
+        )
+        .unwrap();
+        let alice_public_expected = Hex::decode_to_vec(
+            "8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a",
+            None,
+        )
+        .unwrap();
         let got_public = PrivateKey::try_from(&alice_private_expected[..])
             .unwrap()
             .to_public()

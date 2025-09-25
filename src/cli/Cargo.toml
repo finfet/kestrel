@@ -1,7 +1,8 @@
 [package]
 name = "kestrel-cli"
 version = "1.0.3"
-edition = "2021"
+edition = "2024"
+rust-version = "1.85"
 authors = [
     "Kyle Schreiber <kyle@80x24.net>",
 ]
@@ -20,10 +21,7 @@ path = "src/main.rs"
 [dependencies]
 kestrel-crypto = "3"
 ct-codecs = "1.1.6"
-getopts = "0.2.23"
+getopts = { version = "0.2.24", default-features = false }
 anyhow = "1.0"
 passterm = { version = "2.0.5", features = ["secure_zero"] }
 zeroize = "1.8"
-
-[dev-dependencies]
-hex = "0.4.3"

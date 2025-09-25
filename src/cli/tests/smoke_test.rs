@@ -1,6 +1,7 @@
 // Copyright The Kestrel Contributors
 // SPDX-License-Identifier: BSD-3-Clause
 
+use ct_codecs::{Encoder, Hex};
 use kestrel_crypto::secure_random;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -23,7 +24,7 @@ impl TempFile {
     }
 
     fn gen_tempfile<T: AsRef<Path>>(tempdir: Option<T>) -> Self {
-        let suffix = hex::encode(secure_random(12).as_slice());
+        let suffix = Hex::encode_to_string(secure_random(12).as_slice()).unwrap();
         let mut path = PathBuf::new();
         if let Some(d) = tempdir {
             path.push(d);
@@ -86,8 +87,7 @@ fn test_key_gen() {
 
 #[test]
 fn test_key_change_pass() {
-    let alice_private =
-        "ZWdrMPEp09tKN3rAutCDQTshrNqoh0MLPnEERRCm5KFxvXcTo+s/Sf2ze0fKebVsQilImvLzfIHRcJuX8kGetyAQL1VchvzHR28vFhdKeq+NY2KT";
+    let alice_private = "ZWdrMPEp09tKN3rAutCDQTshrNqoh0MLPnEERRCm5KFxvXcTo+s/Sf2ze0fKebVsQilImvLzfIHRcJuX8kGetyAQL1VchvzHR28vFhdKeq+NY2KT";
 
     let app = Command::new(EXE_LOC)
         .arg("key")
@@ -124,8 +124,7 @@ fn test_key_change_pass() {
 
 #[test]
 fn test_key_extract_pub() {
-    let alice_private =
-        "ZWdrMPEp09tKN3rAutCDQTshrNqoh0MLPnEERRCm5KFxvXcTo+s/Sf2ze0fKebVsQilImvLzfIHRcJuX8kGetyAQL1VchvzHR28vFhdKeq+NY2KT";
+    let alice_private = "ZWdrMPEp09tKN3rAutCDQTshrNqoh0MLPnEERRCm5KFxvXcTo+s/Sf2ze0fKebVsQilImvLzfIHRcJuX8kGetyAQL1VchvzHR28vFhdKeq+NY2KT";
     let expected_stdout = "PublicKey = D7ZZstGYF6okKKEV2rwoUza/tK3iUa8IMY+l5tuirmzzkEog";
 
     let app = Command::new(EXE_LOC)

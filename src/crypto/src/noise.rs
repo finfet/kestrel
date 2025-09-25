@@ -9,8 +9,8 @@ use zeroize::Zeroizing;
 
 use crate::errors::NoiseError;
 use crate::{
-    chapoly_decrypt_noise, chapoly_encrypt_noise, hkdf_noise, sha256, PayloadKey, PrivateKey,
-    PublicKey,
+    PayloadKey, PrivateKey, PublicKey, chapoly_decrypt_noise, chapoly_encrypt_noise, hkdf_noise,
+    sha256,
 };
 
 const HASH_LEN: usize = 32;
@@ -423,34 +423,49 @@ impl HandshakeState {
 mod tests {
     use super::HandshakeState;
     use super::{PrivateKey, PublicKey};
-    use const_hex as hex;
+    use ct_codecs::{Decoder, Hex};
 
     #[test]
     fn test_write_message() {
-        let prologue = hex::decode("50726f6c6f677565313233").unwrap();
-        let initiator_priv_bytes =
-            hex::decode("e61ef9919cde45dd5f82166404bd08e38bceb5dfdfded0a34c8df7ed542214d1")
-                .unwrap();
-        let ephem_priv_bytes =
-            hex::decode("893e28b9dc6ca8d611ab664754b8ceb7bac5117349a4439a6b0569da977c464a")
-                .unwrap();
-        let remote_static_pub_bytes =
-            hex::decode("31e0303fd6418d2f8c0e78b91f22e8caed0fbe48656dcf4767e4834f701b8f62")
-                .unwrap();
-        let payload = hex::decode("4c756477696720766f6e204d69736573").unwrap();
-        let expected_ciphertext = hex::decode("ca35def5ae56cec33dc2036731ab14896bc4c75dbb07a61f879f8e3afa4c79446c15957a594079a5bdeae05d01e089fbb7cc6ea2ecfd209b941f73c9235213bc14ed87a1a4a0b164c11a5999be0f7bf1fdc3aaa6de60cb3c98302f370fdb03ea6fe2cf18324b0812663aed65fc9eafdf")
+        let prologue = Hex::decode_to_vec("50726f6c6f677565313233", None).unwrap();
+        let initiator_priv_bytes = Hex::decode_to_vec(
+            "e61ef9919cde45dd5f82166404bd08e38bceb5dfdfded0a34c8df7ed542214d1",
+            None,
+        )
+        .unwrap();
+        let ephem_priv_bytes = Hex::decode_to_vec(
+            "893e28b9dc6ca8d611ab664754b8ceb7bac5117349a4439a6b0569da977c464a",
+            None,
+        )
+        .unwrap();
+        let remote_static_pub_bytes = Hex::decode_to_vec(
+            "31e0303fd6418d2f8c0e78b91f22e8caed0fbe48656dcf4767e4834f701b8f62",
+            None,
+        )
+        .unwrap();
+        let payload = Hex::decode_to_vec("4c756477696720766f6e204d69736573", None).unwrap();
+        let expected_ciphertext = Hex::decode_to_vec("ca35def5ae56cec33dc2036731ab14896bc4c75dbb07a61f879f8e3afa4c79446c15957a594079a5bdeae05d01e089fbb7cc6ea2ecfd209b941f73c9235213bc14ed87a1a4a0b164c11a5999be0f7bf1fdc3aaa6de60cb3c98302f370fdb03ea6fe2cf18324b0812663aed65fc9eafdf", None)
             .unwrap();
 
-        let exp_handshake_hash =
-            hex::decode("e5cdeb715c9553e966ccd446aff7f6df1556d0ecda39ddb49ef24c876fe249b7")
-                .unwrap();
+        let exp_handshake_hash = Hex::decode_to_vec(
+            "e5cdeb715c9553e966ccd446aff7f6df1556d0ecda39ddb49ef24c876fe249b7",
+            None,
+        )
+        .unwrap();
         // Vectors for the transport messages
-        let transport_payload1 = hex::decode("4d757272617920526f746862617264").unwrap();
-        let exp_transport_ct1 =
-            hex::decode("9868def631af6242aaf00c35218275832d8d022af1c67b9fc5e8ba90f4d91b").unwrap();
-        let trasnport_payload2 = hex::decode("462e20412e20486179656b").unwrap();
-        let exp_transport_ct2 =
-            hex::decode("9fdd2576d757f880de49b32b80abf53afec16ddc86769f0e92daff").unwrap();
+        let transport_payload1 =
+            Hex::decode_to_vec("4d757272617920526f746862617264", None).unwrap();
+        let exp_transport_ct1 = Hex::decode_to_vec(
+            "9868def631af6242aaf00c35218275832d8d022af1c67b9fc5e8ba90f4d91b",
+            None,
+        )
+        .unwrap();
+        let trasnport_payload2 = Hex::decode_to_vec("462e20412e20486179656b", None).unwrap();
+        let exp_transport_ct2 = Hex::decode_to_vec(
+            "9fdd2576d757f880de49b32b80abf53afec16ddc86769f0e92daff",
+            None,
+        )
+        .unwrap();
 
         let static_priv = PrivateKey::try_from(initiator_priv_bytes.as_ref()).unwrap();
         let static_pub = static_priv.to_public().unwrap();
@@ -493,22 +508,35 @@ mod tests {
 
     #[test]
     fn test_read_message() {
-        let prologue = hex::decode("50726f6c6f677565313233").unwrap();
-        let handshake_message = hex::decode("ca35def5ae56cec33dc2036731ab14896bc4c75dbb07a61f879f8e3afa4c79446c15957a594079a5bdeae05d01e089fbb7cc6ea2ecfd209b941f73c9235213bc14ed87a1a4a0b164c11a5999be0f7bf1fdc3aaa6de60cb3c98302f370fdb03ea6fe2cf18324b0812663aed65fc9eafdf").unwrap();
+        let prologue = Hex::decode_to_vec("50726f6c6f677565313233", None).unwrap();
+        let handshake_message = Hex::decode_to_vec("ca35def5ae56cec33dc2036731ab14896bc4c75dbb07a61f879f8e3afa4c79446c15957a594079a5bdeae05d01e089fbb7cc6ea2ecfd209b941f73c9235213bc14ed87a1a4a0b164c11a5999be0f7bf1fdc3aaa6de60cb3c98302f370fdb03ea6fe2cf18324b0812663aed65fc9eafdf", None).unwrap();
         // The sender's public key that is sent encrypted in the handshake message.
-        let expected_public_key =
-            hex::decode("6bc3822a2aa7f4e6981d6538692b3cdf3e6df9eea6ed269eb41d93c22757b75a")
-                .unwrap();
-        let responder_static_bytes =
-            hex::decode("4a3acbfdb163dec651dfa3194dece676d437029c62a408b4c5ea9114246e4893")
-                .unwrap();
-        let expected_handshake_payload = hex::decode("4c756477696720766f6e204d69736573").unwrap();
-        let expected_transport_payload1 = hex::decode("4d757272617920526f746862617264").unwrap();
-        let transport_ciphertext1 =
-            hex::decode("9868def631af6242aaf00c35218275832d8d022af1c67b9fc5e8ba90f4d91b").unwrap();
-        let expected_transport_payload2 = hex::decode("462e20412e20486179656b").unwrap();
-        let transport_ciphertext2 =
-            hex::decode("9fdd2576d757f880de49b32b80abf53afec16ddc86769f0e92daff").unwrap();
+        let expected_public_key = Hex::decode_to_vec(
+            "6bc3822a2aa7f4e6981d6538692b3cdf3e6df9eea6ed269eb41d93c22757b75a",
+            None,
+        )
+        .unwrap();
+        let responder_static_bytes = Hex::decode_to_vec(
+            "4a3acbfdb163dec651dfa3194dece676d437029c62a408b4c5ea9114246e4893",
+            None,
+        )
+        .unwrap();
+        let expected_handshake_payload =
+            Hex::decode_to_vec("4c756477696720766f6e204d69736573", None).unwrap();
+        let expected_transport_payload1 =
+            Hex::decode_to_vec("4d757272617920526f746862617264", None).unwrap();
+        let transport_ciphertext1 = Hex::decode_to_vec(
+            "9868def631af6242aaf00c35218275832d8d022af1c67b9fc5e8ba90f4d91b",
+            None,
+        )
+        .unwrap();
+        let expected_transport_payload2 =
+            Hex::decode_to_vec("462e20412e20486179656b", None).unwrap();
+        let transport_ciphertext2 = Hex::decode_to_vec(
+            "9fdd2576d757f880de49b32b80abf53afec16ddc86769f0e92daff",
+            None,
+        )
+        .unwrap();
 
         let responder_private = PrivateKey::try_from(responder_static_bytes.as_slice()).unwrap();
         let responder_public = responder_private.to_public().unwrap();
