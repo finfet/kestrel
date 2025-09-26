@@ -81,7 +81,7 @@ jobs:
           rustup target add x86_64-pc-windows-msvc
       - name: Install Inno Setup
         run: |
-          winget install --version v6.5.4 --id JRSoftware.InnoSetup -e -s winget
+          winget install --version 6.5.4 --id JRSoftware.InnoSetup -e -s winget
           $env:path += ";$env:LOCALAPPDATA/Programs/Inno Setup 6"
       - name: Checkout (Latest)
         uses: actions/checkout@v4
