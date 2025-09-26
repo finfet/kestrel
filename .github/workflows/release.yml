@@ -52,7 +52,7 @@ jobs:
           name: release-linux
           path: build/release-linux-*.tar.gz
   release-macos:
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - name: Install Build Dependencies
         run: |
@@ -73,12 +73,16 @@ jobs:
           name: release-macos
           path: build/release-macos-*.tar.gz
   release-windows:
-    runs-on: windows-latest
+    runs-on: windows-2025
     steps:
       - name: Install Build Dependencies
         run: |
           rustup update
           rustup target add x86_64-pc-windows-msvc
+      - name: Install Inno Setup
+        run: |
+          winget install --version v6.5.4 --id JRSoftware.InnoSetup -e -s winget
+          $env:path += ";$env:LOCALAPPDATA/Programs/Inno Setup 6"
       - name: Checkout (Latest)
         uses: actions/checkout@v4
         if: github.event.inputs.git-ref == ''

@@ -47,7 +47,7 @@ function installer {
     build
     create-dir("build")
     Copy-Item "target\$buildTarget\release\kestrel.exe" -Destination "build\kestrel.exe"
-    iscc setup.iss
+    iscc -Qp setup.iss
 }
 
 function all {

@@ -11,7 +11,7 @@
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
 ; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
-AppId={{4917E236-8B10-497E-9D48-D530AE55B46A}
+AppId=kestrel-4917E236-8B10-497E-9D48-D530AE55B46A
 AppName={#AppName}
 AppVersion={#AppVersion}
 ;AppVerName={#MyAppName} {#MyAppVersion}
