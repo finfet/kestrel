@@ -82,7 +82,6 @@ jobs:
       - name: Install Inno Setup
         run: |
           winget install --version 6.5.4 --id JRSoftware.InnoSetup -e -s winget
-          $env:path += ";$env:LOCALAPPDATA/Programs/Inno Setup 6"
       - name: Checkout (Latest)
         uses: actions/checkout@v4
         if: github.event.inputs.git-ref == ''
@@ -91,6 +90,7 @@ jobs:
         if: github.event.inputs.git-ref != ''
       - name: Build Release
         run: |
+          $env:path += ";$env:LOCALAPPDATA/Programs/Inno Setup 6"
           .\windows-build.ps1 all
         shell: pwsh
       - name: Upload Release Archive
