@@ -17,7 +17,7 @@ categories = ["cryptography"]
 [dependencies]
 getrandom = "0.3"
 zeroize = "1.8"
-orion = "0.17.11"
+orion = "0.17.12"
 
 [dev-dependencies]
 ct-codecs = "1.1.6"

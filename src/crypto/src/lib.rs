@@ -17,13 +17,13 @@ pub mod decrypt;
 pub mod encrypt;
 pub mod errors;
 mod noise;
-mod scrypt;
 
 use orion::hazardous::aead::chacha20poly1305 as chapoly;
 use orion::hazardous::ecc::x25519 as orion_x25519;
 use orion::hazardous::hash::sha2::sha256::Sha256;
 use orion::hazardous::kdf::hkdf::sha256 as hkdf;
 use orion::hazardous::mac::hmac::sha256 as hmac;
+use orion::hazardous::kdf::scrypt::derive_key;
 
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -435,7 +435,9 @@ pub fn hkdf_sha256(salt: &[u8], ikm: &[u8], info: &[u8], len: usize) -> Vec<u8> 
 /// Recommended parameters are n = 32768, r = 8, p = 1
 /// Parameter n must be larger than 1 and a power of 2.
 pub fn scrypt(password: &[u8], salt: &[u8], n: u32, r: u32, p: u32, dk_len: usize) -> Vec<u8> {
-    scrypt::scrypt(password, salt, n as usize, r as usize, p as usize, dk_len)
+    let mut okm = vec![0u8; dk_len];
+    derive_key(password, salt, n, r, p, &mut okm).expect("invalid scrypt parameters");
+    okm
 }
 
 /// Generates the specified amount of bytes from a CSPRNG

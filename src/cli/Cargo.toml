@@ -19,7 +19,7 @@ name = "kestrel"
 path = "src/main.rs"
 
 [dependencies]
-kestrel-crypto = "3"
+kestrel-crypto = { version = "3.0.1", path = "../crypto" }
 ct-codecs = "1.1.6"
 getopts = { version = "0.2.24", default-features = false }
 anyhow = "1.0"
