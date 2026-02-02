@@ -239,16 +239,16 @@ impl Keyring {
 // ABNF Grammar
 //
 // keyring = *blanks / *section
-// section = "[" "Key" "]" newline *content
-// content = *blanks / (name / public-key / private-key)
-// name = "Name" *WSP "=" *WSP 1*utf8 newline
-// public-key = "PublicKey" *WSP "=" *WSP base64 newline
-// private-key = "PrivateKey" *WSP "=" *WSP base64 newline
+// section = "[" utf "]" newline *content
+// content = *blanks / key-value
+// key-value = 1*utf8 *WSP "=" 1*utf8 newline
 // comment = "#"*utf8 newline
-// base64 = 4*(ALPHA / DIGIT / "+" / "/" / "=")
 // blanks = newline / comment / WSP
 // newline = [CR] LF
 // utf8 = OCTET ; utf-8 encoded bytes excluding CR and LF
+//
+//
+// Keys must have a Name and a PublicKey
 struct KeyringParser {
     idx: usize,
     chars: Vec<char>,

@@ -106,11 +106,12 @@ dependencies = [
 
 [[package]]
 name = "passterm"
-version = "2.0.5"
+version = "2.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "150ca2316c7813c688677784f20bb0a9efab639415ae1961869863ee99a81e51"
+checksum = "9510c76e37ee20be1edfce1819a3169a7c1c67fab98bd35a33684f8886f5cf4d"
 dependencies = [
  "libc",
+ "windows-link",
  "zeroize",
 ]
 
@@ -134,6 +135,12 @@ checksum = "0562428422c63773dad2c345a1882263bbf4d65cf3f42e90921f787ef5ad58e7"
 dependencies = [
  "wit-bindgen",
 ]
+
+[[package]]
+name = "windows-link"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5"
 
 [[package]]
 name = "wit-bindgen"
