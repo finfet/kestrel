@@ -23,5 +23,5 @@ kestrel-crypto = { version = "3.0.1", path = "../crypto" }
 ct-codecs = "1.1.6"
 getopts = { version = "0.2.24", default-features = false }
 anyhow = "1.0"
-passterm = { version = "2.0.5", features = ["secure_zero"] }
+passterm = { version = "2.0.6", features = ["secure_zero"] }
 zeroize = "1.8"
