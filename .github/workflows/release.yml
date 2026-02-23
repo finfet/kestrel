@@ -79,9 +79,6 @@ jobs:
         run: |
           rustup update
           rustup target add x86_64-pc-windows-msvc
-      - name: Install Inno Setup
-        run: |
-          choco install innosetup --version 6.7.0
       - name: Checkout (Latest)
         uses: actions/checkout@v4
         if: github.event.inputs.git-ref == ''
