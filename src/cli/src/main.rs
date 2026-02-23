@@ -5,10 +5,10 @@ mod commands;
 mod errors;
 mod keyring;
 
-use commands::{DecryptOptions, EncryptOptions, PasswordOptions};
-
 use anyhow::anyhow;
 use getopts::Options;
+
+use commands::{DecryptOptions, EncryptOptions, PasswordOptions};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 

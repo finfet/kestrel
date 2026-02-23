@@ -1,8 +1,6 @@
 // Copyright The Kestrel Contributors
 // SPDX-License-Identifier: BSD-3-Clause
 
-use crate::keyring::{EncodedSk, Keyring};
-
 use std::convert::TryInto;
 use std::ffi::OsStr;
 use std::fs::File;
@@ -18,6 +16,8 @@ use kestrel_crypto::PrivateKey;
 use kestrel_crypto::errors::DecryptError;
 use kestrel_crypto::{AsymFileFormat, PassFileFormat};
 use kestrel_crypto::{decrypt, encrypt};
+
+use crate::keyring::{EncodedSk, Keyring};
 
 #[derive(Debug)]
 pub(crate) struct EncryptOptions {
