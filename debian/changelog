@@ -3,7 +3,7 @@ kestrel (1.0.3) unstable; urgency=medium
  * Always attempt to disable echo during password prompt
  * Upgrade underlying cryptography library implementation
 
--- Kyle Schreiber <kyle@80x24.net>  Sat, 07 Mar 2026 15:12:57 -0700
+-- Kyle Schreiber <kyle@80x24.net>  Sat, 07 Mar 2026 14:37:57 -0700
 
 kestrel (1.0.2) unstable; urgency=medium
 

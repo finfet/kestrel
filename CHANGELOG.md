@@ -2,7 +2,7 @@
 
 ## Version 1.0.3
 
-**Date**: Unreleased
+**Date**: 2026-03-07
 
 **Changes**
 
