@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 3.0.1
+
+Date: 2026-03-07
+
+- Use scrypt implementation in Orion
+
 ## Version 3.0.0
 
 Date: 2025-02-18
