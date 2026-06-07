@@ -16,6 +16,10 @@ use crate::{
 const HASH_LEN: usize = 32;
 const DH_LEN: usize = 32;
 
+// Noise messages are a maximum of 65535 bytes. Payloads must be slightly
+// smaller to account for metadata in the noise message.
+const PAYLOAD_MAX_LEN: usize = 65439;
+
 pub type Key = PayloadKey;
 
 #[derive(Clone)]
@@ -270,6 +274,9 @@ impl HandshakeState {
     /// payload must be <= 65439 bytes. The resulting message is a maximum of
     /// 65535 bytes.
     pub fn write_message(&mut self, payload: &[u8]) -> Result<NoiseHandshake, NoiseError> {
+        if payload.len() > PAYLOAD_MAX_LEN {
+            return Err(NoiseError::Other("payload length too long".to_string()));
+        }
         let mut message_buffer = Vec::<u8>::new();
         let message_pattern = self
             .message_patterns

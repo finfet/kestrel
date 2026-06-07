@@ -41,6 +41,7 @@ const TAG_SIZE: usize = 16;
 #[non_exhaustive]
 pub enum AsymFileFormat {
     V1,
+    V2,
 }
 
 /// Password file format
@@ -55,6 +56,7 @@ pub enum PassFileFormat {
 #[non_exhaustive]
 pub enum FileFormat {
     AsymV1,
+    AsymV2,
     PassV1,
 }
 

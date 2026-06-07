@@ -1,8 +1,8 @@
 [package]
 name = "kestrel-cli"
-version = "1.0.3"
+version = "2.0.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.89"
 authors = [
     "Kyle Schreiber <kyle@80x24.net>",
 ]
@@ -19,7 +19,7 @@ name = "kestrel"
 path = "src/main.rs"
 
 [dependencies]
-kestrel-crypto = { version = "3.0.1" }
+kestrel-crypto = { version = "3.1.0", path = "../crypto" }
 ct-codecs = "1.1.6"
 getopts = { version = "0.2.24", default-features = false }
 anyhow = "1.0"

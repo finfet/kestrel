@@ -36,7 +36,23 @@ pub fn key_encrypt<T: Read, U: Write>(
     payload_key: Option<&PayloadKey>,
     file_format: AsymFileFormat,
 ) -> Result<(), EncryptError> {
-    let _file_format = file_format;
+    if file_format == AsymFileFormat::V2 {
+        return Err(EncryptError::Other("V2 asym format unimplemented".to_string()));
+    } else {
+        return key_encrypt_v1(plaintext, ciphertext, sender, sender_public, recipient, ephemeral, ephemeral_public, payload_key);
+    }
+}
+
+fn key_encrypt_v1<T: Read, U: Write>(
+    plaintext: &mut T,
+    ciphertext: &mut U,
+    sender: &PrivateKey,
+    sender_public: &PublicKey,
+    recipient: &PublicKey,
+    ephemeral: Option<&PrivateKey>,
+    ephemeral_public: Option<&PublicKey>,
+    payload_key: Option<&PayloadKey>,
+) -> Result<(), EncryptError> {
     let payload_key = if let Some(pk) = payload_key {
         pk
     } else {
