@@ -411,16 +411,39 @@ pub fn hmac_sha256(key: &[u8], data: &[u8]) -> Vec<u8> {
         .to_vec()
 }
 
-fn hkdf_noise(chaining_key: &[u8], ikm: &[u8]) -> (Vec<u8>, Vec<u8>) {
+fn hkdf_noise_pair(chaining_key: &[u8], ikm: &[u8]) -> (Vec<u8>, Vec<u8>) {
     let counter1: [u8; 1] = [0x01];
     let mut counter2: [u8; 33] = [0u8; 33];
-    let temp_key = hmac_sha256(chaining_key, ikm);
+    let mut temp_key = hmac_sha256(chaining_key, ikm);
     let output1 = hmac_sha256(&temp_key, &counter1);
     counter2[..32].copy_from_slice(&output1);
     counter2[32..].copy_from_slice(&[0x02]);
     let output2 = hmac_sha256(&temp_key, &counter2);
     counter2.zeroize();
+    temp_key.zeroize();
     (output1, output2)
+}
+
+fn hkdf_noise_triple(chaining_key: &[u8], ikm: &[u8]) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+    let counter1: [u8; 1] = [0x01];
+    let mut counter2: [u8; 33] = [0u8; 33];
+    let mut counter3: [u8; 33] = [0u8; 33];
+    let mut temp_key = hmac_sha256(chaining_key, ikm);
+    let output1 = hmac_sha256(&temp_key, &counter1);
+
+    counter2[..32].copy_from_slice(&output1);
+    counter2[32..].copy_from_slice(&[0x02]);
+    let output2 = hmac_sha256(&temp_key, &counter2);
+    counter2.zeroize();
+
+    counter3[..32].copy_from_slice(&output2);
+    counter3[32..].copy_from_slice(&[0x03]);
+
+    let output3 = hmac_sha256(&temp_key, &counter3);
+    counter3.zeroize();
+    temp_key.zeroize();
+
+    (output1, output2, output3)
 }
 
 /// HKDF-SHA256

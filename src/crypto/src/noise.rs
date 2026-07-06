@@ -10,7 +10,7 @@ use zeroize::Zeroizing;
 use crate::errors::NoiseError;
 use crate::{
     DhPrivateKey, DhPublicKey, PayloadKey, chapoly_decrypt_noise, chapoly_encrypt_noise,
-    hkdf_noise, sha256,
+    hkdf_noise_pair, hkdf_noise_triple, sha256,
 };
 
 const HASH_LEN: usize = 32;
@@ -46,6 +46,7 @@ enum Token {
     ES,
     SE,
     SS,
+    PSK,
 }
 
 pub struct CipherState {
@@ -65,6 +66,7 @@ pub struct HandshakeState {
     e: Option<KeyPair>,      // The local ephemeral key pair
     rs: Option<DhPublicKey>, // The remote party's static public key
     re: Option<DhPublicKey>, // The remote party's ephemeral public key
+    psk: Option<Key>,
     initiator: bool,
     message_patterns: VecDeque<Vec<Token>>,
 }
@@ -149,7 +151,7 @@ impl SymmetricState {
     }
 
     fn mix_key(&mut self, ikm: &[u8]) {
-        let (chaining_key, temp_key) = hkdf_noise(self.chaining_key.as_bytes(), ikm);
+        let (chaining_key, temp_key) = hkdf_noise_pair(self.chaining_key.as_bytes(), ikm);
         let chaining_key = Zeroizing::new(chaining_key);
         let temp_key = Zeroizing::new(temp_key);
         self.chaining_key = Key::new(chaining_key.as_ref());
@@ -164,9 +166,16 @@ impl SymmetricState {
         self.hash_output = sha256(h.as_slice()).try_into().unwrap();
     }
 
-    #[allow(dead_code)]
-    fn mix_key_and_hash() {
-        unimplemented!("MixKeyAndHash() is not needed by this application");
+    fn mix_key_and_hash(&mut self, ikm: &[u8]) {
+        let (chaining_key, temp_hash, temp_key) =
+            hkdf_noise_triple(self.chaining_key.as_bytes(), ikm);
+        let chaining_key = Zeroizing::new(chaining_key);
+        let temp_key = Zeroizing::new(temp_key);
+        let temp_hash = Zeroizing::new(temp_hash);
+        self.mix_hash(&temp_hash);
+        self.chaining_key = Key::new(chaining_key.as_ref());
+        self.cipher_state
+            .initialize_key(Some(Key::new(temp_key.as_ref())));
     }
 
     pub fn get_handshake_hash(&self) -> [u8; 32] {
@@ -190,7 +199,7 @@ impl SymmetricState {
     }
 
     fn split(&self) -> (CipherState, CipherState) {
-        let (temp_k1, temp_k2) = hkdf_noise(self.chaining_key.as_bytes(), &[]);
+        let (temp_k1, temp_k2) = hkdf_noise_pair(self.chaining_key.as_bytes(), &[]);
         let temp_k1 = Zeroizing::new(temp_k1);
         let temp_k2 = Zeroizing::new(temp_k2);
         let mut c1 = CipherState::new();
@@ -250,6 +259,7 @@ impl HandshakeState {
             e: e_pair,
             rs,
             re: None,
+            psk: None,
             initiator,
             message_patterns,
         }
@@ -330,6 +340,10 @@ impl HandshakeState {
                     let shared_secret = Zeroizing::new(shared_secret);
                     self.symmetric_state.mix_key(shared_secret.as_ref());
                 }
+                Token::PSK => {
+                    let psk = self.psk.as_ref().unwrap();
+                    self.symmetric_state.mix_key_and_hash(psk.as_bytes());
+                }
             }
         }
 
@@ -407,6 +421,10 @@ impl HandshakeState {
                     let shared_secret = s.private_key.diffie_hellman(rs)?;
                     let shared_secret = Zeroizing::new(shared_secret);
                     self.symmetric_state.mix_key(shared_secret.as_ref());
+                }
+                Token::PSK => {
+                    let psk = self.psk.as_ref().unwrap();
+                    self.symmetric_state.mix_key_and_hash(psk.as_bytes());
                 }
             }
         }
