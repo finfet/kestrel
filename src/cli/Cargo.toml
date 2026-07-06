@@ -19,9 +19,9 @@ name = "kestrel"
 path = "src/main.rs"
 
 [dependencies]
-kestrel-crypto = { version = "3.1.0", path = "../crypto" }
-ct-codecs = "1.1.6"
+kestrel-crypto = { version = "4.0.0", path = "../crypto" }
+ct-codecs = "1.1.7"
 getopts = { version = "0.2.24", default-features = false }
 anyhow = "1.0"
 passterm = { version = "2.0.6", features = ["secure_zero"] }
-zeroize = "1.8"
+zeroize = "1.9"
