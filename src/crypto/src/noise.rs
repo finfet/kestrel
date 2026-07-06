@@ -9,8 +9,8 @@ use zeroize::Zeroizing;
 
 use crate::errors::NoiseError;
 use crate::{
-    PayloadKey, PrivateKey, PublicKey, chapoly_decrypt_noise, chapoly_encrypt_noise, hkdf_noise,
-    sha256,
+    DhPrivateKey, DhPublicKey, PayloadKey, chapoly_decrypt_noise, chapoly_encrypt_noise,
+    hkdf_noise, sha256,
 };
 
 const HASH_LEN: usize = 32;
@@ -24,12 +24,12 @@ pub type Key = PayloadKey;
 
 #[derive(Clone)]
 struct KeyPair {
-    pub private_key: PrivateKey,
-    pub public_key: PublicKey,
+    pub private_key: DhPrivateKey,
+    pub public_key: DhPublicKey,
 }
 
 impl KeyPair {
-    fn new(sk: PrivateKey, pk: PublicKey) -> Self {
+    fn new(sk: DhPrivateKey, pk: DhPublicKey) -> Self {
         KeyPair {
             private_key: sk,
             public_key: pk,
@@ -61,10 +61,10 @@ pub struct SymmetricState {
 
 pub struct HandshakeState {
     pub symmetric_state: SymmetricState,
-    s: Option<KeyPair>,    // The local static key pair
-    e: Option<KeyPair>,    // The local ephemeral key pair
-    rs: Option<PublicKey>, // The remote party's static public key
-    re: Option<PublicKey>, // The remote party's ephemeral public key
+    s: Option<KeyPair>,      // The local static key pair
+    e: Option<KeyPair>,      // The local ephemeral key pair
+    rs: Option<DhPublicKey>, // The remote party's static public key
+    re: Option<DhPublicKey>, // The remote party's ephemeral public key
     initiator: bool,
     message_patterns: VecDeque<Vec<Token>>,
 }
@@ -212,11 +212,11 @@ impl HandshakeState {
     pub fn init_x(
         initiator: bool,
         prologue: &[u8],
-        s: PrivateKey,
-        spk: PublicKey,
-        e: Option<PrivateKey>,
-        epk: Option<PublicKey>,
-        rs: Option<PublicKey>,
+        s: DhPrivateKey,
+        spk: DhPublicKey,
+        e: Option<DhPrivateKey>,
+        epk: Option<DhPublicKey>,
+        rs: Option<DhPublicKey>,
     ) -> Self {
         let mut symmetric_state = SymmetricState::new("Noise_X_25519_ChaChaPoly_SHA256");
         symmetric_state.mix_hash(prologue);
@@ -256,7 +256,7 @@ impl HandshakeState {
     }
 
     /// Return the sender's public key after a noise read_message
-    pub fn get_pubkey(&self) -> Option<PublicKey> {
+    pub fn get_pubkey(&self) -> Option<DhPublicKey> {
         // We only want the sender's key if we're the recipient
         if self.initiator {
             return None;
@@ -286,7 +286,7 @@ impl HandshakeState {
             match pattern {
                 Token::E => {
                     if self.e.is_none() {
-                        let ephem_private_key = PrivateKey::generate();
+                        let ephem_private_key = DhPrivateKey::generate();
                         let ephem_public_key = ephem_private_key.to_public()?;
                         let ephem_pair = KeyPair {
                             private_key: ephem_private_key,
@@ -363,7 +363,7 @@ impl HandshakeState {
             match pattern {
                 Token::E => {
                     let remote_ephem_bytes = &message[msgidx..(msgidx + DH_LEN)];
-                    let re = PublicKey::try_from(remote_ephem_bytes).map_err(|_| {
+                    let re = DhPublicKey::try_from(remote_ephem_bytes).map_err(|_| {
                         NoiseError::Other("Invalid remote emphem public key size".to_string())
                     })?;
                     self.re = Some(re.clone());
@@ -380,7 +380,7 @@ impl HandshakeState {
                     let rs_bytes = self.symmetric_state.decrypt_and_hash(enc_pubkey_and_tag)?;
                     msgidx += index_len;
 
-                    let rs = PublicKey::try_from(rs_bytes.as_ref()).map_err(|_| {
+                    let rs = DhPublicKey::try_from(rs_bytes.as_ref()).map_err(|_| {
                         NoiseError::Other("Invalid remote static public key size".to_string())
                     })?;
                     self.rs = Some(rs);
@@ -429,7 +429,7 @@ impl HandshakeState {
 #[cfg(test)]
 mod tests {
     use super::HandshakeState;
-    use super::{PrivateKey, PublicKey};
+    use super::{DhPrivateKey, DhPublicKey};
     use ct_codecs::{Decoder, Hex};
 
     #[test]
@@ -474,13 +474,13 @@ mod tests {
         )
         .unwrap();
 
-        let static_priv = PrivateKey::try_from(initiator_priv_bytes.as_ref()).unwrap();
+        let static_priv = DhPrivateKey::try_from(initiator_priv_bytes.as_ref()).unwrap();
         let static_pub = static_priv.to_public().unwrap();
 
-        let ephem_priv = PrivateKey::try_from(ephem_priv_bytes.as_ref()).unwrap();
+        let ephem_priv = DhPrivateKey::try_from(ephem_priv_bytes.as_ref()).unwrap();
         let ephem_pub = ephem_priv.to_public().unwrap();
 
-        let remote_static_pub = PublicKey::try_from(remote_static_pub_bytes.as_ref()).unwrap();
+        let remote_static_pub = DhPublicKey::try_from(remote_static_pub_bytes.as_ref()).unwrap();
 
         let initiator = true;
         let mut handshake_state = HandshakeState::init_x(
@@ -545,7 +545,7 @@ mod tests {
         )
         .unwrap();
 
-        let responder_private = PrivateKey::try_from(responder_static_bytes.as_slice()).unwrap();
+        let responder_private = DhPrivateKey::try_from(responder_static_bytes.as_slice()).unwrap();
         let responder_public = responder_private.to_public().unwrap();
 
         let initiator = false;

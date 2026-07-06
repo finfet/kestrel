@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use ct_codecs::{Base64, Decoder, Encoder};
 use zeroize::Zeroizing;
 
-use kestrel_crypto::{PrivateKey, PublicKey};
+use kestrel_crypto::{DhPrivateKey, DhPublicKey};
 
 use crate::errors::KeyringError;
 
@@ -117,7 +117,7 @@ impl Keyring {
     /// Encrypt a private key using ChaCha20-Poly1305 with a key derived from
     /// a password using scrypt. The salt MUST be used only once.
     pub(crate) fn lock_private_key(
-        private_key: &PrivateKey,
+        private_key: &DhPrivateKey,
         password: &[u8],
         salt: [u8; 32],
     ) -> EncodedSk {
@@ -147,7 +147,7 @@ impl Keyring {
     pub(crate) fn unlock_private_key(
         locked_sk: &EncodedSk,
         password: &[u8],
-    ) -> Result<PrivateKey, KeyringError> {
+    ) -> Result<DhPrivateKey, KeyringError> {
         let key_bytes = locked_sk.as_bytes();
         let key_bytes = key_bytes.as_slice();
         if key_bytes.len() != PRIVATE_KEY_CT_LEN {
@@ -166,14 +166,14 @@ impl Keyring {
         let plaintext = kestrel_crypto::chapoly_decrypt_ietf(&key, &nonce, ciphertext, version_aad)
             .map_err(|_| KeyringError::PrivateKeyDecrypt)?;
         let private_key =
-            PrivateKey::try_from(plaintext.as_slice()).expect("Invalid private key length");
+            DhPrivateKey::try_from(plaintext.as_slice()).expect("Invalid private key length");
         Ok(private_key)
     }
 
     /// Encode a PublicKey
     /// Public keys are 32 bytes with a 4 byte SHA-256 checksum
     /// appended at the end. Represented as base64.
-    pub(crate) fn encode_public_key(public_key: &PublicKey) -> EncodedPk {
+    pub(crate) fn encode_public_key(public_key: &DhPublicKey) -> EncodedPk {
         let pk = public_key.as_bytes();
         let checksum = kestrel_crypto::sha256(pk);
         let mut encoded = [0u8; 36];
@@ -185,7 +185,7 @@ impl Keyring {
 
     /// Decode a PublicKey
     /// Public keys are base64 encoded with a 4 byte SHA-256 checksum appended
-    pub(crate) fn decode_public_key(encoded_pk: &EncodedPk) -> Result<PublicKey, KeyringError> {
+    pub(crate) fn decode_public_key(encoded_pk: &EncodedPk) -> Result<DhPublicKey, KeyringError> {
         let enc_pk =
             Base64::decode_to_vec(encoded_pk.as_str(), None).expect("Public key decode failed");
         let enc_pk_bytes = enc_pk.as_slice();
@@ -202,7 +202,7 @@ impl Keyring {
             return Err(KeyringError::PublicKeyChecksum);
         }
 
-        let public_key = PublicKey::try_from(pk).expect("Invalid public key length");
+        let public_key = DhPublicKey::try_from(pk).expect("Invalid public key length");
 
         Ok(public_key)
     }
@@ -525,7 +525,7 @@ mod tests {
     use super::KeyringParser;
     use super::{EncodedPk, EncodedSk};
     use ct_codecs::{Decoder, Hex};
-    use kestrel_crypto::{PrivateKey, PublicKey};
+    use kestrel_crypto::{DhPrivateKey, DhPublicKey};
     use std::convert::TryInto;
     const KEYRING_INI: &str = "
 [Key]
@@ -599,7 +599,7 @@ Name = Bobby Bobertson
 
         let locked_sk = "ZWdrMHMp/2yenV64rOfAJmMGWRVGbJuUAVhzOeRYRwNPqndu4Pfkg4YXzIna9Eg58JwreHA37o49xCS0x8CWd3yRe+D2ytRXFLb67WNIwxqHJ9Fw";
 
-        let sk = PrivateKey::try_from(sk_bytes.as_slice()).unwrap();
+        let sk = DhPrivateKey::try_from(sk_bytes.as_slice()).unwrap();
 
         let password = b"alice";
         let salt = Hex::decode_to_vec(
@@ -637,7 +637,7 @@ Name = Bobby Bobertson
         )
         .unwrap();
         let expected = "OtU9wlWBsYr1Q6Hoz07cK05OSD31p+DVraU+fku4Y3R62CZl";
-        let pk = PublicKey::try_from(pk_bytes.as_slice()).unwrap();
+        let pk = DhPublicKey::try_from(pk_bytes.as_slice()).unwrap();
         let got = Keyring::encode_public_key(&pk);
 
         assert_eq!(got.as_str(), expected);

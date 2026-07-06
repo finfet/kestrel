@@ -12,8 +12,8 @@ use zeroize::Zeroizing;
 use crate::{AsymFileFormat, PassFileFormat};
 use crate::{CHUNK_SIZE, SCRYPT_N, SCRYPT_P, SCRYPT_R};
 use crate::{
-    PayloadKey, PrivateKey, PublicKey, chapoly_encrypt_noise, hkdf_sha256, noise_encrypt, scrypt,
-    secure_random,
+    DhPrivateKey, DhPublicKey, PayloadKey, chapoly_encrypt_noise, hkdf_sha256, noise_x_encrypt,
+    scrypt, secure_random,
 };
 
 const PROLOGUE: [u8; 4] = [0x65, 0x67, 0x6b, 0x10];
@@ -21,44 +21,33 @@ const PASS_FILE_MAGIC: [u8; 4] = [0x65, 0x67, 0x6b, 0x20];
 
 /// Encrypt a file from sender key to recipient key.
 ///
+/// Uses X25519 and the Noise X Protocol
+///
 /// Passing None for ephemeral, ephemeral_public, payload_key will generate
 /// fresh keys. This is almost certainly what you want. Sender and ephemeral
 /// private and public keys must match.
 #[allow(clippy::too_many_arguments)]
-pub fn key_encrypt<T: Read, U: Write>(
+pub fn key_encrypt_classic<T: Read, U: Write>(
     plaintext: &mut T,
     ciphertext: &mut U,
-    sender: &PrivateKey,
-    sender_public: &PublicKey,
-    recipient: &PublicKey,
-    ephemeral: Option<&PrivateKey>,
-    ephemeral_public: Option<&PublicKey>,
+    sender: &DhPrivateKey,
+    sender_public: &DhPublicKey,
+    recipient: &DhPublicKey,
+    ephemeral: Option<&DhPrivateKey>,
+    ephemeral_public: Option<&DhPublicKey>,
     payload_key: Option<&PayloadKey>,
     file_format: AsymFileFormat,
 ) -> Result<(), EncryptError> {
-    if file_format == AsymFileFormat::V2 {
-        return Err(EncryptError::Other("V2 asym format unimplemented".to_string()));
-    } else {
-        return key_encrypt_v1(plaintext, ciphertext, sender, sender_public, recipient, ephemeral, ephemeral_public, payload_key);
+    if file_format != AsymFileFormat::V1 {
+        return Err(EncryptError::Other("File format not supported".to_string()));
     }
-}
 
-fn key_encrypt_v1<T: Read, U: Write>(
-    plaintext: &mut T,
-    ciphertext: &mut U,
-    sender: &PrivateKey,
-    sender_public: &PublicKey,
-    recipient: &PublicKey,
-    ephemeral: Option<&PrivateKey>,
-    ephemeral_public: Option<&PublicKey>,
-    payload_key: Option<&PayloadKey>,
-) -> Result<(), EncryptError> {
     let payload_key = if let Some(pk) = payload_key {
         pk
     } else {
         &PayloadKey::new(secure_random(32).as_slice())
     };
-    let noise_message = noise_encrypt(
+    let noise_message = noise_x_encrypt(
         sender,
         sender_public,
         recipient,
@@ -203,18 +192,18 @@ fn write_err(err: std::io::Error) -> EncryptError {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::CHUNK_SIZE;
-    use super::{key_encrypt, pass_encrypt};
-    use crate::{AsymFileFormat, PassFileFormat, PayloadKey, PrivateKey, PublicKey, sha256};
+    use super::{key_encrypt_classic, pass_encrypt};
+    use crate::{AsymFileFormat, DhPrivateKey, DhPublicKey, PassFileFormat, PayloadKey, sha256};
     use ct_codecs::{Decoder, Hex};
     use std::convert::TryInto;
     use std::io::Read;
 
     #[allow(dead_code)]
-    struct KeyData {
-        alice_private: PrivateKey,
-        alice_public: PublicKey,
-        bob_private: PrivateKey,
-        bob_public: PublicKey,
+    struct DhKeyData {
+        alice_private: DhPrivateKey,
+        alice_public: DhPublicKey,
+        bob_private: DhPrivateKey,
+        bob_public: DhPublicKey,
     }
 
     #[test]
@@ -245,10 +234,10 @@ pub(crate) mod tests {
         .unwrap();
         let key_data = get_key_data();
 
-        let sender = PrivateKey::try_from(key_data.alice_private.as_bytes()).unwrap();
+        let sender = DhPrivateKey::try_from(key_data.alice_private.as_bytes()).unwrap();
         let sender_public = sender.to_public().unwrap();
-        let recipient = PublicKey::try_from(key_data.bob_public.as_bytes()).unwrap();
-        let ephemeral = PrivateKey::try_from(ephemeral_private.as_slice()).unwrap();
+        let recipient = DhPublicKey::try_from(key_data.bob_public.as_bytes()).unwrap();
+        let ephemeral = DhPrivateKey::try_from(ephemeral_private.as_slice()).unwrap();
         let ephemeral_public = ephemeral.to_public().unwrap();
         let payload_key = PayloadKey::new(payload_key.as_slice());
 
@@ -257,7 +246,7 @@ pub(crate) mod tests {
         plaintext.extend_from_slice(plaintext_data);
         let mut ciphertext = Vec::new();
 
-        key_encrypt(
+        key_encrypt_classic(
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &sender,
@@ -294,7 +283,7 @@ pub(crate) mod tests {
             None,
         )
         .unwrap();
-        let ephemeral_private = PrivateKey::try_from(ephemeral_private.as_slice()).unwrap();
+        let ephemeral_private = DhPrivateKey::try_from(ephemeral_private.as_slice()).unwrap();
         let ephemeral_public = ephemeral_private.to_public().unwrap();
         let payload_key = Hex::decode_to_vec(
             "a300f423e416610a5dd87442f4edc21325f2b3211c4c69f0e0c541cf6cf4eca6",
@@ -309,7 +298,7 @@ pub(crate) mod tests {
         std::io::repeat(0x01).read_exact(&mut plaintext).unwrap();
         let mut ciphertext = Vec::new();
 
-        key_encrypt(
+        key_encrypt_classic(
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &key_data.alice_private,
@@ -347,7 +336,7 @@ pub(crate) mod tests {
             None,
         )
         .unwrap();
-        let ephemeral_private = PrivateKey::try_from(ephemeral_private.as_slice()).unwrap();
+        let ephemeral_private = DhPrivateKey::try_from(ephemeral_private.as_slice()).unwrap();
         let ephemeral_public = ephemeral_private.to_public().unwrap();
         let payload_key = Hex::decode_to_vec(
             "d3387376438daeb6f7543e815cbde249810e341c1ccab192025b909b9ea4ebe7",
@@ -362,7 +351,7 @@ pub(crate) mod tests {
         std::io::repeat(0x02).read_exact(&mut plaintext).unwrap();
         let mut ciphertext = Vec::new();
 
-        key_encrypt(
+        key_encrypt_classic(
             &mut plaintext.as_slice(),
             &mut ciphertext,
             &key_data.alice_private,
@@ -418,34 +407,34 @@ pub(crate) mod tests {
         ciphertext
     }
 
-    fn get_key_data() -> KeyData {
+    fn get_key_data() -> DhKeyData {
         let alice_private = Hex::decode_to_vec(
             "46acb4ad2a6ffb9d70245798634ad0d5caf7a9738e5f3b60905dee7a7b973bd5",
             None,
         )
         .unwrap();
-        let alice_private = PrivateKey::try_from(alice_private.as_slice()).unwrap();
+        let alice_private = DhPrivateKey::try_from(alice_private.as_slice()).unwrap();
         let alice_public = Hex::decode_to_vec(
             "3cf3637b4dfdc4596544a936b3983fca09324505f39568d4b8537bc01a92cf6d",
             None,
         )
         .unwrap();
-        let alice_public = PublicKey::try_from(alice_public.as_slice()).unwrap();
+        let alice_public = DhPublicKey::try_from(alice_public.as_slice()).unwrap();
 
         let bob_private = Hex::decode_to_vec(
             "461299525a53333e8597a2b065703ec751356f8462d2704e630c108037567bd4",
             None,
         )
         .unwrap();
-        let bob_private = PrivateKey::try_from(bob_private.as_slice()).unwrap();
+        let bob_private = DhPrivateKey::try_from(bob_private.as_slice()).unwrap();
         let bob_public = Hex::decode_to_vec(
             "98459724b39e6b9e90b60d214df2887093e224b163714e07e527a4d37edc2d03",
             None,
         )
         .unwrap();
-        let bob_public = PublicKey::try_from(bob_public.as_slice()).unwrap();
+        let bob_public = DhPublicKey::try_from(bob_public.as_slice()).unwrap();
 
-        KeyData {
+        DhKeyData {
             alice_private,
             alice_public,
             bob_private,

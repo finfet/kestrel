@@ -12,7 +12,7 @@ use anyhow::anyhow;
 use passterm::{Stream, isatty};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use kestrel_crypto::PrivateKey;
+use kestrel_crypto::DhPrivateKey;
 use kestrel_crypto::errors::DecryptError;
 use kestrel_crypto::{AsymFileFormat, PassFileFormat};
 use kestrel_crypto::{decrypt, encrypt};
@@ -175,7 +175,7 @@ pub(crate) fn encrypt(opts: EncryptOptions) -> Result<(), anyhow::Error> {
     };
 
     eprint!("Encrypting...");
-    if let Err(e) = encrypt::key_encrypt(
+    if let Err(e) = encrypt::key_encrypt_classic(
         &mut plaintext,
         &mut ciphertext,
         &sender_private,
@@ -255,7 +255,7 @@ pub(crate) fn decrypt(opts: DecryptOptions) -> Result<(), anyhow::Error> {
     };
 
     eprint!("Decrypting...");
-    let sender_public = match decrypt::key_decrypt(
+    let sender_public = match decrypt::key_decrypt_classic(
         &mut ciphertext,
         &mut plaintext,
         &recipient_private,
@@ -290,7 +290,7 @@ pub(crate) fn gen_key(outfile: Option<String>, env_pass: bool) -> Result<(), any
 
     let pass = confirm_password("New password: ", env_pass)?;
 
-    let private_key = PrivateKey::generate();
+    let private_key = DhPrivateKey::generate();
     let public_key = private_key.to_public()?;
     let salt: [u8; 32] = kestrel_crypto::secure_random(32).try_into().unwrap();
 

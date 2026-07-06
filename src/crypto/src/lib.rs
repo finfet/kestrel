@@ -22,8 +22,8 @@ use orion::hazardous::aead::chacha20poly1305 as chapoly;
 use orion::hazardous::ecc::x25519 as orion_x25519;
 use orion::hazardous::hash::sha2::sha256::Sha256;
 use orion::hazardous::kdf::hkdf::sha256 as hkdf;
-use orion::hazardous::mac::hmac::sha256 as hmac;
 use orion::hazardous::kdf::scrypt::derive_key;
+use orion::hazardous::mac::hmac::sha256 as hmac;
 
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -96,17 +96,17 @@ impl ZeroizeOnDrop for PayloadKey {}
 
 /// X25519 Public Key
 #[derive(Clone)]
-pub struct PublicKey {
+pub struct DhPublicKey {
     key: Vec<u8>,
 }
 
 /// X25519 Private Key
 #[derive(Clone)]
-pub struct PrivateKey {
+pub struct DhPrivateKey {
     key: Vec<u8>,
 }
 
-impl PublicKey {
+impl DhPublicKey {
     // Expose the key 32 byte public key
     pub fn as_bytes(&self) -> &[u8] {
         self.key.as_ref()
@@ -114,23 +114,23 @@ impl PublicKey {
 }
 
 /// Convert a raw 32 byte public key into a PublicKey
-impl TryFrom<&[u8]> for PublicKey {
+impl TryFrom<&[u8]> for DhPublicKey {
     type Error = &'static str;
 
-    fn try_from(raw_key: &[u8]) -> Result<PublicKey, Self::Error> {
+    fn try_from(raw_key: &[u8]) -> Result<DhPublicKey, Self::Error> {
         if raw_key.len() != 32 {
             return Err("Public keys must be 32 bytes");
         }
         let pk = raw_key.to_vec();
-        Ok(PublicKey { key: pk })
+        Ok(DhPublicKey { key: pk })
     }
 }
 
-impl PrivateKey {
+impl DhPrivateKey {
     /// Generate a new private key from 32 secure random bytes
-    pub fn generate() -> PrivateKey {
+    pub fn generate() -> DhPrivateKey {
         let key = secure_random(32);
-        PrivateKey { key }
+        DhPrivateKey { key }
     }
 
     /// Expose the raw 32 byte private key
@@ -139,44 +139,44 @@ impl PrivateKey {
     }
 
     /// Derive the public key from the private key
-    pub fn to_public(&self) -> Result<PublicKey, DhError> {
+    pub fn to_public(&self) -> Result<DhPublicKey, DhError> {
         let pk = x25519_derive_public(&self.key)?;
-        Ok(PublicKey::try_from(pk.as_slice()).unwrap())
+        Ok(DhPublicKey::try_from(pk.as_slice()).unwrap())
     }
 
     /// X25519 Key Exchange between private and a public key,
     /// returning the raw shared secret
-    pub fn diffie_hellman(&self, public_key: &PublicKey) -> Result<Vec<u8>, DhError> {
+    pub fn diffie_hellman(&self, public_key: &DhPublicKey) -> Result<Vec<u8>, DhError> {
         x25519(self.as_bytes(), public_key.as_bytes())
     }
 }
 
 /// Convert a raw 32 byte private key into a PrivateKey
-impl TryFrom<&[u8]> for PrivateKey {
+impl TryFrom<&[u8]> for DhPrivateKey {
     type Error = &'static str;
 
-    fn try_from(raw_key: &[u8]) -> Result<PrivateKey, Self::Error> {
+    fn try_from(raw_key: &[u8]) -> Result<DhPrivateKey, Self::Error> {
         if raw_key.len() != 32 {
             return Err("Private keys must be 32 bytes");
         }
         let sk = raw_key.to_vec();
-        Ok(PrivateKey { key: sk })
+        Ok(DhPrivateKey { key: sk })
     }
 }
 
-impl Drop for PrivateKey {
+impl Drop for DhPrivateKey {
     fn drop(&mut self) {
         self.zeroize();
     }
 }
 
-impl Zeroize for PrivateKey {
+impl Zeroize for DhPrivateKey {
     fn zeroize(&mut self) {
         self.key.as_mut_slice().zeroize();
     }
 }
 
-impl ZeroizeOnDrop for PrivateKey {}
+impl ZeroizeOnDrop for DhPrivateKey {}
 
 /// RFC 7748 compliant X25519.
 /// k is the private key and u is the public key.
@@ -210,7 +210,7 @@ pub fn x25519_derive_public(private_key: &[u8]) -> Result<Vec<u8>, DhError> {
     Ok(pk.to_bytes().as_ref().to_vec())
 }
 
-/// A struct containing the result of a [`noise_encrypt`]
+/// A struct containing the result of a [`noise_x_encrypt`]
 pub struct NoiseEncryptMsg {
     pub ciphertext: Vec<u8>,
     pub handshake_hash: [u8; 32],
@@ -228,12 +228,12 @@ pub struct NoiseEncryptMsg {
 /// 65535 bytes.
 ///
 /// Returns the handshake message ciphertext.
-pub fn noise_encrypt(
-    sender: &PrivateKey,
-    sender_public: &PublicKey,
-    recipient: &PublicKey,
-    ephemeral: Option<&PrivateKey>,
-    ephemeral_public: Option<&PublicKey>,
+pub fn noise_x_encrypt(
+    sender: &DhPrivateKey,
+    sender_public: &DhPublicKey,
+    recipient: &DhPublicKey,
+    ephemeral: Option<&DhPrivateKey>,
+    ephemeral_public: Option<&DhPublicKey>,
     prologue: &[u8],
     payload_key: &PayloadKey,
 ) -> Result<NoiseEncryptMsg, NoiseError> {
@@ -257,23 +257,23 @@ pub fn noise_encrypt(
     })
 }
 
-/// A struct containing the result of a [`noise_decrypt`]
+/// A struct containing the result of a [`noise_x_decrypt`]
 /// PublicKey is the sender's public key
-pub struct NoiseDecryptMsg {
+pub struct NoiseXDecryptMsg {
     pub payload_key: PayloadKey,
-    pub public_key: PublicKey,
+    pub public_key: DhPublicKey,
     pub handshake_hash: [u8; 32],
 }
 
 /// Decrypt the payload key using the noise protocol.
 /// The given recipient public key must match the recipient private key.
-/// Returns the payload key, and the sender's [PublicKey]
-pub fn noise_decrypt(
-    recipient: &PrivateKey,
-    recipient_public: &PublicKey,
+/// Returns the payload key, and the sender's [DhPublicKey]
+pub fn noise_x_decrypt(
+    recipient: &DhPrivateKey,
+    recipient_public: &DhPublicKey,
     prologue: &[u8],
     handshake_message: &[u8],
-) -> Result<NoiseDecryptMsg, NoiseError> {
+) -> Result<NoiseXDecryptMsg, NoiseError> {
     let initiator = false;
     let mut handshake_state = noise::HandshakeState::init_x(
         initiator,
@@ -299,7 +299,7 @@ pub fn noise_decrypt(
         .get_pubkey()
         .expect("Expected to get the sender's public key");
 
-    Ok(NoiseDecryptMsg {
+    Ok(NoiseXDecryptMsg {
         payload_key,
         public_key: sender_pubkey,
         handshake_hash,
@@ -451,7 +451,7 @@ pub fn secure_random(len: usize) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use super::{PrivateKey, PublicKey};
+    use super::{DhPrivateKey, DhPublicKey};
     use super::{
         chapoly_decrypt_ietf, chapoly_decrypt_noise, chapoly_encrypt_ietf, chapoly_encrypt_noise,
         hkdf_sha256, hmac_sha256, scrypt, sha256, x25519,
@@ -643,22 +643,55 @@ mod tests {
         )
         .unwrap();
 
-        let alice_private = PrivateKey::try_from(alice_private_expected.as_slice()).unwrap();
-        let alice_public = PublicKey::try_from(alice_public_expected.as_slice()).unwrap();
+        let alice_to_bob = x25519(&alice_private_expected, &bob_public_expected).unwrap();
+        let bob_to_alice = x25519(&bob_private_expected, &alice_public_expected).unwrap();
+
+        assert_eq!(&alice_to_bob, &bob_to_alice);
+        assert_eq!(&alice_to_bob, expected_shared_secret.as_slice());
+    }
+
+    #[test]
+    fn test_diffie_hellman() {
+        let alice_private_expected = Hex::decode_to_vec(
+            "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a",
+            None,
+        )
+        .unwrap();
+        let alice_public_expected = Hex::decode_to_vec(
+            "8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a",
+            None,
+        )
+        .unwrap();
+        let bob_private_expected = Hex::decode_to_vec(
+            "5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb",
+            None,
+        )
+        .unwrap();
+        let bob_public_expected = Hex::decode_to_vec(
+            "de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f",
+            None,
+        )
+        .unwrap();
+        let expected_shared_secret = Hex::decode_to_vec(
+            "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742",
+            None,
+        )
+        .unwrap();
+
+        let alice_private = DhPrivateKey::try_from(alice_private_expected.as_slice()).unwrap();
+        let alice_public = DhPublicKey::try_from(alice_public_expected.as_slice()).unwrap();
         assert_eq!(
             &alice_public_expected,
             &alice_private.to_public().unwrap().as_bytes()
         );
 
-        let bob_private = PrivateKey::try_from(bob_private_expected.as_slice()).unwrap();
-        let bob_public = PublicKey::try_from(bob_public_expected.as_slice()).unwrap();
+        let bob_private = DhPrivateKey::try_from(bob_private_expected.as_slice()).unwrap();
+        let bob_public = DhPublicKey::try_from(bob_public_expected.as_slice()).unwrap();
 
-        let alice_to_bob = x25519(alice_private.as_bytes(), bob_public.as_bytes()).unwrap();
-        let bob_to_alice = x25519(bob_private.as_bytes(), alice_public.as_bytes()).unwrap();
-        let alice_to_bob2 = alice_private.diffie_hellman(&bob_public).unwrap();
+        let alice_to_bob = alice_private.diffie_hellman(&bob_public).unwrap();
+        let bob_to_alice = bob_private.diffie_hellman(&alice_public).unwrap();
 
         assert_eq!(&alice_to_bob, &bob_to_alice);
-        assert_eq!(&alice_to_bob, &alice_to_bob2);
         assert_eq!(&alice_to_bob, expected_shared_secret.as_slice());
     }
 
@@ -674,7 +707,7 @@ mod tests {
             None,
         )
         .unwrap();
-        let got_public = PrivateKey::try_from(&alice_private_expected[..])
+        let got_public = DhPrivateKey::try_from(&alice_private_expected[..])
             .unwrap()
             .to_public()
             .unwrap();
