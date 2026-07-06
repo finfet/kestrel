@@ -242,8 +242,7 @@ impl HandshakeState {
 
         // Public key mixing here is hardcoded for the X pattern.
         if initiator {
-            assert!(rs.is_some());
-            let rs_public_key = rs.as_ref().unwrap();
+            let rs_public_key = rs.as_ref().expect("rs required for initiator");
             symmetric_state.mix_hash(rs_public_key.as_bytes());
         } else {
             symmetric_state.mix_hash(s_pair.public_key.as_bytes());
@@ -260,6 +259,60 @@ impl HandshakeState {
             rs,
             re: None,
             psk: None,
+            initiator,
+            message_patterns,
+        }
+    }
+
+    /// Implementation of the noise X pattern Noise_Xpsk0_25519_ChaChaPoly_SHA256
+    ///
+    /// Initializes a handshake state.
+    /// When sending a message (initiator == true): rs is required.
+    /// The sender public and private keys must match. Passing None for the
+    /// ephemeral keys will generate fresh keys.
+    #[allow(dead_code)]
+    pub fn init_x_psk0(
+        initiator: bool,
+        prologue: &[u8],
+        s: DhPrivateKey,
+        spk: DhPublicKey,
+        e: Option<DhPrivateKey>,
+        epk: Option<DhPublicKey>,
+        rs: Option<DhPublicKey>,
+        psk: Key,
+    ) -> Self {
+        let mut symmetric_state = SymmetricState::new("Noise_Xpsk0_25519_ChaChaPoly_SHA256");
+        symmetric_state.mix_hash(prologue);
+
+        let s_pair: KeyPair = KeyPair::new(s, spk);
+
+        let e_pair: Option<KeyPair> = if e.is_some() && epk.is_some() {
+            let epriv = e.unwrap();
+            let epub = epk.unwrap();
+            Some(KeyPair::new(epriv, epub))
+        } else {
+            None
+        };
+
+        // Public key mixing here is hardcoded for the Xpsk0 pattern.
+        if initiator {
+            let rs_public_key = rs.as_ref().expect("rs required for initiator");
+            symmetric_state.mix_hash(rs_public_key.as_bytes());
+        } else {
+            symmetric_state.mix_hash(s_pair.public_key.as_bytes());
+        }
+
+        let mut message_patterns: VecDeque<Vec<Token>> = VecDeque::new();
+        // Xpsk0 pattern
+        let pattern = vec![Token::PSK, Token::E, Token::ES, Token::S, Token::SS];
+        message_patterns.push_back(pattern);
+        Self {
+            symmetric_state,
+            s: Some(s_pair),
+            e: e_pair,
+            rs,
+            re: None,
+            psk: Some(psk),
             initiator,
             message_patterns,
         }
@@ -451,7 +504,7 @@ mod tests {
     use ct_codecs::{Decoder, Hex};
 
     #[test]
-    fn test_write_message() {
+    fn test_write_x_message() {
         let prologue = Hex::decode_to_vec("50726f6c6f677565313233", None).unwrap();
         let initiator_priv_bytes = Hex::decode_to_vec(
             "e61ef9919cde45dd5f82166404bd08e38bceb5dfdfded0a34c8df7ed542214d1",
@@ -532,7 +585,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_message() {
+    fn test_read_x_message() {
         let prologue = Hex::decode_to_vec("50726f6c6f677565313233", None).unwrap();
         let handshake_message = Hex::decode_to_vec("ca35def5ae56cec33dc2036731ab14896bc4c75dbb07a61f879f8e3afa4c79446c15957a594079a5bdeae05d01e089fbb7cc6ea2ecfd209b941f73c9235213bc14ed87a1a4a0b164c11a5999be0f7bf1fdc3aaa6de60cb3c98302f370fdb03ea6fe2cf18324b0812663aed65fc9eafdf", None).unwrap();
         // The sender's public key that is sent encrypted in the handshake message.
