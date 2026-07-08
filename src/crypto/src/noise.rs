@@ -362,6 +362,12 @@ impl HandshakeState {
                     message_buffer.extend_from_slice(ephem_pair.public_key.as_bytes());
                     self.symmetric_state
                         .mix_hash(ephem_pair.public_key.as_bytes());
+                    // Mix in the ephemeral public key as part of the
+                    // validity rule in section 9.3.
+                    if self.psk.is_some() {
+                        self.symmetric_state
+                            .mix_key(ephem_pair.public_key.as_bytes());
+                    }
                 }
                 Token::S => {
                     let s = self.s.as_ref().unwrap();
@@ -435,6 +441,11 @@ impl HandshakeState {
                     })?;
                     self.re = Some(re.clone());
                     self.symmetric_state.mix_hash(re.as_bytes());
+                    // Mix in the ephemeral public key as part of the
+                    // validity rule in section 9.3.
+                    if self.psk.is_some() {
+                        self.symmetric_state.mix_key(re.as_bytes());
+                    }
                     msgidx += DH_LEN;
                 }
                 Token::S => {
@@ -500,7 +511,7 @@ impl HandshakeState {
 #[cfg(test)]
 mod tests {
     use super::HandshakeState;
-    use super::{DhPrivateKey, DhPublicKey};
+    use super::{DhPrivateKey, DhPublicKey, Key};
     use ct_codecs::{Decoder, Hex};
 
     #[test]
@@ -582,6 +593,59 @@ mod tests {
             .cipher_state
             .encrypt_with_ad(&[], &trasnport_payload2);
         assert_eq!(&exp_transport_ct2, &got_transport_ct2);
+    }
+
+    #[test]
+    fn test_write_xpsk0_message() {
+        let initiator_priv_bytes = Hex::decode_to_vec(
+            "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+            None,
+        )
+        .unwrap();
+        let ephem_priv_bytes = Hex::decode_to_vec(
+            "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+            None,
+        )
+        .unwrap();
+        let remote_priv_bytes = Hex::decode_to_vec(
+            "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+            None,
+        )
+        .unwrap();
+        let prologue = Hex::decode_to_vec("6e6f74736563726574", None).unwrap();
+        let payload = Hex::decode_to_vec("746573745f6d73675f30", None).unwrap();
+        let psk_bytes = Hex::decode_to_vec(
+            "2176657279736563726574766572797365637265747665727973656372657421",
+            None,
+        )
+        .unwrap();
+        let expected_ciphertext = Hex::decode_to_vec("358072d6365880d1aeea329adf9121383851ed21a28e3b75e965d0d2cd1662546a25d60fc3551b45b422660fc5330a9a9a211a4c015192a4cb45f9e2736c0e75f6af9abf7f31d35f75534eac6e1181ed61bd13d0da02b4849bac05762a942acd1f8196a3e9abd1804c1a", None).unwrap();
+
+        let initiator_static_priv = DhPrivateKey::try_from(initiator_priv_bytes.as_ref()).unwrap();
+        let initiator_static_pub = initiator_static_priv.to_public().unwrap();
+
+        let ephem_priv = DhPrivateKey::try_from(ephem_priv_bytes.as_ref()).unwrap();
+        let ephem_pub = ephem_priv.to_public().unwrap();
+
+        let remote_static_priv = DhPrivateKey::try_from(remote_priv_bytes.as_ref()).unwrap();
+        let remote_static_pub = remote_static_priv.to_public().unwrap();
+
+        let psk = Key::new(&psk_bytes);
+
+        let initiator = true;
+        let mut handshake_state = HandshakeState::init_x_psk0(
+            initiator,
+            &prologue,
+            initiator_static_priv,
+            initiator_static_pub,
+            Some(ephem_priv),
+            Some(ephem_pub),
+            Some(remote_static_pub),
+            psk,
+        );
+
+        let noise_data = handshake_state.write_message(&payload).unwrap();
+        assert_eq!(&noise_data.message, &expected_ciphertext);
     }
 
     #[test]
