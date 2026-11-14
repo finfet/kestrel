@@ -10,7 +10,6 @@ readme = "README.md"
 license = "BSD-3-Clause"
 description = "Cryptography backend for Kestrel"
 repository = "https://github.com/finfet/kestrel"
-homepage = "https://github.com/finfet/kestrel"
 documentation = "https://docs.rs/kestrel-crypto/"
 categories = ["cryptography"]
 

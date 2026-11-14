@@ -217,6 +217,7 @@ pub struct NoiseEncryptMsg {
 }
 
 /// Encrypt the payload key using the noise X protocol.
+/// Pattern: Noise_X_25519_ChaChaPoly_SHA256
 ///
 /// Passing None for ephemeral, and ephemeral_public will generate
 /// fresh keys. This is almost certainly what you want.
@@ -237,14 +238,13 @@ pub fn noise_x_encrypt(
     prologue: &[u8],
     payload_key: &PayloadKey,
 ) -> Result<NoiseEncryptMsg, NoiseError> {
-    let mut handshake_state = HandshakeState::init_x(
-        true,
+    let mut handshake_state = HandshakeState::init_x_initiator(
         prologue,
         sender.clone(),
         sender_public.clone(),
         ephemeral.cloned(),
         ephemeral_public.cloned(),
-        Some(recipient.clone()),
+        recipient.clone(),
     );
 
     let noise_handshake = handshake_state.write_message(payload_key.as_bytes())?;
@@ -265,7 +265,9 @@ pub struct NoiseXDecryptMsg {
     pub handshake_hash: [u8; 32],
 }
 
-/// Decrypt the payload key using the noise protocol.
+/// Decrypt the payload key using the noise X protocol.
+/// Pattern: Noise_X_25519_ChaChaPoly_SHA256
+///
 /// The given recipient public key must match the recipient private key.
 /// Returns the payload key, and the sender's [DhPublicKey]
 pub fn noise_x_decrypt(
@@ -274,15 +276,10 @@ pub fn noise_x_decrypt(
     prologue: &[u8],
     handshake_message: &[u8],
 ) -> Result<NoiseXDecryptMsg, NoiseError> {
-    let initiator = false;
-    let mut handshake_state = noise::HandshakeState::init_x(
-        initiator,
+    let mut handshake_state = noise::HandshakeState::init_x_responder(
         prologue,
         recipient.clone(),
         recipient_public.clone(),
-        None,
-        None,
-        None,
     );
 
     // Decrypt the payload key

@@ -212,13 +212,34 @@ impl SymmetricState {
 }
 
 impl HandshakeState {
+    /// Initializes the X pattern for initiators
+    /// Passing None for ephemeral keys will generate new keys
+    pub fn init_x_initiator(
+        prologue: &[u8],
+        s: DhPrivateKey,
+        spk: DhPublicKey,
+        e: Option<DhPrivateKey>,
+        epk: Option<DhPublicKey>,
+        rs: DhPublicKey,
+    ) -> Self {
+        Self::init_x(true, prologue, s, spk, e, epk, Some(rs))
+    }
+
+    /// Initializes the X pattern for responders
+    pub fn init_x_responder(prologue: &[u8], s: DhPrivateKey, spk: DhPublicKey) -> Self {
+        Self::init_x(false, prologue, s, spk, None, None, None)
+    }
+
     /// Implementation of the noise X pattern Noise_X_25519_ChaChaPoly_SHA256
     ///
     /// Initializes a handshake state.
-    /// When sending a message (initiator == true): rs is required.
-    /// The sender public and private keys must match. Passing None for the
-    /// ephemeral keys will generate fresh keys.
-    pub fn init_x(
+    /// The public key must be the matching public key for the given private key.
+    /// As an initiator, rs is required.
+    /// As an initiator, passing None for ephemeral keys will generate new keys.
+    /// As a responder, ephemeral keys should be None. They are read from the message.
+    /// s: Local static key pair
+    /// rs: Remote static key pair
+    fn init_x(
         initiator: bool,
         prologue: &[u8],
         s: DhPrivateKey,
@@ -264,14 +285,41 @@ impl HandshakeState {
         }
     }
 
+    /// Initializes the Xpsk0 pattern for initiators
+    #[allow(dead_code)]
+    pub fn init_x_psk0_initiator(
+        prologue: &[u8],
+        s: DhPrivateKey,
+        spk: DhPublicKey,
+        e: Option<DhPrivateKey>,
+        epk: Option<DhPublicKey>,
+        rs: DhPublicKey,
+        psk: Key,
+    ) -> Self {
+        Self::init_x_psk0(true, prologue, s, spk, e, epk, Some(rs), psk)
+    }
+
+    /// Initializes the Xpsk0 pattern for responders
+    #[allow(dead_code)]
+    pub fn init_x_psk0_responder(
+        prologue: &[u8],
+        s: DhPrivateKey,
+        spk: DhPublicKey,
+        psk: Key,
+    ) -> Self {
+        Self::init_x_psk0(false, prologue, s, spk, None, None, None, psk)
+    }
+
     /// Implementation of the noise X pattern Noise_Xpsk0_25519_ChaChaPoly_SHA256
     ///
-    /// Initializes a handshake state.
-    /// When sending a message (initiator == true): rs is required.
-    /// The sender public and private keys must match. Passing None for the
-    /// ephemeral keys will generate fresh keys.
+    /// The public key must be the matching public key for the given private key.
+    /// As an initiator, rs is required.
+    /// As an initiator, passing None for ephemeral keys will generate new keys.
+    /// As a responder, ephemeral keys should be None. They are read from the message.
+    /// s: Local static key pair
+    /// rs: Remote static key pair
     #[allow(dead_code)]
-    pub fn init_x_psk0(
+    fn init_x_psk0(
         initiator: bool,
         prologue: &[u8],
         s: DhPrivateKey,
@@ -428,10 +476,11 @@ impl HandshakeState {
             .pop_front()
             .expect("X pattern consists of a single message");
         let mut msgidx: usize = 0;
-        assert!(
-            message.len() >= 64 && message.len() <= 65535,
-            "Noise X pattern handshake message must >= 64 and <= 65535 bytes"
-        );
+        if message.len() < 64 || message.len() > 65535 {
+            return Err(NoiseError::Other(
+                "message must be >= 64 and <= 65535 bytes".to_string(),
+            ));
+        }
         for pattern in message_pattern {
             match pattern {
                 Token::E => {
@@ -510,8 +559,8 @@ impl HandshakeState {
 
 #[cfg(test)]
 mod tests {
-    use super::HandshakeState;
     use super::{DhPrivateKey, DhPublicKey, Key};
+    use super::{HandshakeState, NoiseError, NoiseHandshake};
     use ct_codecs::{Decoder, Hex};
 
     #[test]
@@ -556,23 +605,21 @@ mod tests {
         )
         .unwrap();
 
-        let static_priv = DhPrivateKey::try_from(initiator_priv_bytes.as_ref()).unwrap();
+        let static_priv = DhPrivateKey::try_from(initiator_priv_bytes.as_slice()).unwrap();
         let static_pub = static_priv.to_public().unwrap();
 
-        let ephem_priv = DhPrivateKey::try_from(ephem_priv_bytes.as_ref()).unwrap();
+        let ephem_priv = DhPrivateKey::try_from(ephem_priv_bytes.as_slice()).unwrap();
         let ephem_pub = ephem_priv.to_public().unwrap();
 
-        let remote_static_pub = DhPublicKey::try_from(remote_static_pub_bytes.as_ref()).unwrap();
+        let remote_static_pub = DhPublicKey::try_from(remote_static_pub_bytes.as_slice()).unwrap();
 
-        let initiator = true;
-        let mut handshake_state = HandshakeState::init_x(
-            initiator,
+        let mut handshake_state = HandshakeState::init_x_initiator(
             prologue.as_slice(),
             static_priv,
             static_pub,
             Some(ephem_priv),
             Some(ephem_pub),
-            Some(remote_static_pub),
+            remote_static_pub,
         );
 
         // handshake message
@@ -595,8 +642,8 @@ mod tests {
         assert_eq!(&exp_transport_ct2, &got_transport_ct2);
     }
 
-    #[test]
-    fn test_write_xpsk0_message() {
+    fn write_xpsk0_message() -> Result<NoiseHandshake, NoiseError> {
+        // vectors from: https://github.com/flynn/noise/blob/4d9f71cd4ba1fe81415efac312664ccc4bc79b46/vectors.txt#L17873
         let initiator_priv_bytes = Hex::decode_to_vec(
             "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
             None,
@@ -607,11 +654,14 @@ mod tests {
             None,
         )
         .unwrap();
-        let remote_priv_bytes = Hex::decode_to_vec(
-            "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+
+        let remote_static_pub_bytes = Hex::decode_to_vec(
+            "07a37cbc142093c8b755dc1b10e86cb426374ad16aa853ed0bdfc0b2b86d1c7c",
             None,
         )
         .unwrap();
+        let remote_static_pub = DhPublicKey::try_from(remote_static_pub_bytes.as_slice()).unwrap();
+
         let prologue = Hex::decode_to_vec("6e6f74736563726574", None).unwrap();
         let payload = Hex::decode_to_vec("746573745f6d73675f30", None).unwrap();
         let psk_bytes = Hex::decode_to_vec(
@@ -619,32 +669,33 @@ mod tests {
             None,
         )
         .unwrap();
-        let expected_ciphertext = Hex::decode_to_vec("358072d6365880d1aeea329adf9121383851ed21a28e3b75e965d0d2cd1662546a25d60fc3551b45b422660fc5330a9a9a211a4c015192a4cb45f9e2736c0e75f6af9abf7f31d35f75534eac6e1181ed61bd13d0da02b4849bac05762a942acd1f8196a3e9abd1804c1a", None).unwrap();
 
-        let initiator_static_priv = DhPrivateKey::try_from(initiator_priv_bytes.as_ref()).unwrap();
+        let initiator_static_priv =
+            DhPrivateKey::try_from(initiator_priv_bytes.as_slice()).unwrap();
         let initiator_static_pub = initiator_static_priv.to_public().unwrap();
 
-        let ephem_priv = DhPrivateKey::try_from(ephem_priv_bytes.as_ref()).unwrap();
+        let ephem_priv = DhPrivateKey::try_from(ephem_priv_bytes.as_slice()).unwrap();
         let ephem_pub = ephem_priv.to_public().unwrap();
-
-        let remote_static_priv = DhPrivateKey::try_from(remote_priv_bytes.as_ref()).unwrap();
-        let remote_static_pub = remote_static_priv.to_public().unwrap();
 
         let psk = Key::new(&psk_bytes);
 
-        let initiator = true;
-        let mut handshake_state = HandshakeState::init_x_psk0(
-            initiator,
+        let mut handshake_state = HandshakeState::init_x_psk0_initiator(
             &prologue,
             initiator_static_priv,
             initiator_static_pub,
             Some(ephem_priv),
             Some(ephem_pub),
-            Some(remote_static_pub),
+            remote_static_pub,
             psk,
         );
 
-        let noise_data = handshake_state.write_message(&payload).unwrap();
+        handshake_state.write_message(&payload)
+    }
+
+    #[test]
+    fn test_write_xpsk0_message() {
+        let expected_ciphertext = Hex::decode_to_vec("358072d6365880d1aeea329adf9121383851ed21a28e3b75e965d0d2cd1662546a25d60fc3551b45b422660fc5330a9a9a211a4c015192a4cb45f9e2736c0e75f6af9abf7f31d35f75534eac6e1181ed61bd13d0da02b4849bac05762a942acd1f8196a3e9abd1804c1a", None).unwrap();
+        let noise_data = write_xpsk0_message().unwrap();
         assert_eq!(&noise_data.message, &expected_ciphertext);
     }
 
@@ -683,15 +734,10 @@ mod tests {
         let responder_private = DhPrivateKey::try_from(responder_static_bytes.as_slice()).unwrap();
         let responder_public = responder_private.to_public().unwrap();
 
-        let initiator = false;
-        let mut handshake_state = HandshakeState::init_x(
-            initiator,
+        let mut handshake_state = HandshakeState::init_x_responder(
             prologue.as_slice(),
             responder_private,
             responder_public,
-            None,
-            None,
-            None,
         );
 
         // Hanshake message
@@ -699,8 +745,7 @@ mod tests {
 
         assert_eq!(&expected_handshake_payload, &noise_data.message);
         // Check that we know what the sender's public key is
-        let sender_pub = handshake_state.rs.unwrap();
-        assert_eq!(&expected_public_key, sender_pub.as_bytes());
+        assert_eq!(&expected_public_key, handshake_state.rs.unwrap().as_bytes());
 
         // Transport message 1
         let got_transport_payload1 = noise_data
@@ -715,5 +760,40 @@ mod tests {
             .decrypt_with_ad(&[], &transport_ciphertext2)
             .unwrap();
         assert_eq!(&expected_transport_payload2, &got_transport_payload2);
+    }
+
+    #[test]
+    fn test_read_xpsk0_message() {
+        let responder_static_bytes = Hex::decode_to_vec(
+            "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+            None,
+        )
+        .unwrap();
+        let responder_static = DhPrivateKey::try_from(responder_static_bytes.as_slice()).unwrap();
+        let responder_public = responder_static.to_public().unwrap();
+        let expected_payload = Hex::decode_to_vec("746573745f6d73675f30", None).unwrap();
+        let prologue = Hex::decode_to_vec("6e6f74736563726574", None).unwrap();
+        let psk_bytes = Hex::decode_to_vec(
+            "2176657279736563726574766572797365637265747665727973656372657421",
+            None,
+        )
+        .unwrap();
+        let psk = Key::new(&psk_bytes);
+        let remote_public_bytes = Hex::decode_to_vec(
+            "8f40c5adb68f25624ae5b214ea767a6ec94d829d3d7b5e1ad1ba6f3e2138285f",
+            None,
+        )
+        .unwrap();
+
+        let sender_msg = write_xpsk0_message().unwrap();
+        let mut handshake_state = HandshakeState::init_x_psk0_responder(
+            &prologue,
+            responder_static,
+            responder_public,
+            psk,
+        );
+        let noise_data = handshake_state.read_message(&sender_msg.message).unwrap();
+        assert_eq!(&expected_payload, &noise_data.message);
+        assert_eq!(&remote_public_bytes, handshake_state.rs.unwrap().as_bytes());
     }
 }
